@@ -17,8 +17,14 @@ class AttendanceModel {
         $stmt = $this->conn->prepare($sql);
         return $stmt->execute([':pid' => $pId, ':img' => $img]);
     }
-
-  
+ 
+    public function clockOut($uid, $img) {
+        $pId = $this->getProfilId($uid);
+        $sql = "UPDATE presensi SET waktu_pulang = CURTIME(), foto_pulang = :img 
+                WHERE id_profil = :pid AND tanggal = CURDATE()";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([':pid' => $pId, ':img' => $img]);
+    }
 
     public function getMonitoringData($date) {
         // Query disesuaikan dengan tabel baru
