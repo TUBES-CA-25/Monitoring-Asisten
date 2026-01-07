@@ -24,23 +24,6 @@
 
     function takeSnapshot() {
         Webcam.snap(function(data_uri) {
-            // Manipulasi Canvas untuk Watermark Waktu (Spec No. 4)
-            var canvas = document.createElement('canvas');
-            var ctx = canvas.getContext('2d');
-            var img = new Image();
-            img.onload = function() {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-
-                // Tambahkan Watermark
-                var date = new Date();
-                var text = date.toLocaleString('id-ID'); // Hari, Tanggal, Jam
-                ctx.font = "bold 16px Arial";
-                ctx.fillStyle = "yellow";
-                ctx.fillText(text, 10, img.height - 20);
-
-                var finalImage = canvas.toDataURL('image/jpeg');
                 
                 // Tampilkan preview
                 document.getElementById('my_camera').style.display = 'none';
