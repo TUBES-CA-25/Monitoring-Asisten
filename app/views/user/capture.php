@@ -24,6 +24,10 @@
 
     function takeSnapshot() {
         Webcam.snap(function(data_uri) {
+            // Manipulasi Canvas untuk Watermark Waktu (Spec No. 4)
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            var img = new Image();
                 
                 // Tampilkan preview
                 document.getElementById('my_camera').style.display = 'none';
