@@ -36,9 +36,11 @@
                 // Tambahkan Watermark
                 var date = new Date();
                 var text = date.toLocaleString('id-ID'); // Hari, Tanggal, Jam
-                ctx.font = "bold 10px Arial";
+                ctx.font = "bold 16px Arial";
                 ctx.fillStyle = "yellow";
                 ctx.fillText(text, 10, img.height - 20);
+
+                var finalImage = canvas.toDataURL('image/jpeg');
                 
                 // Tampilkan preview
                 document.getElementById('my_camera').style.display = 'none';
