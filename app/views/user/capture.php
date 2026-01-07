@@ -57,4 +57,5 @@
         // Kirim data via AJAX ke Controller
         alert("Data terkirim! (Implementasi AJAX ke database)");
     }
+    
 </script>
