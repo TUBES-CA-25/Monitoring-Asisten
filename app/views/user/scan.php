@@ -21,7 +21,6 @@
     </style>
 </head>
 <body class="bg-gray-900 h-screen flex flex-col items-center justify-center p-4 font-sans text-white">
-
     <a href="<?= BASE_URL ?>/user/dashboard" class="absolute top-6 left-6 z-50 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-sm">
         <i class="fas fa-arrow-left"></i> Batal
     </a>
