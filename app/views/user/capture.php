@@ -32,6 +32,13 @@
                 canvas.width = img.width;
                 canvas.height = img.height;
                 ctx.drawImage(img, 0, 0);
+
+                // Tambahkan Watermark
+                var date = new Date();
+                var text = date.toLocaleString('id-ID'); // Hari, Tanggal, Jam
+                ctx.font = "bold 10px Arial";
+                ctx.fillStyle = "yellow";
+                ctx.fillText(text, 10, img.height - 20);
                 
                 // Tampilkan preview
                 document.getElementById('my_camera').style.display = 'none';
