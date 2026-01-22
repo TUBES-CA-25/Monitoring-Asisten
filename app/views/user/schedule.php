@@ -337,6 +337,7 @@
         document.getElementById('liveDate').innerText = dateString;
         document.getElementById('liveTime').innerText = timeString;
     }
+    
     setInterval(updateClock, 1000);
     updateClock();
 </script>
