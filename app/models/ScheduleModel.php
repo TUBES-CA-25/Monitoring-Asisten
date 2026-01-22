@@ -110,8 +110,6 @@ class ScheduleModel {
         // Reuse logic getAllUserSchedules tapi tanpa filter user specific
         // ... (Implementasi serupa dengan getAllUserSchedules tanpa WHERE clause user)
         return []; 
-    }
-
-    
+    } 
 }
 ?>
