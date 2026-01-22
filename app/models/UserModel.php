@@ -89,4 +89,5 @@ class UserModel {
         return 'red';
     }
 }
+
 ?>
