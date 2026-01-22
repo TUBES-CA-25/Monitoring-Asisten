@@ -28,5 +28,4 @@ class QrModel {
         return $code;
     }
 }
-
 ?>
