@@ -1,0 +1,9 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Arahkan ke folder public
+    RewriteRule ^$ public/ [L]
+
+    # Arahkan semua request lain ke folder public
+    RewriteRule (.*) public/$1 [L]
+</IfModule>
