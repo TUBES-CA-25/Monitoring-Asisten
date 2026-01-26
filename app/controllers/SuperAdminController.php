@@ -7,7 +7,7 @@ class SuperAdminController extends Controller {
         if (!isset($_SESSION['role']) || $_SESSION['role'] != 'Super Admin') {
             header("Location: " . BASE_URL . "/auth/login"); exit;
         }
-
+        
         $data['judul'] = 'Dashboard Pengawas';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
