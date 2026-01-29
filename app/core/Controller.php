@@ -13,12 +13,18 @@ class Controller {
     }
 
     public function model($model) {
-        if (file_exists('../app/models/' . $model . '.php')) {
-            require_once '../app/models/' . $model . '.php';
+        // Prefer fixed/clean model file when present to avoid loading corrupted files
+        $fixedPath = '../app/models/' . $model . '_fixed.php';
+        $origPath = '../app/models/' . $model . '.php';
+        if (file_exists($fixedPath)) {
+            require_once $fixedPath;
             return new $model;
-        } else {
-            die("Model <b>$model</b> tidak ditemukan.");
         }
+        if (file_exists($origPath)) {
+            require_once $origPath;
+            return new $model;
+        }
+        die("Model <b>$model</b> tidak ditemukan.");
     }
 }
 ?>

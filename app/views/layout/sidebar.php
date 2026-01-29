@@ -1,3 +1,11 @@
+<?php
+if (!isset($user) || !is_array($user)) {
+    $user = [
+        'name' => $_SESSION['name'] ?? '',
+        'photo_profile' => $_SESSION['photo_profile'] ?? ''
+    ];
+}
+?>
 <aside class="fixed top-0 left-0 z-50 w-64 h-screen transition-transform -translate-x-full bg-white border-r border-gray-200 md:translate-x-0 shadow-2xl flex flex-col font-sans">
     
     <div class="h-20 flex items-center justify-center border-b border-gray-100 bg-gradient-to-r from-blue-700 to-cyan-600 shrink-0">
@@ -28,16 +36,16 @@
                 <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
             </div>
             <div class="overflow-hidden">
-                <h4 class="font-bold text-gray-800 text-sm truncate leading-tight w-24" title="<?= $_SESSION['name'] ?>">
-                    <?= $_SESSION['name'] ?>
+                <h4 class="font-bold text-gray-800 text-sm truncate leading-tight w-24" title="<?= htmlspecialchars($_SESSION['name'] ?? '') ?>">
+                    <?= htmlspecialchars($_SESSION['name'] ?? '') ?>
                 </h4>
                 <span class="inline-block px-2 py-0.5 mt-1 text-[10px] font-bold text-blue-600 bg-white border border-blue-100 rounded-full uppercase tracking-wide truncate max-w-full shadow-sm">
-                    <?= $_SESSION['jabatan'] ?? $_SESSION['role'] ?>
+                    <?= htmlspecialchars($_SESSION['jabatan'] ?? $_SESSION['role'] ?? '') ?>
                 </span>
             </div>
         </div>
 
-        <?php $roleLink = strtolower(str_replace(' ', '', $_SESSION['role'])); ?>
+        <?php $roleLink = strtolower(str_replace(' ', '', $_SESSION['role'] ?? '')); ?>
         <a href="<?= BASE_URL ?>/<?= $roleLink ?>/profile" class="relative z-10 w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-300 hover:shadow-md transition-all duration-200 flex-shrink-0" title="Edit Profil">
             <i class="fas fa-pen text-[10px]"></i>
         </a>
@@ -45,17 +53,21 @@
 
     <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar">
         <?php 
-            $role = strtolower(str_replace(' ', '', $_SESSION['role'])); 
+            $role = strtolower(str_replace(' ', '', $_SESSION['role'] ?? ''));
             $current_uri = $_SERVER['REQUEST_URI'];
             
-            function isActive($uri, $keyword) {
-                return strpos($uri, $keyword) !== false 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 border-transparent' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 border-transparent hover:shadow-sm';
+            if (!function_exists('isActive')) {
+                function isActive($uri, $keyword) {
+                    return strpos($uri, $keyword) !== false 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 border-transparent' 
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 border-transparent hover:shadow-sm';
+                }
             }
             // Helper icon color (putih jika aktif, abu jika tidak)
-            function iconColor($uri, $keyword) {
-                return strpos($uri, $keyword) !== false ? 'text-white' : 'text-gray-400 group-hover:text-blue-600';
+            if (!function_exists('iconColor')) {
+                function iconColor($uri, $keyword) {
+                    return strpos($uri, $keyword) !== false ? 'text-white' : 'text-gray-400 group-hover:text-blue-600';
+                }
             }
         ?>
         
@@ -68,7 +80,7 @@
             </a>
         </div>
 
-        <?php if($_SESSION['role'] == 'User'): ?>
+        <?php if(($_SESSION['role'] ?? '') == 'User'): ?>
             <div class="mt-8"> <p class="px-2 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Aktivitas</p>
                 
                 <a href="<?= BASE_URL ?>/user/scan" class="flex items-center px-3 py-3 rounded-xl border transition-all duration-200 group mb-2 <?= isActive($current_uri, 'scan') ?>">
@@ -88,7 +100,7 @@
             </div>
         <?php endif; ?>
 
-        <?php if($_SESSION['role'] == 'Admin' || $_SESSION['role'] == 'Super Admin'): ?>
+        <?php if(in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin'])): ?>
             
             <div class="mt-8">
                 <p class="px-2 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Manajemen</p>

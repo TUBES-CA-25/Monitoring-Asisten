@@ -58,13 +58,13 @@
 <body class="h-screen w-screen flex items-center justify-center overflow-hidden font-sans selection:bg-cyan-500 selection:text-white">
 
     <div class="bg-container">
-        <div class="bg-slide active" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/startup.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/IoT.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/CV.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/DS.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/Comnet.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/Micro.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/Mulmed.webp');"></div>
+        <div class="bg-slide active" style="background-image: url('/iclabs_v2/public/assets/img/startup.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/iclabs_v2/public/assets/img/IoT.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/iclabs_v2/public/assets/img/CV.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/iclabs_v2/public/assets/img/DS.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/iclabs_v2/public/assets/img/Comnet.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/iclabs_v2/public/assets/img/Micro.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/iclabs_v2/public/assets/img/Mulmed.webp');"></div>
         
         <div class="bg-overlay"></div>
     </div>

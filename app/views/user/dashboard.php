@@ -1,4 +1,18 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<?php
+if (!isset($user) || !is_array($user)) {
+    $user = [
+        'name' => $_SESSION['name'] ?? '',
+        'photo_profile' => $_SESSION['photo_profile'] ?? '',
+        'nim' => $_SESSION['nim'] ?? '',
+        'position' => $_SESSION['jabatan'] ?? $_SESSION['role'] ?? 'Asisten Lab',
+        'no_telp' => $_SESSION['no_telp'] ?? ''
+    ];
+}
+if (!isset($weekly_schedule) || !is_array($weekly_schedule)) $weekly_schedule = [];
+if (!isset($stats) || !is_array($stats)) $stats = ['hadir'=>0,'izin'=>0,'alpa'=>0];
+if (!isset($status_today)) $status_today = 'red';
+?>
 
 <style>
     .animate-enter { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }

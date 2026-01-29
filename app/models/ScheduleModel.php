@@ -63,6 +63,7 @@ class ScheduleModel {
         return $schedules;
     }
     
+    
     // ==========================================
     // CRUD JADWAL KULIAH (USER)
     // ==========================================
@@ -463,4 +464,3 @@ class ScheduleModel {
         return array_slice($upcoming, 0, 10);
     }
 }
-?>
