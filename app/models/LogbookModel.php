@@ -6,7 +6,6 @@ class LogbookModel {
         $this->db = new Database();
     }
 
-    // 1. Digunakan oleh Admin & SuperAdmin (List Semua Logbook)
     public function getAllWithUserInfo() {
         $sql = "SELECT l.id_logbook as id, l.detail_aktivitas as activity_detail, 
                        pr.tanggal as date, pr.waktu_presensi, pr.waktu_pulang,
@@ -53,7 +52,6 @@ class LogbookModel {
     }
 
     public function saveLogbook($data) {
-        // A. Cari id_profil
         $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
         $this->db->bind(':uid', $data['user_id']);
         $resP = $this->db->single();
@@ -61,7 +59,6 @@ class LogbookModel {
 
         if (!$pId) return false;
 
-        // B. Cari id_presensi pada tanggal tersebut
         $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :date");
         $this->db->bind(':pid', $pId);
         $this->db->bind(':date', $data['date']);
@@ -70,20 +67,16 @@ class LogbookModel {
         if (!$presensi) return false; 
         $idPresensi = $presensi['id_presensi'];
 
-        // C. Cek Logbook Existing (PERBAIKAN LOGIKA)
-        // Gunakan single() agar query benar-benar dieksekusi sebelum dicek
         $this->db->query("SELECT id_logbook FROM logbook WHERE id_presensi = :idp");
         $this->db->bind(':idp', $idPresensi);
-        $existingLog = $this->db->single(); // Eksekusi Query
+        $existingLog = $this->db->single(); 
         
         if ($existingLog) {
-            // Update jika data sudah ada
             $sql = "UPDATE logbook SET detail_aktivitas = :act WHERE id_presensi = :idp";
             $this->db->query($sql);
             $this->db->bind(':idp', $idPresensi);
             $this->db->bind(':act', $data['activity']);
         } else {
-            // Insert jika data belum ada
             $sql = "INSERT INTO logbook (id_profil, id_presensi, detail_aktivitas, is_verified) 
                     VALUES (:pid, :idp, :act, 0)";
             $this->db->query($sql);
@@ -95,7 +88,6 @@ class LogbookModel {
         return $this->db->execute();
     }
 
-    // --- Method Tambahan untuk Admin ---
     public function getAllLogs() {
         return $this->getAllWithUserInfo();
     }
@@ -129,39 +121,32 @@ class LogbookModel {
         try {
             $this->db->getConnection()->beginTransaction();
 
-            // 1. Ambil ID Profil
             $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
             $this->db->bind(':uid', $data['user_id']);
             $pid = $this->db->single()['id_profil'] ?? null;
             if(!$pid) return false;
 
             $date = $data['date'];
-            $status = $data['status']; // Hadir, Izin, Sakit, Alpha
+            $status = $data['status'];
 
-            // 2. Cek Data Eksisting
-            // Cek Presensi
             $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :date");
             $this->db->bind(':pid', $pid);
             $this->db->bind(':date', $date);
             $existPresensi = $this->db->single();
 
-            // Cek Izin
             $this->db->query("SELECT id_izin FROM izin WHERE id_profil = :pid AND :date BETWEEN start_date AND end_date");
             $this->db->bind(':pid', $pid);
             $this->db->bind(':date', $date);
             $existIzin = $this->db->single();
 
-            // --- SKENARIO 1: STATUS BARU = HADIR ---
             if ($status == 'Hadir') {
-                // A. Bersihkan data Izin jika ada (Konflik)
                 if ($existIzin) {
                     $this->db->query("DELETE FROM izin WHERE id_izin = :id");
                     $this->db->bind(':id', $existIzin['id_izin']);
                     $this->db->execute();
                 }
 
-                // B. Insert/Update Presensi
-                $file = $data['file'] ?? ($existPresensi ? null : 'admin_manual.jpg'); // Default jika tidak upload
+                $file = $data['file'] ?? ($existPresensi ? null : 'admin_manual.jpg'); 
                 
                 if ($existPresensi) {
                     $idPresensi = $existPresensi['id_presensi'];
@@ -188,8 +173,6 @@ class LogbookModel {
                     $idPresensi = $this->db->getConnection()->lastInsertId();
                 }
 
-                // C. Insert/Update Logbook
-                // Cek Logbook
                 $this->db->query("SELECT id_logbook FROM logbook WHERE id_presensi = :idp");
                 $this->db->bind(':idp', $idPresensi);
                 $existLog = $this->db->single();
@@ -205,16 +188,13 @@ class LogbookModel {
                 $this->db->execute();
             }
 
-            // --- SKENARIO 2: STATUS BARU = IZIN / SAKIT ---
             else if ($status == 'Izin' || $status == 'Sakit') {
-                // A. Bersihkan Presensi (dan Logbook via Cascade) jika ada
                 if ($existPresensi) {
                     $this->db->query("DELETE FROM presensi WHERE id_presensi = :id");
                     $this->db->bind(':id', $existPresensi['id_presensi']);
                     $this->db->execute();
                 }
 
-                // B. Insert/Update Izin
                 if ($existIzin) {
                     $sql = "UPDATE izin SET tipe = :type, deskripsi = :desc, status_approval = 'Approved'";
                     if ($data['file']) $sql .= ", file_bukti = :file";
@@ -228,18 +208,16 @@ class LogbookModel {
                     $this->db->query($sql);
                     $this->db->bind(':pid', $pid);
                     $this->db->bind(':date', $date);
-                    // Jika file kosong saat insert baru, gunakan placeholder/null
                     $this->db->bind(':file', $data['file'] ?? null);
                 }
                 
                 $this->db->bind(':type', $status);
-                $this->db->bind(':desc', $data['activity']); // Gunakan input aktivitas sebagai deskripsi izin
+                $this->db->bind(':desc', $data['activity']); 
                 if ($existIzin && $data['file']) $this->db->bind(':file', $data['file']);
                 
                 $this->db->execute();
             }
 
-            // --- SKENARIO 3: STATUS BARU = ALPHA (HAPUS DATA) ---
             else if ($status == 'Alpha') {
                 if ($existPresensi) {
                     $this->db->query("DELETE FROM presensi WHERE id_presensi = :id");
@@ -275,7 +253,6 @@ class LogbookModel {
         if(!$res) return [];
         $pId = $res['id_profil'];
 
-        // Ambil Data Presensi & Logbook
         $sqlPresensi = "SELECT 
                             pr.id_presensi, pr.tanggal, pr.waktu_presensi, pr.waktu_pulang, 
                             pr.foto_presensi, pr.foto_pulang, pr.status as status_db,
@@ -287,14 +264,12 @@ class LogbookModel {
         $this->db->bind(':pid', $pId);
         $rawPresensi = $this->db->resultSet();
 
-        // Ambil Data Izin (Approved Only)
         $sqlIzin = "SELECT * FROM izin 
                     WHERE id_profil = :pid AND status_approval = 'Approved'";
         $this->db->query($sqlIzin);
         $this->db->bind(':pid', $pId);
         $rawIzin = $this->db->resultSet();
 
-        // RESTRUKTURISASI DATA
         $unifiedData = [];
         $today = new DateTime();
         
@@ -315,7 +290,6 @@ class LogbookModel {
                 'can_reset' => false 
             ];
 
-            // 1. CEK PRESENSI
             $foundP = array_filter($rawPresensi, fn($row) => $row['tanggal'] == $checkDate);
             if (!empty($foundP)) {
                 $p = reset($foundP);
@@ -332,20 +306,16 @@ class LogbookModel {
                 $entry['is_locked'] = false; 
                 $entry['can_reset'] = true; 
             } 
-            // 2. JIKA TIDAK HADIR, CEK IZIN (Rentang Tanggal)
             else {
                 foreach ($rawIzin as $iz) {
                     if ($checkDate >= $iz['start_date'] && $checkDate <= $iz['end_date']) {
-                        // [FIXED] Menggunakan nama kolom DB yang benar
-                        $entry['status'] = $iz['tipe']; // DB: tipe
+                        $entry['status'] = $iz['tipe'];
                         $entry['color'] = 'yellow';
                         
-                        // [FIXED] Tabel izin tidak punya created_at, gunakan '-'
                         $entry['time_in'] = '-'; 
                         
                         $entry['proof_in'] = $iz['file_bukti']; 
                         
-                        // [FIXED] DB: deskripsi
                         $entry['activity'] = ($iz['deskripsi'] ?? '') . " (Pengajuan Izin)";
                         
                         $entry['id_ref'] = $iz['id_izin'];
@@ -356,7 +326,6 @@ class LogbookModel {
                 }
             }
 
-            // 3. JIKA MASIH ALPHA
             if ($entry['status'] == 'Alpha') {
                 if ($checkDate == date('Y-m-d') && date('H:i') < '18:00') {
                     continue; 

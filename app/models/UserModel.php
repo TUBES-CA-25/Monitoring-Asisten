@@ -35,43 +35,34 @@ class UserModel {
     }
 
     public function calculateRealAlpha($id_profil, $accountCreatedAt, $isCompleted) {
-        // Jika akun belum lengkap/verifikasi, Alpha masih 0
         if ($isCompleted != 1) return 0;
 
-        // 1. Ambil semua tanggal hadir
         $this->db->query("SELECT tanggal FROM presensi WHERE id_profil = :pid AND status IN ('Hadir', 'Terlambat')");
         $this->db->bind(':pid', $id_profil);
         $presensiRaw = $this->db->resultSet();
         $presensiMap = [];
         foreach($presensiRaw as $p) $presensiMap[$p['tanggal']] = true;
 
-        // 2. Ambil semua rentang izin (Approved)
         $this->db->query("SELECT start_date, end_date FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
         $this->db->bind(':pid', $id_profil);
         $izinRanges = $this->db->resultSet();
 
-        // 3. Loop Tanggal (Dari Join Date sampai Kemarin)
-        // Alpha dihitung H-1, karena hari ini masih berjalan
         $startDate = new DateTime($accountCreatedAt); 
-        $endDate = new DateTime(); // Hari ini
-        $endDate->modify('-1 day'); // Sampai kemarin
+        $endDate = new DateTime(); 
+        $endDate->modify('-1 day'); 
 
-        if ($startDate > $endDate) return 0; // Baru gabung hari ini
+        if ($startDate > $endDate) return 0;
 
         $alphaCount = 0;
 
         while ($startDate <= $endDate) {
-            // Format Y-m-d
             $currDate = $startDate->format('Y-m-d');
             
-            // Cek Hari Kerja (1=Senin ... 5=Jumat). Sabtu(6) & Minggu(7) Libur -> Tidak dihitung Alpha
-            // Ubah logika ini jika lab buka Sabtu/Minggu
             if ($startDate->format('N') <= 7) {
                 
                 $isPresent = isset($presensiMap[$currDate]);
                 $isPermitted = false;
 
-                // Cek Izin jika tidak hadir
                 if (!$isPresent) {
                     foreach($izinRanges as $iz) {
                         if ($currDate >= $iz['start_date'] && $currDate <= $iz['end_date']) {
@@ -81,7 +72,6 @@ class UserModel {
                     }
                 }
 
-                // Jika Tidak Hadir DAN Tidak Izin => Alpha Bertambah
                 if (!$isPresent && !$isPermitted) {
                     $alphaCount++;
                 }
@@ -128,14 +118,12 @@ class UserModel {
                 ':uid' => $data['id']
             ];
 
-            // Update Foto jika ada
             if (!empty($data['photo'])) {
                 $queryFoto = "UPDATE profile SET photo_profile = :photo WHERE id_user = :uid";
                 $stmtFoto = $this->conn->prepare($queryFoto);
                 $stmtFoto->execute([':photo' => $data['photo'], ':uid' => $data['id']]);
             }
 
-            // Update Status Completed
             $queryStatus = "UPDATE profile SET is_completed = 1 WHERE id_user = :uid";
             $stmtStatus = $this->conn->prepare($queryStatus);
             $stmtStatus->execute([':uid' => $data['id']]);
@@ -340,7 +328,6 @@ class UserModel {
     }
 
     public function getAllAssistantsWithStatus() {
-        // 1. Ambil semua data asisten (User)
         $this->db->query("SELECT p.*, u.role 
                           FROM profile p 
                           JOIN users u ON p.id_user = u.id_user 
@@ -348,24 +335,19 @@ class UserModel {
                           ORDER BY p.nama ASC");
         $assistants = $this->db->resultSet();
 
-        // 2. Cek Status Kehadiran Hari Ini untuk setiap asisten
         $today = date('Y-m-d');
         
         foreach ($assistants as &$ast) {
-            // Default Status: Merah (Belum Hadir)
             $ast['status_today'] = 'red'; 
 
-            // A. Cek Tabel Presensi (Hadir)
-            // Pastikan kolom 'waktu_presensi' tidak kosong
             $this->db->query("SELECT id_presensi FROM presensi 
                               WHERE id_profil = :pid AND tanggal = :d AND waktu_presensi IS NOT NULL");
             $this->db->bind(':pid', $ast['id_profil']);
             $this->db->bind(':d', $today);
             
             if ($this->db->single()) {
-                $ast['status_today'] = 'green'; // Ubah jadi Hijau
+                $ast['status_today'] = 'green'; 
             } else {
-                // B. Cek Tabel Izin (Jika tidak hadir, cek apakah izin)
                 $this->db->query("SELECT id_izin FROM izin 
                                   WHERE id_profil = :pid 
                                   AND :d BETWEEN start_date AND end_date 
@@ -374,7 +356,7 @@ class UserModel {
                 $this->db->bind(':d', $today);
                 
                 if ($this->db->single()) {
-                    $ast['status_today'] = 'yellow'; // Ubah jadi Kuning
+                    $ast['status_today'] = 'yellow'; 
                 }
             }
         }

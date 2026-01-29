@@ -11,9 +11,6 @@ class QrModel {
     public function getOrGenerateToken($type) {
         $dbType = ($type == 'check_in') ? 'Presensi' : 'Pulang';
 
-        // =================================================================================
-        // OPSI 1: QR CODE DINAMIS (DENGAN AUTO-CLEANUP)
-        // =================================================================================
         $sql = "SELECT * FROM qr_code 
                 WHERE tipe = :t AND valid_until > DATE_ADD(NOW(), INTERVAL 30 SECOND) 
                 ORDER BY id_qr DESC LIMIT 1";
@@ -34,7 +31,6 @@ class QrModel {
         $this->db->bind(':t', $dbType);
         $this->db->execute();
 
-        // 3. Simpan Token Baru
         $sqlInsert = "INSERT INTO qr_code (tipe, token_code, generated_at, valid_until) 
                       VALUES (:t, :c, NOW(), DATE_ADD(NOW(), INTERVAL $interval))";
         
