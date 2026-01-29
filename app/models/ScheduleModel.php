@@ -8,6 +8,22 @@ class ScheduleModel {
         $this->conn = $db->getConnection();
     }
 
+    private function getAssistantAttendees() {
+        // Ambil semua email user dengan role 'User' (Asisten)
+        $stmt = $this->conn->prepare("SELECT email FROM user WHERE role = 'User'");
+        $stmt->execute();
+        $emails = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        $attendees = [];
+        foreach($emails as $email) {
+            // Validasi format email sederhana
+            if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $attendees[] = ['email' => $email];
+            }
+        }
+        return $attendees;
+    }
+
     // =====================================================================
     // 1. GET ALL (ADMIN)
     // =====================================================================
@@ -149,7 +165,7 @@ class ScheduleModel {
         return $thisWeekSchedules;
     }
 
-    private function formatEventData($data) {
+    private function formatEventData($data, $attendees = []) {
         $startDateTime = date('Y-m-d\TH:i:s', strtotime($data['date'] . ' ' . $data['start_time']));
         $endDateBase = ($data['model_perulangan'] == 'sekali') ? $data['date'] : ($data['date']);
         $endDateTime = date('Y-m-d\TH:i:s', strtotime($endDateBase . ' ' . $data['end_time']));
@@ -166,6 +182,11 @@ class ScheduleModel {
             'end' => ['dateTime' => $endDateTime, 'timeZone' => 'Asia/Makassar'],
         ];
 
+        // [BARU] Tambahkan Attendees (Peserta) jika ada
+        if (!empty($attendees)) {
+            $event['attendees'] = $attendees;
+        }
+
         if (isset($data['model_perulangan']) && $data['model_perulangan'] == 'mingguan' && !empty($data['end_date_repeat'])) {
             $untilDate = date('Ymd\THis\Z', strtotime($data['end_date_repeat'] . ' 23:59:59'));
             $event['recurrence'] = ["RRULE:FREQ=WEEKLY;UNTIL=$untilDate"];
@@ -173,15 +194,24 @@ class ScheduleModel {
         return $event;
     }
 
+    private function getRealUserId($profileId) {
+        $stmt = $this->conn->prepare("SELECT id_user FROM profile WHERE id_profil = :pid");
+        $stmt->execute([':pid' => $profileId]);
+        $res = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $res ? $res['id_user'] : null;
+    }
+
     public function createSchedule($data) {
         try {
             $this->conn->beginTransaction();
-            $type = $data['type']; $model = $data['model_perulangan']; $tglMulai = $data['date'];
+            $type = $data['type']; 
+            $model = $data['model_perulangan']; 
+            $tglMulai = $data['date'];
             $tglSelesai = ($model == 'sekali') ? $tglMulai : ($data['end_date_repeat'] ?? $tglMulai);
             $hari = date('N', strtotime($tglMulai));
             $lastId = null;
 
-            // --- A. INSERT DATABASE LOKAL ---
+            // INSERT DATA LOKAL
             if ($type == 'umum') {
                 $sql = "INSERT INTO jadwal_lab (nama_kegiatan, lokasi, tanggal, tanggal_selesai, hari, jam_mulai, jam_selesai, model_perulangan) 
                         VALUES (:title, :loc, :tgl, :tgl_end, :hari, :start, :end, :model)";
@@ -208,25 +238,25 @@ class ScheduleModel {
                 $lastId = $this->conn->lastInsertId();
             }
 
-            // --- B. INTEGRASI GOOGLE CALENDAR (PERBAIKAN) ---
+            // INTEGRASI GOOGLE CALENDAR
             $googleEventId = null;
-            if (!empty($data['user_id'])) { // $data['user_id'] di sini adalah ID PROFIL
-                
-                // 1. CARI ID USER ASLI DARI TABEL PROFILE
-                $stmtU = $this->conn->prepare("SELECT id_user FROM profile WHERE id_profil = :pid");
-                $stmtU->execute([':pid' => $data['user_id']]);
-                $userRow = $stmtU->fetch(PDO::FETCH_ASSOC);
+            
+            // [LOGIKA BARU]: Jika Umum, ambil email semua asisten untuk diundang
+            $attendees = [];
+            if ($type == 'umum') {
+                $attendees = $this->getAssistantAttendees();
+            }
 
-                if ($userRow) {
-                    $realUserId = $userRow['id_user']; // Ini ID User yang benar untuk cari token
-                    
-                    // 2. Ambil Token pakai ID User
+            if (!empty($data['user_id'])) {
+                $realUserId = $this->getRealUserId($data['user_id']);
+                
+                if ($realUserId) {
                     $google = new GoogleClient();
                     $accessToken = $google->getValidAccessToken($realUserId);
 
-                    // 3. Buat Event jika token ada
                     if ($accessToken) {
-                        $eventPayload = $this->formatEventData($data);
+                        // Kirim data beserta daftar attendees (jika ada)
+                        $eventPayload = $this->formatEventData($data, $attendees); 
                         $gResponse = $google->createEvent($accessToken, $eventPayload);
                         if (isset($gResponse['id'])) {
                             $googleEventId = $gResponse['id'];
@@ -235,7 +265,7 @@ class ScheduleModel {
                 }
             }
 
-            // --- C. INSERT KE JADWAL_FULL ---
+            // INSERT KE JADWAL_FULL
             $colName = 'id_jadwal_' . $type;
             if ($type == 'umum') $colName = 'id_jadwal_lab';
 
@@ -251,16 +281,13 @@ class ScheduleModel {
         }
     }
 
-    // =====================================================================
-    // 5. UPDATE SCHEDULE (PERBAIKAN)
-    // =====================================================================
     public function updateSchedule($data) {
         try {
             $type = $data['type']; $model = $data['model_perulangan']; $tglMulai = $data['date'];
             $tglSelesai = ($model == 'sekali') ? $tglMulai : ($data['end_date_repeat'] ?? $tglMulai);
             $hari = date('N', strtotime($tglMulai));
 
-            // A. Update DB Lokal
+            // Update DB Lokal
             if ($type == 'umum') {
                 $sql = "UPDATE jadwal_lab SET nama_kegiatan=:title, lokasi=:loc, tanggal=:tgl, tanggal_selesai=:tgl_end, hari=:hari, jam_mulai=:start, jam_selesai=:end, model_perulangan=:model WHERE id_jadwal_lab=:id";
                 $stmt = $this->conn->prepare($sql);
@@ -279,25 +306,28 @@ class ScheduleModel {
                 $stmt->execute([':id'=>$data['id'], ':pid'=>$data['user_id'], ':title'=>$data['title'], ':loc'=>$data['location'], ':dosen'=>$data['dosen']??'', ':kelas'=>$data['kelas']??'', ':tgl'=>$tglMulai, ':tgl_end'=>$tglSelesai, ':hari'=>$hari, ':model'=>$model, ':start'=>$data['start_time'], ':end'=>$data['end_time']]);
             }
 
-            // B. UPDATE GOOGLE CALENDAR
+            // Update Google Calendar
             if (!empty($data['user_id'])) {
-                // 1. Ambil Event ID dari jadwal_full
                 $colName = ($type == 'umum') ? 'id_jadwal_lab' : 'id_jadwal_' . $type;
                 $stmtGet = $this->conn->prepare("SELECT google_calendar_API FROM jadwal_full WHERE $colName = :id");
                 $stmtGet->execute([':id' => $data['id']]);
                 $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
                 $gEventId = $row['google_calendar_API'] ?? null;
 
-                // 2. Ambil User ID Asli
-                $stmtU = $this->conn->prepare("SELECT id_user FROM profile WHERE id_profil = :pid");
-                $stmtU->execute([':pid' => $data['user_id']]);
-                $userRow = $stmtU->fetch(PDO::FETCH_ASSOC);
+                $realUserId = $this->getRealUserId($data['user_id']);
 
-                if ($gEventId && $userRow) {
+                if ($gEventId && $realUserId) {
                     $google = new GoogleClient();
-                    $accessToken = $google->getValidAccessToken($userRow['id_user']);
+                    $accessToken = $google->getValidAccessToken($realUserId);
                     if ($accessToken) {
-                        $eventPayload = $this->formatEventData($data);
+                        
+                        // [LOGIKA BARU]: Update juga daftar undangannya
+                        $attendees = [];
+                        if ($type == 'umum') {
+                            $attendees = $this->getAssistantAttendees();
+                        }
+
+                        $eventPayload = $this->formatEventData($data, $attendees);
                         $google->updateEvent($accessToken, $gEventId, $eventPayload);
                     }
                 }
@@ -306,31 +336,29 @@ class ScheduleModel {
         } catch (Exception $e) { return false; }
     }
 
-    // =====================================================================
-    // 6. DELETE SCHEDULE (PERBAIKAN)
-    // =====================================================================
-    public function deleteSchedule($id, $type) {
+    public function deleteSchedule($id, $type, $currentProfilId = null) {
         try {
-            // A. Hapus Google Calendar Dulu
             $colName = ($type == 'umum') ? 'id_jadwal_lab' : 'id_jadwal_' . $type;
             $tableMap = ['kuliah'=>'jadwal_kuliah', 'asisten'=>'jadwal_asisten', 'piket'=>'jadwal_piket', 'umum'=>'jadwal_lab'];
             $tableName = $tableMap[$type];
             $pkName = ($type == 'umum') ? 'id_jadwal_lab' : 'id_' . $tableName;
 
-            if ($type != 'umum') {
-                $sqlGet = "SELECT jf.google_calendar_API, t.id_profil FROM jadwal_full jf JOIN $tableName t ON jf.$colName = t.$pkName WHERE jf.$colName = :id";
-                $stmtGet = $this->conn->prepare($sqlGet);
-                $stmtGet->execute([':id' => $id]);
-                $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
+            $sqlGet = "SELECT jf.google_calendar_API, t.* FROM jadwal_full jf 
+                       JOIN $tableName t ON jf.$colName = t.$pkName 
+                       WHERE jf.$colName = :id";
+            
+            $stmtGet = $this->conn->prepare($sqlGet);
+            $stmtGet->execute([':id' => $id]);
+            $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
 
-                if ($row && !empty($row['google_calendar_API']) && !empty($row['id_profil'])) {
-                    $stmtU = $this->conn->prepare("SELECT id_user FROM profile WHERE id_profil = :pid");
-                    $stmtU->execute([':pid' => $row['id_profil']]);
-                    $uRow = $stmtU->fetch(PDO::FETCH_ASSOC);
-                    
-                    if ($uRow) {
+            if ($row && !empty($row['google_calendar_API'])) {
+                $targetProfilId = ($type == 'umum') ? $currentProfilId : ($row['id_profil'] ?? null);
+
+                if ($targetProfilId) {
+                    $realUserId = $this->getRealUserId($targetProfilId);
+                    if ($realUserId) {
                         $google = new GoogleClient();
-                        $accessToken = $google->getValidAccessToken($uRow['id_user']);
+                        $accessToken = $google->getValidAccessToken($realUserId);
                         if ($accessToken) {
                             $google->deleteEvent($accessToken, $row['google_calendar_API']);
                         }
@@ -338,7 +366,6 @@ class ScheduleModel {
                 }
             }
 
-            // B. Hapus DB Lokal
             $sqlDelete = "DELETE FROM $tableName WHERE $pkName = :id";
             $stmt = $this->conn->prepare($sqlDelete);
             return $stmt->execute([':id' => $id]);
