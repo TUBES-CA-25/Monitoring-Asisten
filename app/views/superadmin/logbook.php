@@ -13,8 +13,6 @@
     }
     .assistant-card.active .icon-arrow { opacity: 1; transform: translateX(0); }
     .assistant-card .icon-arrow { opacity: 0; transform: translateX(-10px); transition: all 0.2s; }
-    
-    .assistant-card.active .action-icon { color: #2563eb; }
 </style>
 
 <div class="max-w-7xl mx-auto space-y-6 animate-enter pb-12 h-[calc(100vh-100px)] flex flex-col">
@@ -24,14 +22,12 @@
         <div class="relative z-10 flex justify-between items-center">
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight">Monitoring Logbook</h1>
-                <p class="text-blue-100 mt-2 text-sm">Pantau aktivitas harian asisten laboratorium.</p>
+                <p class="text-blue-100 mt-2 text-sm">Pantau aktivitas harian seluruh asisten.</p>
             </div>
             <div class="text-center md:text-right bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
                 <p class="text-[10px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
                 <h2 id="liveDate" class="text-xl font-bold font-mono"><?= date('d F Y') ?></h2>
-                <p class="text-sm opacity-90 font-mono mt-1">
-                    <span id="liveTime" class="bg-blue-900/30 px-2 py-0.5 rounded"><?= date('H:i:s') ?></span> WITA
-                </p>
+                <span class="bg-blue-900/30 px-2 py-0.5 rounded text-sm font-mono"><?= date('H:i:s') ?> WITA</span>
             </div>
         </div>
     </div>
@@ -40,15 +36,7 @@
         
         <div class="w-full lg:w-1/3 bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
             <div class="p-5 border-b border-gray-100 bg-white sticky top-0 z-10">
-                <div class="flex justify-between items-center mb-4">
-                    <div>
-                        <h3 class="font-extrabold text-gray-700 text-sm uppercase tracking-wide">Data Asisten</h3>
-                        <p class="text-[10px] text-gray-400">Pilih asisten untuk melihat logbook</p>
-                    </div>
-                    <div class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 shadow-sm">
-                        <span class="font-normal text-blue-400">Total: </span> <?= count($assistants) ?> 
-                    </div>
-                </div>
+                <h3 class="font-extrabold text-gray-700 text-sm uppercase tracking-wide mb-4">Data Asisten</h3>
                 <div class="relative group">
                     <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 text-sm"></i>
                     <input type="text" id="searchAssistant" placeholder="Cari nama asisten..." 
@@ -60,7 +48,6 @@
                 <?php foreach($assistants as $ast): ?>
                 <div onclick="loadLogs(<?= $ast['id'] ?>, '<?= htmlspecialchars($ast['name'], ENT_QUOTES) ?>', '<?= $ast['photo_profile'] ?? '' ?>', this)" 
                      class="assistant-card p-3 rounded-2xl cursor-pointer flex items-center justify-between group" 
-                     data-id="<?= $ast['id'] ?>" 
                      data-name="<?= strtolower($ast['name']) ?>">
                     
                     <div class="flex items-center gap-3">
@@ -72,10 +59,7 @@
                         </div>
                     </div>
                     
-                    <button class="w-8 h-8 rounded-full bg-white border border-gray-100 text-gray-400 flex items-center justify-center shadow-sm group-hover:text-blue-600 transition action-icon">
-                        <i class="fas fa-chevron-right text-xs icon-default"></i>
-                        <i class="fas fa-times text-xs icon-active hidden"></i>
-                    </button>
+                    <i class="fas fa-chevron-right text-gray-300 icon-arrow"></i>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -85,10 +69,10 @@
             
             <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center bg-white z-20 transition-opacity duration-300">
                 <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 animate-bounce">
-                    <i class="fas fa-book-open text-3xl text-gray-300"></i>
+                    <i class="fas fa-eye text-3xl text-gray-300"></i>
                 </div>
                 <h3 class="text-lg font-bold text-gray-800">Pilih Asisten</h3>
-                <p class="text-sm text-gray-500 mt-1">Klik salah satu asisten di samping untuk melihat logbook.</p>
+                <p class="text-sm text-gray-500 mt-1">Klik nama asisten di samping untuk melihat logbook.</p>
             </div>
 
             <div id="logContent" class="flex flex-col h-full hidden opacity-0 transition-opacity duration-300">
@@ -100,17 +84,19 @@
                             <h2 id="headerName" class="text-xl font-extrabold text-gray-800"></h2>
                         </div>
                     </div>
-                </div>
+                    </div>
 
                 <div class="flex-1 overflow-y-auto p-0 custom-scrollbar">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-white sticky top-0 z-10 shadow-sm text-xs font-bold text-gray-400 uppercase">
                             <tr>
+                                <th class="p-5 border-b border-gray-100 w-4">Sts</th>
                                 <th class="p-5 border-b border-gray-100">Tanggal</th>
-                                <th class="p-5 border-b border-gray-100">Jam Masuk</th>
-                                <th class="p-5 border-b border-gray-100">Aktivitas</th>
-                                <th class="p-5 border-b border-gray-100">Jam Pulang</th>
-                            </tr>
+                                <th class="p-5 border-b border-gray-100 text-center">Waktu</th>
+                                <th class="p-5 border-b border-gray-100 text-center">Bukti Datang</th>
+                                <th class="p-5 border-b border-gray-100 text-center">Bukti Pulang</th>
+                                <th class="p-5 border-b border-gray-100 w-10">Aktivitas</th>
+                                </tr>
                         </thead>
                         <tbody id="logsTableBody" class="divide-y divide-gray-50 text-sm text-gray-700">
                         </tbody>
@@ -121,47 +107,41 @@
     </div>
 </div>
 
+<div id="photoModal" class="hidden fixed inset-0 z-[99] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onclick="closePhoto()">
+    <div class="relative max-w-2xl w-full" onclick="event.stopPropagation()">
+        <button onclick="closePhoto()" class="absolute -top-12 right-0 text-white hover:text-red-400 transition text-3xl"><i class="fas fa-times"></i></button>
+        <div class="bg-white rounded-lg overflow-hidden shadow-2xl">
+            <div class="p-3 bg-gray-100 border-b flex justify-between items-center">
+                <span id="proofTitle" class="font-bold text-gray-700 text-sm uppercase">Bukti</span>
+                <a id="downloadLink" href="#" download class="text-blue-600 hover:underline text-xs font-bold"><i class="fas fa-download"></i> Unduh</a>
+            </div>
+            <img id="modalImg" src="" class="w-full h-auto max-h-[70vh] object-contain bg-gray-50">
+        </div>
+    </div>
+</div>
+
 <script>
     let currentUserId = null;
-    let currentUserName = '';
 
     document.getElementById('searchAssistant').addEventListener('keyup', function() {
         const key = this.value.toLowerCase();
         document.querySelectorAll('.assistant-card').forEach(card => {
-            const name = card.getAttribute('data-name');
-            card.style.display = name.includes(key) ? 'flex' : 'none';
+            card.style.display = card.dataset.name.includes(key) ? 'flex' : 'none';
         });
     });
 
     function loadLogs(userId, name, photo, element) {
-        document.querySelectorAll('.assistant-card').forEach(c => {
-            c.querySelector('.icon-default').classList.remove('hidden');
-            c.querySelector('.icon-active').classList.add('hidden');
-        });
-
-        if (currentUserId === userId) {
-            resetView();
-            return;
-        }
+        if (currentUserId === userId) { resetView(); return; }
 
         currentUserId = userId;
-        currentUserName = name;
 
+        // UI Updates
         document.querySelectorAll('.assistant-card').forEach(c => c.classList.remove('active'));
         element.classList.add('active');
         
-        element.querySelector('.icon-default').classList.add('hidden');
-        element.querySelector('.icon-active').classList.remove('hidden');
-        
-        const emptyState = document.getElementById('emptyState');
-        const logContent = document.getElementById('logContent');
-        
-        emptyState.classList.add('opacity-0');
-        setTimeout(() => {
-            emptyState.classList.add('hidden');
-            logContent.classList.remove('hidden');
-            setTimeout(() => logContent.classList.remove('opacity-0'), 50);
-        }, 300);
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('logContent').classList.remove('hidden');
+        setTimeout(() => document.getElementById('logContent').classList.remove('opacity-0'), 50);
         
         document.getElementById('headerName').innerText = name;
         document.getElementById('headerAvatar').src = photo ? `<?= BASE_URL ?>/uploads/profile/${photo}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
@@ -169,22 +149,17 @@
         const fd = new FormData();
         fd.append('user_id', userId);
 
-        fetch('<?= BASE_URL ?>/admin/getLogsByUser', { method: 'POST', body: fd })
+        // Fetch Data Unified dari SuperAdminController
+        fetch('<?= BASE_URL ?>/superadmin/getLogsByUser', { method: 'POST', body: fd })
         .then(res => res.json())
         .then(data => renderTable(data))
-        .catch(err => console.error(err));
+        .catch(err => console.error('Error fetching logs:', err));
     }
 
     function resetView() {
         currentUserId = null;
-        currentUserName = '';
-
-        document.querySelectorAll('.assistant-card').forEach(c => {
-            c.classList.remove('active');
-            c.querySelector('.icon-default').classList.remove('hidden');
-            c.querySelector('.icon-active').classList.add('hidden');
-        });
-
+        document.querySelectorAll('.assistant-card').forEach(c => c.classList.remove('active'));
+        
         const emptyState = document.getElementById('emptyState');
         const logContent = document.getElementById('logContent');
 
@@ -201,35 +176,61 @@
         tbody.innerHTML = '';
 
         if(logs.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">Belum ada data logbook untuk asisten ini.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-400 italic">Belum ada data logbook.</td></tr>`;
             return;
         }
 
         logs.forEach(log => {
-            const timeIn = log.time_in ? log.time_in.substring(0,5) : '-';
-            const timeOut = log.time_out ? log.time_out.substring(0,5) : '-';
-            const desc = log.activity || '<span class="text-gray-400 italic">Belum diisi</span>';
             const dateStr = new Date(log.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
 
+            // Badge Warna (Unified Logic)
+            let badgeClass = 'bg-gray-100 text-gray-600';
+            if(log.color == 'green') badgeClass = 'bg-green-100 text-green-600';
+            else if(log.color == 'yellow') badgeClass = 'bg-yellow-100 text-yellow-600';
+            else if(log.color == 'red') badgeClass = 'bg-red-100 text-red-600';
+
+            // Tombol Bukti Datang
+            let proofInBtn = '<span class="text-gray-300 text-xs">-</span>';
+            if(log.proof_in) {
+                const folder = log.status == 'Hadir' ? 'attendance' : 'leaves';
+                proofInBtn = `<button onclick="viewEvidence('${log.status} (Datang)', '<?= BASE_URL ?>/uploads/${folder}/${log.proof_in}')" class="text-blue-500 hover:bg-blue-50 p-1.5 rounded-lg"><i class="fas fa-eye"></i></button>`;
+            }
+
+            // Tombol Bukti Pulang
+            let proofOutBtn = '<span class="text-gray-300 text-xs">-</span>';
+            if(log.proof_out) {
+                proofOutBtn = `<button onclick="viewEvidence('Pulang', '<?= BASE_URL ?>/uploads/attendance/${log.proof_out}')" class="text-orange-500 hover:bg-orange-50 p-1.5 rounded-lg"><i class="fas fa-eye"></i></button>`;
+            }
+
+            // Render Baris (Tanpa Kolom Aksi)
             const row = `
-                <tr class="hover:bg-blue-50/50 transition group">
-                    <td class="p-5 font-bold text-gray-700 w-32">${dateStr}</td>
-                    <td class="p-5 font-mono text-green-600 font-bold">${timeIn}</td>
-                    <td class="p-5 max-w-xs">
-                        <div class="line-clamp-2 text-gray-600">${desc}</div>
+                <tr class="hover:bg-gray-50 transition border-b border-gray-50">
+                    <td class="p-0 relative"><div class="absolute inset-y-0 left-0 w-1 ${badgeClass.replace('text','bg').split(' ')[0]}"></div></td>
+                    <td class="p-5">
+                        <div class="font-bold text-gray-700">${dateStr}</div>
+                        <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded ${badgeClass}">${log.status}</span>
                     </td>
-                    <td class="p-5 font-mono text-red-600 font-bold">${timeOut}</td>
-                    <td class="p-5 text-center">
-                        <div class="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition">
-                            <button onclick='editLog(${JSON.stringify(log)})' class="w-8 h-8 rounded-lg bg-white border border-gray-200 text-yellow-500 hover:bg-yellow-50 hover:border-yellow-200 transition shadow-sm"><i class="fas fa-pen text-xs"></i></button>
-                            ${log.id_logbook ? 
-                                `<button onclick="triggerDeleteLog(${log.id_logbook})" class="w-8 h-8 rounded-lg bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 transition shadow-sm"><i class="fas fa-trash text-xs"></i></button>` 
-                                : ''}
-                        </div>
+                    <td class="p-5 text-center text-xs font-mono">
+                        <div class="text-blue-600 font-bold">IN: ${log.time_in}</div>
+                        <div class="text-orange-500 font-bold">OUT: ${log.time_out}</div>
                     </td>
+                    <td class="p-5 text-center">${proofInBtn}</td>
+                    <td class="p-5 text-center">${proofOutBtn}</td>
+                    <td class="p-5 text-sm text-gray-600 line-clamp-2">${log.activity}</td>
                 </tr>
             `;
             tbody.innerHTML += row;
         });
+    }
+
+    function viewEvidence(type, url) {
+        document.getElementById('modalImg').src = url;
+        document.getElementById('downloadLink').href = url;
+        document.getElementById('proofTitle').innerText = 'Bukti ' + type;
+        document.getElementById('photoModal').classList.remove('hidden');
+    }
+    
+    function closePhoto() {
+        document.getElementById('photoModal').classList.add('hidden');
     }
 </script>

@@ -1,18 +1,4 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<?php
-if (!isset($user) || !is_array($user)) {
-    $user = [
-        'name' => $_SESSION['name'] ?? '',
-        'photo_profile' => $_SESSION['photo_profile'] ?? '',
-        'nim' => $_SESSION['nim'] ?? '',
-        'position' => $_SESSION['jabatan'] ?? $_SESSION['role'] ?? 'Asisten Lab',
-        'no_telp' => $_SESSION['no_telp'] ?? ''
-    ];
-}
-if (!isset($weekly_schedule) || !is_array($weekly_schedule)) $weekly_schedule = [];
-if (!isset($stats) || !is_array($stats)) $stats = ['hadir'=>0,'izin'=>0,'alpa'=>0];
-if (!isset($status_today)) $status_today = 'red';
-?>
 
 <style>
     .animate-enter { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
@@ -30,7 +16,22 @@ if (!isset($status_today)) $status_today = 'red';
         
         <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0 text-center md:text-left">
-                <h1 class="text-3xl font-extrabold">Halo, <?= explode(' ', $user['name'])[0] ?>! 👋</h1>
+                <?php
+                    $fullName = $user['name'];
+                    $parts = explode(',', $fullName);
+                    $frontNameOnly = trim($parts[0]);
+
+                    $words = explode(' ', $frontNameOnly);
+                    $displayName = $words[0];
+                    foreach ($words as $word) {
+                        $word = trim($word);
+                        if (!empty($word) && strpos($word, '.') === false) {
+                            $displayName = $word;
+                            break;
+                        }
+                    }
+                ?>
+                <h1 class="text-3xl font-extrabold">Halo, <?= htmlspecialchars($displayName) ?> ! 👋</h1>
                 <p class="text-blue-100 mt-2 text-sm">Siap untuk berkontribusi di laboratorium hari ini?</p>
             </div>
             
@@ -83,8 +84,12 @@ if (!isset($status_today)) $status_today = 'red';
                             <span class="text-sm font-bold text-gray-700"><?= $user['nim'] ?? '-' ?></span>
                         </div>
                         <div class="flex justify-between items-center border-b border-gray-200 pb-2">
-                            <span class="text-[10px] font-bold text-gray-400 uppercase">Jurusan</span>
-                            <span class="text-xs font-bold text-gray-700 truncate w-32 text-right">Informatika</span>
+                            <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas</span>
+                            <span class="text-xs font-bold text-gray-700"><?= $user['kelas'] ?? '-' ?></span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase">Program Studi</span>
+                            <span class="text-xs font-bold text-gray-700"><?= $user['prodi'] ?? '-' ?></span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-[10px] font-bold text-gray-400 uppercase">No. HP</span>
@@ -109,15 +114,15 @@ if (!isset($status_today)) $status_today = 'red';
                 </div>
             </a>
             <div class="grid grid-cols-3 gap-4 p-2">
-                <div class="bg-green-50 p-4 rounded-2xl border border-green-100 text-center">
+                <div class="bg-green-50 p-5 rounded-2xl border border-green-100 text-center">
                     <span class="block text-2xl font-extrabold text-green-600"><?= $stats['hadir'] ?></span>
                     <span class="text-[10px] font-bold text-green-700 uppercase tracking-wider">Hadir</span>
                 </div>
-                <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 text-center">
+                <div class="bg-yellow-50 p-5 rounded-2xl border border-yellow-100 text-center">
                     <span class="block text-2xl font-extrabold text-yellow-600"><?= $stats['izin'] ?></span>
                     <span class="text-[10px] font-bold text-yellow-700 uppercase tracking-wider">Izin</span>
                 </div>
-                <div class="bg-red-50 p-4 rounded-2xl border border-red-100 text-center">
+                <div class="bg-red-50 p-5 rounded-2xl border border-red-100 text-center">
                     <span class="block text-2xl font-extrabold text-red-600"><?= $stats['alpa'] ?></span>
                     <span class="text-[10px] font-bold text-red-700 uppercase tracking-wider">Tidak Hadir</span>
                 </div>
@@ -131,7 +136,7 @@ if (!isset($status_today)) $status_today = 'red';
                     <h3 class="font-bold text-gray-700 uppercase tracking-wide text-xs">Analisis Kehadiran</h3>
                     <div class="flex gap-2">
                         <select id="timeFilter" class="bg-gray-50 border-none text-gray-600 text-xs font-bold rounded-lg p-2 focus:ring-2 focus:ring-blue-200 cursor-pointer outline-none">
-                            <option value="daily">Harian (7 Hari)</option>
+                            <option value="daily">Harian</option>
                             <option value="weekly">Mingguan</option>
                             <option value="monthly">Bulanan</option>
                         </select>
@@ -153,51 +158,90 @@ if (!isset($status_today)) $status_today = 'red';
                     <i class="fas fa-envelope-open-text text-blue-500"></i> Pengajuan Sakit / Izin
                 </h3>
                 
-                <form action="<?= BASE_URL ?>/user/submit_leave" method="POST" enctype="multipart/form-data" class="space-y-5">
+                <form id="leaveForm" action="<?= BASE_URL ?>/user/submit_leave" method="POST" enctype="multipart/form-data" class="space-y-5">
+                    
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-2">Upload Bukti</label>
                             <div class="relative">
-                                <input type="file" name="attachment" id="fileInput" class="hidden" onchange="document.getElementById('fileName').innerText = this.files[0].name">
-                                <label for="fileInput" class="flex items-center w-full cursor-pointer bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-blue-300 transition group">
+                                <input type="file" name="attachment" id="fileInput" class="hidden" onchange="document.getElementById('fileName').innerText = this.files[0].name" <?= $is_working ? 'disabled' : '' ?>>
+                                <label for="fileInput" class="flex items-center w-full cursor-pointer bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-blue-300 transition group <?= $is_working ? 'opacity-50 cursor-not-allowed' : '' ?>">
                                     <div class="bg-blue-50 text-blue-600 px-4 py-2.5 text-xs font-bold border-r border-gray-100 group-hover:bg-blue-100 transition">
-                                        Choose File
+                                        Pilih File
                                     </div>
-                                    <div id="fileName" class="px-3 text-xs text-gray-500 truncate">No file chosen</div>
+                                    <div id="fileName" class="px-3 text-xs text-gray-500 truncate">Belum ada file</div>
                                 </label>
                             </div>
                         </div>
                         
                         <div>
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-2">Jenis Izin</label>
-                            <select name="type" class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition cursor-pointer">
+                            <select name="type" class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition cursor-pointer disabled:bg-gray-100 disabled:text-gray-400" <?= $is_working ? 'disabled' : '' ?>>
                                 <option value="Sakit">Sakit</option>
                                 <option value="Izin">Izin</option>
                             </select>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-2">Keterangan</label>
-                        <div class="flex gap-3">
-                            <input type="text" name="reason" placeholder="Tuliskan alasan izin..." class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
-                            
-                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-blue-500/30 transition transform hover:scale-105 flex items-center gap-2 text-sm shrink-0">
-                                <i class="fas fa-paper-plane"></i> Kirim
-                            </button>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-2">Dari Tanggal</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><i class="far fa-calendar-alt"></i></div>
+                                <input type="date" name="start_date" required value="<?= date('Y-m-d') ?>" 
+                                       class="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition disabled:bg-gray-100 disabled:text-gray-400" 
+                                       <?= $is_working ? 'disabled' : '' ?>>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-2">Sampai Tanggal</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><i class="far fa-calendar-check"></i></div>
+                                <input type="date" name="end_date" required value="<?= date('Y-m-d') ?>" 
+                                       class="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition disabled:bg-gray-100 disabled:text-gray-400" 
+                                       <?= $is_working ? 'disabled' : '' ?>>
+                            </div>
                         </div>
                     </div>
+
                     <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-2">Keterangan / Alasan</label>
+                        <div class="flex flex-col gap-3">
+                            <div class="flex gap-3">
+                                <input type="text" name="reason" placeholder="Tuliskan alasan izin..." required 
+                                       class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition disabled:bg-gray-100 disabled:text-gray-400" 
+                                       <?= $is_working ? 'disabled' : '' ?>>
+                                
+                                <?php if ($is_working): ?>
+                                    <button type="button" disabled class="bg-gray-300 text-gray-500 font-bold px-6 py-2.5 rounded-xl cursor-not-allowed flex items-center gap-2 text-sm shrink-0">
+                                        <i class="fas fa-paper-plane"></i> Kirim
+                                    </button>
+                                <?php else: ?>
+                                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-blue-500/30 transition transform hover:scale-105 flex items-center gap-2 text-sm shrink-0">
+                                        <i class="fas fa-paper-plane"></i> Kirim
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <?php if ($is_working): ?>
+                                <p class="text-[10px] text-orange-500 font-bold flex items-center gap-1">
+                                    <i class="fas fa-info-circle"></i> Selesaikan presensi pulang terlebih dahulu untuk mengajukan izin baru.
+                                </p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    
+                    <!-- <div>
                         <label class="flex items-center gap-3 transition cursor-pointer group select-none">
                             <div class="relative flex items-center">
-                                <input type="checkbox" required class="peer w-5 h-5 cursor-pointer appearance-none rounded border border-gray-300 shadow-sm checked:bg-blue-600 checked:border-blue-600 transition-all focus:ring-2 focus:ring-blue-200">
+                                <input type="checkbox" required class="peer w-5 h-5 cursor-pointer appearance-none rounded border border-gray-300 shadow-sm checked:bg-blue-600 checked:border-blue-600 transition-all focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:border-gray-200" <?= $is_working ? 'disabled' : '' ?>>
                                 <i class="fas fa-check text-white absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></i>
                             </div>
-                            <span class="text-sm font-bold text-gray-600 group-hover:text-gray-800">
-                                Apakah data yang telah diinputkan sudah benar ?
+                            <span class="text-sm font-bold text-gray-600 group-hover:text-gray-800 <?= $is_working ? 'opacity-50' : '' ?>">
+                                Apakah data rentang tanggal dan bukti sudah benar?
                             </span>
                         </label>
-                    </div>
+                    </div> -->
                 </form>
             </div>
 
@@ -256,6 +300,21 @@ if (!isset($status_today)) $status_today = 'red';
             <?php endforeach; ?>
         </div>
     </div>
+
+    <div id="customAlertModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center px-4">
+        <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="alertBackdrop"></div>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative z-10 overflow-hidden transform scale-90 opacity-0 transition-all duration-300 flex flex-col items-center p-6 text-center" id="alertContent">
+            
+            <div id="alertIconBg" class="w-20 h-20 rounded-full flex items-center justify-center mb-4 transition-colors">
+                <i id="alertIcon" class="fas text-4xl"></i>
+            </div>
+            
+            <h3 id="alertTitle" class="text-2xl font-extrabold text-gray-800 mb-2"></h3>
+            <p id="alertMessage" class="text-sm text-gray-500 mb-6 px-2 leading-relaxed"></p>
+            
+            <button onclick="closeCustomAlert()" class="w-full py-3.5 rounded-xl font-bold text-white shadow-lg transition transform hover:scale-[1.02] active:scale-95" id="alertBtn">OK</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -309,7 +368,7 @@ if (!isset($status_today)) $status_today = 'red';
             ? ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'] 
             : '#94a3b8';
         
-        const labelText = filter === 'daily' ? 'Status Hadir (1=Ya)' : (filter === 'weekly' ? 'Jumlah Hari Hadir' : 'Total Kehadiran');
+        const labelText = filter === 'daily' ? 'Status Hadir' : (filter === 'weekly' ? 'Jumlah Hari Hadir' : 'Total Kehadiran');
 
         chartInstance = new Chart(ctx, {
             type: currentType,
@@ -337,6 +396,101 @@ if (!isset($status_today)) $status_today = 'red';
                 plugins: { legend: { display: currentType === 'pie' } }
             }
         });
+    }
+
+    let shouldReload = false;
+
+    // 1. EVENT LISTENER FORM
+    document.getElementById('leaveForm').addEventListener('submit', function(e) {
+        e.preventDefault(); // Mencegah reload halaman bawaan
+        
+        const form = this;
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        
+        // Ubah tombol jadi loading
+        const originalBtnText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Mengirim...';
+        submitBtn.disabled = true;
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Kembalikan tombol
+            submitBtn.innerHTML = originalBtnText;
+            submitBtn.disabled = false;
+
+            if (data.status === 'success') {
+                showCustomAlert('success', data.title, data.message, true); // True = Reload halaman saat tutup
+                form.reset();
+            } else {
+                showCustomAlert('error', 'Gagal', data.message, false);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            submitBtn.innerHTML = originalBtnText;
+            submitBtn.disabled = false;
+            showCustomAlert('error', 'Error', 'Terjadi kesalahan koneksi server.', false);
+        });
+    });
+
+    // 2. FUNGSI MENAMPILKAN MODAL
+    function showCustomAlert(type, title, message, reloadOnClose = false) {
+        shouldReload = reloadOnClose;
+        
+        const modal = document.getElementById('customAlertModal');
+        const content = document.getElementById('alertContent');
+        const backdrop = document.getElementById('alertBackdrop');
+        const iconBg = document.getElementById('alertIconBg');
+        const icon = document.getElementById('alertIcon');
+        const btn = document.getElementById('alertBtn');
+
+        // Set Content
+        document.getElementById('alertTitle').innerText = title;
+        document.getElementById('alertMessage').innerText = message;
+
+        // Styling berdasarkan Tipe
+        if (type === 'success') {
+            iconBg.className = 'w-20 h-20 rounded-full flex items-center justify-center mb-4 bg-green-100 text-green-500';
+            icon.className = 'fas fa-check';
+            btn.className = 'w-full py-3.5 rounded-xl font-bold text-white shadow-lg bg-green-600 hover:bg-green-700 shadow-green-500/30 transition';
+        } else {
+            iconBg.className = 'w-20 h-20 rounded-full flex items-center justify-center mb-4 bg-red-100 text-red-500';
+            icon.className = 'fas fa-times';
+            btn.className = 'w-full py-3.5 rounded-xl font-bold text-white shadow-lg bg-red-600 hover:bg-red-700 shadow-red-500/30 transition';
+        }
+
+        // Tampilkan dengan Animasi
+        modal.classList.remove('hidden');
+        // Sedikit delay agar transisi CSS berjalan
+        setTimeout(() => {
+            backdrop.classList.remove('opacity-0');
+            content.classList.remove('scale-90', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    // 3. FUNGSI MENUTUP MODAL
+    function closeCustomAlert() {
+        const modal = document.getElementById('customAlertModal');
+        const content = document.getElementById('alertContent');
+        const backdrop = document.getElementById('alertBackdrop');
+
+        // Animasi Keluar
+        backdrop.classList.add('opacity-0');
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-90', 'opacity-0');
+
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            if (shouldReload) {
+                window.location.reload(); // Reload halaman hanya jika sukses
+            }
+        }, 300);
     }
 
     // Fungsi Helper Global

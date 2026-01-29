@@ -7,7 +7,7 @@
     
     <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-4">
-            <a href="<?= BASE_URL ?>/superadmin/dashboard/<?= $assistant['id'] ?>" class="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition">
+            <a href="<?= BASE_URL ?>/admin/dashboard/<?= $assistant['id'] ?>" class="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition">
                 <i class="fas fa-arrow-left"></i>
             </a>
             <div>

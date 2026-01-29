@@ -7,10 +7,25 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 </style>
 
+<?php
+    $role = $_SESSION['role'];
+    $isUser = ($role == 'User');
+    $isAdmin = ($role == 'Admin');
+
+    // Ambil Data Laboratorium untuk Dropdown (Hanya jika User)
+    $labs = [];
+    if ($isUser) {
+        $db = new Database();
+        // [FIX] Menggunakan tabel 'lab' sesuai database
+        $db->query("SELECT * FROM lab ORDER BY nama_lab ASC");
+        $labs = $db->resultSet();
+    }
+?>
+
 <div class="max-w-4xl mx-auto space-y-6 animate-enter pb-12">
     
     <div class="flex items-center gap-4 mb-2">
-        <?php $roleLink = strtolower(str_replace(' ', '', $_SESSION['role'])); ?>
+        <?php $roleLink = strtolower(str_replace(' ', '', $role)); ?>
         <a href="<?= BASE_URL ?>/<?= $roleLink ?>/profile" class="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition">
             <i class="fas fa-arrow-left"></i>
         </a>
@@ -20,13 +35,13 @@
         </div>
     </div>
 
-    <?php if($_SESSION['role'] != 'Admin' && (empty($user['is_completed']) || $user['is_completed'] == 0)): ?>
+    <?php if(!$isAdmin): ?>
     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm flex items-start gap-3">
         <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5"></i>
         <div>
             <h4 class="font-bold text-yellow-700 text-sm">Perhatian Penting!</h4>
             <p class="text-xs text-yellow-600 mt-1">
-                Pastikan semua data diisi dengan benar. Anda hanya diberikan kesempatan <strong>SATU KALI</strong> untuk melengkapi profil ini. Setelah disimpan, data akan dikunci.
+                Pastikan data benar. Anda hanya dapat melengkapi profil <strong>SATU KALI</strong>. Setelah disimpan, data akan dikunci.
             </p>
         </div>
     </div>
@@ -38,7 +53,7 @@
             <div class="flex flex-col items-center justify-center mb-6">
                 <div class="relative group">
                     <?php 
-                        $photoPath = !empty($user['photo_profile']) && file_exists("../public/uploads/profile/" . $user['photo_profile']) 
+                        $photoPath = !empty($user['photo_profile']) && file_exists("uploads/profile/" . $user['photo_profile']) 
                             ? BASE_URL . "/uploads/profile/" . $user['photo_profile'] 
                             : "https://ui-avatars.com/api/?name=" . urlencode($user['name']);
                     ?>
@@ -51,36 +66,71 @@
                     <input type="file" name="photo" id="photoInput" class="hidden" accept="image/png, image/jpeg, image/jpg">
                     <input type="hidden" name="cropped_image" id="croppedImage">
                 </div>
-                <p class="text-xs text-gray-400 mt-2">Klik ikon kamera untuk mengganti foto profil</p>
+                <p class="text-xs text-gray-400 mt-2">Format: JPG, PNG (Max 2MB)</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Nama Lengkap <span class="text-red-500">*</span></label>
-                    <input type="text" name="name" value="<?= $user['name'] ?>" required minlength="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-bold text-gray-700">
+                    <input type="text" name="name" value="<?= $user['name'] ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-bold text-gray-700">
                 </div>
+                
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">NIM / ID Pengguna <span class="text-red-500">*</span></label>
-                    <input type="text" name="nim" value="<?= $user['nim'] ?? '' ?>" required minlength="5" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
+                        <?= $isUser ? 'NIM' : 'ID Pengguna' ?> <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="nim" value="<?= $user['nim'] ?? '' ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
                 </div>
+                
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Jabatan <span class="text-red-500">*</span></label>
                     <select name="position" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
                         <option value="" disabled <?= empty($user['position']) ? 'selected' : '' ?>>-- Pilih Jabatan --</option>
-                        <option value="Kepala Lab" <?= ($user['position'] ?? '') == 'Kepala Lab' ? 'selected' : '' ?>>Kepala Lab</option>
-                        <option value="Laboran" <?= ($user['position'] ?? '') == 'Laboran' ? 'selected' : '' ?>>Laboran</option>
-                        <option value="Asisten Lab" <?= ($user['position'] ?? '') == 'Asisten Lab' ? 'selected' : '' ?>>Asisten Lab</option>
-                        <option value="Anggota" <?= ($user['position'] ?? '') == 'Anggota' ? 'selected' : '' ?>>Anggota</option>
+                        <?php 
+                            $positions = ['Kepala Lab', 'Laboran', 'Asisten 1', 'Asisten 2', 'Asisten Pendamping', 'Administrator', 'Pengawas Lab'];
+                            foreach($positions as $pos): 
+                        ?>
+                            <option value="<?= $pos ?>" <?= ($user['position'] ?? '') == $pos ? 'selected' : '' ?>><?= $pos ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
+
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">No. WhatsApp / HP <span class="text-red-500">*</span></label>
-                    <input type="tel" name="phone" value="<?= $user['no_telp'] ?>" required pattern="[0-9]+" minlength="10" maxlength="15" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">No. WhatsApp <span class="text-red-500">*</span></label>
+                    <input type="tel" name="phone" value="<?= $user['no_telp'] ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
                 </div>
+
+                <?php if($isUser): ?>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Program Studi</label>
+                    <input type="text" name="prodi" value="<?= $user['prodi'] ?? '' ?>" placeholder="Contoh: Teknik Informatika" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition">
+                </div>
+                <?php endif; ?>
+
+                <?php if($isUser): ?>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Kelas <span class="text-red-500">*</span></label>
+                        <input type="text" name="class" value="<?= $user['kelas'] ?? '' ?>" required placeholder="Contoh: TI-3A" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono uppercase">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Laboratorium <span class="text-red-500">*</span></label>
+                        <select name="lab_id" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                            <option value="" disabled <?= empty($user['id_lab']) ? 'selected' : '' ?>>-- Pilih Laboratorium --</option>
+                            <?php foreach($labs as $lab): ?>
+                                <option value="<?= $lab['id_lab'] ?>" <?= ($user['id_lab'] ?? '') == $lab['id_lab'] ? 'selected' : '' ?>>
+                                    <?= $lab['nama_lab'] ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                <?php endif; ?>
+
                 <div class="md:col-span-2">
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Alamat Domisili <span class="text-red-500">*</span></label>
-                    <textarea name="address" rows="2" required minlength="10" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"><?= $user['alamat'] ?></textarea>
+                    <textarea name="address" rows="2" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"><?= $user['alamat'] ?></textarea>
                 </div>
+
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Jenis Kelamin <span class="text-red-500">*</span></label>
                     <select name="gender" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
@@ -89,46 +139,29 @@
                         <option value="P" <?= $user['jenis_kelamin'] == 'P' ? 'selected' : '' ?>>Perempuan</option>
                     </select>
                 </div>
-                <?php if($_SESSION['role'] == 'User'): ?>
+
+                <?php if($isUser): ?>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Peminatan <span class="text-red-500">*</span></label>
                     <select name="interest" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
-                        <option value="" disabled <?= empty($user['peminatan']) ? 'selected' : '' ?>>-- Pilih Minat --</option>
-                        <option value="RPL" <?= $user['peminatan'] == 'RPL' ? 'selected' : '' ?>>RPL (Software)</option>
-                        <option value="Jaringan" <?= $user['peminatan'] == 'Jaringan' ? 'selected' : '' ?>>Jaringan (Network)</option>
+                        <option value="" disabled <?= empty($user['peminatan']) ? 'selected' : '' ?>>-- Pilih Peminatan --</option>
+                        <option value="RPL" <?= $user['peminatan'] == 'RPL' ? 'selected' : '' ?>>RPL</option>
+                        <option value="Jaringan" <?= $user['peminatan'] == 'Jaringan' ? 'selected' : '' ?>>Jaringan</option>
+                        <option value="IoT" <?= $user['peminatan'] == 'IoT' ? 'selected' : '' ?>>IoT</option>
                         <option value="Multimedia" <?= $user['peminatan'] == 'Multimedia' ? 'selected' : '' ?>>Multimedia</option>
-                        <option value="AI" <?= $user['peminatan'] == 'AI' ? 'selected' : '' ?>>Artificial Intelligence</option>
+                        <option value="AI" <?= $user['peminatan'] == 'AI' ? 'selected' : '' ?>>AI</option>
                     </select>
                 </div>
                 <?php endif; ?>
             </div>
 
             <div class="flex justify-end pt-6 border-t border-gray-100">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition transform hover:scale-105 flex items-center gap-2">
-                    <i class="fas fa-save"></i> Simpan Lengkap
+                <button type="submit" id="saveBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition transform hover:scale-105 flex items-center gap-2">
+                    <i class="fas fa-save"></i> 
+                    <?= $isAdmin ? 'Simpan Perubahan' : 'Simpan Permanen' ?>
                 </button>
             </div>
         </form>
-    </div>
-</div>
-
-<div id="cropperModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/80 backdrop-blur-sm transition-opacity opacity-0" id="cropperBackdrop"></div>
-    <div class="relative bg-white rounded-3xl overflow-hidden shadow-2xl w-full max-w-lg transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[90vh]" id="cropperContent">
-        <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-white z-10">
-            <div>
-                <h3 class="text-xl font-extrabold text-gray-800 tracking-tight">Sesuaikan Foto</h3>
-                <p class="text-xs text-gray-500 mt-0.5">Geser dan atur ukuran kotak untuk memotong.</p>
-            </div>
-            <button type="button" id="closeModalBtn" class="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="flex-1 bg-gray-900 relative flex items-center justify-center overflow-hidden h-[400px] md:h-[500px]">
-            <img id="imageToCrop" src="" alt="Crop Preview" class="block max-w-full max-h-full mx-auto">
-        </div>
-        <div class="px-6 py-5 border-t border-gray-100 bg-gray-50/50 flex flex-col-reverse sm:flex-row justify-end gap-3 z-10">
-            <button type="button" id="cancelCropBtn" class="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-gray-300 text-gray-600 font-bold text-sm hover:bg-gray-100 hover:text-gray-800 transition active:scale-95">Batal</button>
-            <button type="button" id="cropImageBtn" class="w-full sm:w-auto px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"><i class="fas fa-crop-simple"></i><span>Potong & Simpan</span></button>
-        </div>
     </div>
 </div>
 
@@ -140,21 +173,40 @@
         </div>
         <h3 id="alertTitle" class="text-xl font-extrabold text-gray-800 mb-2"></h3>
         <p id="alertMessage" class="text-sm text-gray-500 mb-6 px-2"></p>
-        <button onclick="closeCustomAlertAndRedirect()" class="w-full py-3 rounded-xl font-bold text-white shadow-lg transition transform hover:scale-[1.02]" id="alertBtn">OK</button>
+        <button onclick="closeCustomAlert()" class="w-full py-3 rounded-xl font-bold text-white shadow-lg transition transform hover:scale-[1.02]" id="alertBtn">OK</button>
     </div>
 </div>
 
-<div id="customConfirmModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center px-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="confirmBackdrop"></div>
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative z-10 overflow-hidden transform scale-90 opacity-0 transition-all duration-300 flex flex-col items-center p-6 text-center" id="confirmContent">
-        <div class="w-16 h-16 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center mb-4">
-            <i class="fas fa-question-circle text-3xl"></i>
+<div id="confirmModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center px-4">
+    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onclick="closeConfirmModal()"></div>
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm relative z-10 p-6 text-center">
+        <div class="w-14 h-14 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+            <i class="fas fa-question"></i>
         </div>
-        <h3 class="text-xl font-extrabold text-gray-800 mb-2">Simpan Perubahan?</h3>
-        <p class="text-sm text-gray-500 mb-6 px-2" id="confirmMessage">Pastikan data yang Anda masukkan sudah benar.</p>
-        <div class="flex gap-3 w-full">
-            <button onclick="closeCustomConfirm()" class="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition">Batal</button>
-            <button id="confirmYesBtn" class="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 transition">Ya, Simpan</button>
+        <h3 class="text-lg font-bold text-gray-800">Simpan Data?</h3>
+        <p class="text-xs text-gray-500 mb-5">
+            <?= $isAdmin ? 'Pastikan data yang Anda masukkan sudah benar.' : 'Pastikan data sudah benar. Data akan dikunci setelah disimpan.' ?>
+        </p>
+        <div class="flex gap-3">
+            <button onclick="closeConfirmModal()" class="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-600 font-bold hover:bg-gray-50">Batal</button>
+            <button id="confirmYesBtn" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg">Ya, Simpan</button>
+        </div>
+    </div>
+</div>
+
+<div id="cropperModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
+    <div class="absolute inset-0 bg-gray-900/80 backdrop-blur-sm" id="cropperBackdrop"></div>
+    <div class="relative bg-white rounded-3xl overflow-hidden shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+            <h3 class="font-bold">Potong Foto</h3>
+            <button id="closeModalBtn" class="text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="flex-1 bg-gray-900 relative flex items-center justify-center overflow-hidden h-[400px]">
+            <img id="imageToCrop" src="" class="max-w-full max-h-full">
+        </div>
+        <div class="px-6 py-4 flex justify-end gap-3 bg-gray-50">
+            <button id="cancelCropBtn" class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100 font-bold text-sm">Batal</button>
+            <button id="cropImageBtn" class="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-bold text-sm">Potong & Simpan</button>
         </div>
     </div>
 </div>
@@ -162,15 +214,66 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
 <script>
-    const userRole = '<?= $_SESSION['role'] ?>';
-    let shouldRedirect = false; // Flag untuk redirect setelah sukses
+    let redirectUrl = null;
 
-    // --- ALERT LOGIC ---
-    function showCustomAlert(type, title, message, redirect = false) {
-        shouldRedirect = redirect;
+    // --- 1. HANDLING FORM SUBMIT (AJAX) ---
+    document.getElementById('profileForm').addEventListener('submit', function(e) {
+        e.preventDefault(); 
+        document.getElementById('confirmModal').classList.remove('hidden');
+    });
+
+    function closeConfirmModal() {
+        document.getElementById('confirmModal').classList.add('hidden');
+    }
+
+    document.getElementById('confirmYesBtn').addEventListener('click', function() {
+        closeConfirmModal();
+        submitData();
+    });
+
+    function submitData() {
+        const form = document.getElementById('profileForm');
+        const formData = new FormData(form);
+        const btn = document.getElementById('saveBtn');
+        const originalText = btn.innerHTML;
+
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Menyimpan...';
+        btn.disabled = true;
+
+        // URL Dinamis berdasarkan Role
+        const role = "<?= $role ?>";
+        let url = '';
+        if (role === 'User') url = '<?= BASE_URL ?>/user/updateProfile';
+        else if (role === 'Admin') url = '<?= BASE_URL ?>/admin/updateProfile';
+        else url = '<?= BASE_URL ?>/superadmin/updateProfile';
+
+        fetch(url, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+
+            if (data.status === 'success') {
+                redirectUrl = data.redirect;
+                showCustomAlert('success', data.title, data.message);
+            } else {
+                showCustomAlert('error', data.title || 'Gagal', data.message);
+            }
+        })
+        .catch(error => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            showCustomAlert('error', 'Error Sistem', 'Gagal menghubungi server.');
+            console.error(error);
+        });
+    }
+
+    // --- 2. ALERT MODAL LOGIC ---
+    function showCustomAlert(type, title, message) {
         const modal = document.getElementById('customAlertModal');
-        const content = document.getElementById('alertContent');
-        const backdrop = document.getElementById('alertBackdrop');
         const iconBg = document.getElementById('alertIconBg');
         const icon = document.getElementById('alertIcon');
         const btn = document.getElementById('alertBtn');
@@ -181,180 +284,79 @@
         if (type === 'success') {
             iconBg.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-green-100 text-green-600';
             icon.className = 'fas fa-check text-3xl';
-            btn.className = 'w-full py-3 rounded-xl font-bold text-white shadow-lg transition transform hover:scale-[1.02] bg-green-600 hover:bg-green-700 shadow-green-500/30';
+            btn.className = 'w-full py-3 rounded-xl font-bold text-white shadow-lg bg-green-600 hover:bg-green-700 transition';
         } else {
             iconBg.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-100 text-red-600';
             icon.className = 'fas fa-times text-3xl';
-            btn.className = 'w-full py-3 rounded-xl font-bold text-white shadow-lg transition transform hover:scale-[1.02] bg-red-600 hover:bg-red-700 shadow-red-500/30';
+            btn.className = 'w-full py-3 rounded-xl font-bold text-white shadow-lg bg-red-600 hover:bg-red-700 transition';
         }
 
         modal.classList.remove('hidden');
         setTimeout(() => {
-            backdrop.classList.remove('opacity-0');
-            content.classList.remove('scale-90', 'opacity-0');
-            content.classList.add('scale-100', 'opacity-100');
+            document.getElementById('alertBackdrop').classList.remove('opacity-0');
+            document.getElementById('alertContent').classList.remove('scale-90', 'opacity-0');
+            document.getElementById('alertContent').classList.add('scale-100', 'opacity-100');
         }, 10);
     }
 
-    function closeCustomAlertAndRedirect() {
+    function closeCustomAlert() {
         const modal = document.getElementById('customAlertModal');
-        const content = document.getElementById('alertContent');
-        const backdrop = document.getElementById('alertBackdrop');
-        backdrop.classList.add('opacity-0');
-        content.classList.remove('scale-100', 'opacity-100');
-        content.classList.add('scale-90', 'opacity-0');
+        document.getElementById('alertBackdrop').classList.add('opacity-0');
+        document.getElementById('alertContent').classList.remove('scale-100', 'opacity-100');
+        document.getElementById('alertContent').classList.add('scale-90', 'opacity-0');
+
         setTimeout(() => {
             modal.classList.add('hidden');
-            // JIKA SUKSES, BARU REDIRECT
-            if(shouldRedirect) {
-                window.location.href = '<?= BASE_URL ?>/<?= $roleLink ?>/profile';
+            if (redirectUrl) {
+                window.location.href = redirectUrl;
             }
         }, 300);
     }
 
-    // --- CONFIRM & SUBMIT LOGIC ---
-    document.getElementById('profileForm').addEventListener('submit', function(e) {
-        e.preventDefault(); 
-        let msg = 'Simpan perubahan profil?';
-        if (userRole !== 'Admin') {
-            msg = 'Pastikan semua data sudah benar. Data akan dikunci dan tidak dapat diubah lagi setelah disimpan.';
-        }
-        showCustomConfirm(msg);
-    });
-
-    function showCustomConfirm(message) {
-        const modal = document.getElementById('customConfirmModal');
-        const content = document.getElementById('confirmContent');
-        const backdrop = document.getElementById('confirmBackdrop');
-        document.getElementById('confirmMessage').innerText = message;
-
-        modal.classList.remove('hidden');
-        setTimeout(() => {
-            backdrop.classList.remove('opacity-0');
-            content.classList.remove('scale-90', 'opacity-0');
-            content.classList.add('scale-100', 'opacity-100');
-        }, 10);
-    }
-
-    function closeCustomConfirm() {
-        const modal = document.getElementById('customConfirmModal');
-        const content = document.getElementById('confirmContent');
-        const backdrop = document.getElementById('confirmBackdrop');
-        backdrop.classList.add('opacity-0');
-        content.classList.remove('scale-100', 'opacity-100');
-        content.classList.add('scale-90', 'opacity-0');
-        setTimeout(() => modal.classList.add('hidden'), 300);
-    }
-
-    document.getElementById('confirmYesBtn').addEventListener('click', function() {
-        closeCustomConfirm();
-        submitProfileData();
-    });
-
-    // --- AJAX SUBMIT FUNCTION ---
-    function submitProfileData() {
-        const form = document.getElementById('profileForm');
-        const formData = new FormData(form);
-
-        fetch('<?= BASE_URL ?>/<?= $roleLink ?>/updateProfile', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Tampilkan Modal Sukses DULU, Redirect nanti setelah klik OK
-                showCustomAlert('success', 'Tersimpan!', data.message, true);
-            } else {
-                showCustomAlert('error', 'Gagal!', data.message, false);
-            }
-        })
-        .catch(error => {
-            showCustomAlert('error', 'Error!', 'Terjadi kesalahan sistem.', false);
-            console.error(error);
-        });
-    }
-
-    // --- CROPPER LOGIC (TETAP SAMA) ---
+    // --- 3. CROPPER JS LOGIC ---
     document.addEventListener('DOMContentLoaded', function () {
         const photoInput = document.getElementById('photoInput');
         const previewImg = document.getElementById('previewImg');
         const croppedImageInput = document.getElementById('croppedImage');
         const cropperModal = document.getElementById('cropperModal');
-        const cropperBackdrop = document.getElementById('cropperBackdrop');
-        const cropperContent = document.getElementById('cropperContent');
         const imageToCrop = document.getElementById('imageToCrop');
-        const closeBtn = document.getElementById('closeModalBtn');
-        const cancelBtn = document.getElementById('cancelCropBtn');
-        const cropBtn = document.getElementById('cropImageBtn');
         let cropper;
-
-        function openModal() {
-            cropperModal.classList.remove('hidden');
-            cropperModal.classList.add('flex');
-            setTimeout(() => {
-                cropperBackdrop.classList.remove('opacity-0');
-                cropperContent.classList.remove('scale-95', 'opacity-0');
-                cropperContent.classList.add('scale-100', 'opacity-100');
-            }, 10);
-        }
-
-        function closeModal() {
-            cropperBackdrop.classList.add('opacity-0');
-            cropperContent.classList.remove('scale-100', 'opacity-100');
-            cropperContent.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                cropperModal.classList.add('hidden');
-                cropperModal.classList.remove('flex');
-                if (cropper) { cropper.destroy(); cropper = null; }
-                if (!croppedImageInput.value) photoInput.value = ''; 
-            }, 300);
-        }
 
         photoInput.addEventListener('change', function (e) {
             const files = e.target.files;
             if (files && files.length > 0) {
                 const file = files[0];
-                if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-                    showCustomAlert('error', 'Format Salah', 'Mohon pilih file gambar (JPG, JPEG, PNG).', false);
-                    photoInput.value = '';
-                    return;
-                }
                 const reader = new FileReader();
                 reader.onload = function (event) {
-                    if (cropper) cropper.destroy();
                     imageToCrop.src = reader.result;
-                    openModal();
-                    setTimeout(() => {
-                        cropper = new Cropper(imageToCrop, {
-                            aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 0.8, restore: false, guides: true, center: true, highlight: false, cropBoxMovable: true, cropBoxResizable: true, toggleDragModeOnDblclick: false, background: false
-                        });
-                    }, 150);
+                    cropperModal.classList.remove('hidden');
+                    cropperModal.classList.add('flex');
+                    if(cropper) cropper.destroy();
+                    cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1 });
                 };
                 reader.readAsDataURL(file);
             }
         });
 
-        closeBtn.addEventListener('click', closeModal);
-        cancelBtn.addEventListener('click', closeModal);
-
-        cropBtn.addEventListener('click', function () {
+        document.getElementById('cropImageBtn').addEventListener('click', function () {
             if (!cropper) return;
-            const canvas = cropper.getCroppedCanvas({
-                width: 500, height: 500, fillColor: '#fff', imageSmoothingEnabled: true, imageSmoothingQuality: 'high',
-            });
-            const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+            const canvas = cropper.getCroppedCanvas({ width: 500, height: 500 });
+            const base64Image = canvas.toDataURL('image/jpeg');
             previewImg.src = base64Image;
             croppedImageInput.value = base64Image;
-            
-            cropperBackdrop.classList.add('opacity-0');
-            cropperContent.classList.remove('scale-100', 'opacity-100');
-            cropperContent.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                cropperModal.classList.add('hidden');
-                cropperModal.classList.remove('flex');
-                if (cropper) { cropper.destroy(); cropper = null; }
-            }, 300);
+            cropperModal.classList.add('hidden');
+            cropperModal.classList.remove('flex');
+        });
+
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+            cropperModal.classList.add('hidden');
+            cropperModal.classList.remove('flex');
+            photoInput.value = '';
+        });
+        document.getElementById('cancelCropBtn').addEventListener('click', () => {
+            cropperModal.classList.add('hidden');
+            cropperModal.classList.remove('flex');
+            photoInput.value = '';
         });
     });
 </script>
