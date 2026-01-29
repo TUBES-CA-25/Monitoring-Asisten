@@ -17,6 +17,9 @@
     </div>
 </div>
 
+
+
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/webcamjs/1.0.26/webcam.min.js"></script>
 <script>
     Webcam.set({ width: 320, height: 240, image_format: 'jpeg', jpeg_quality: 90 });
