@@ -12,6 +12,7 @@ class SuperAdminController extends Controller {
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
         $attModel = $this->model('AttendanceModel');
+        $userModel = $this->model('UserModel');
         $todayStats = $attModel->getTodayStats(); 
         
         $db = new Database(); 
@@ -32,9 +33,9 @@ class SuperAdminController extends Controller {
             'total_late'    => $totalLate
         ];
 
-        $stmtAst = $conn->query("SELECT u.id_user, u.email, 
+        $stmtAst = $conn->query("SELECT u.id_user, u.email, u.created_at,
                                         p.id_profil, p.nama, p.photo_profile, p.jabatan, 
-                                        p.nim, p.no_telp, p.alamat, p.prodi, p.kelas 
+                                        p.nim, p.no_telp, p.alamat, p.prodi, p.kelas, p.is_completed 
                                  FROM user u 
                                  JOIN profile p ON u.id_user = p.id_user 
                                  WHERE u.role = 'User' 
@@ -71,13 +72,49 @@ class SuperAdminController extends Controller {
             $stmtIz->execute([':pid' => $pid]);
             $ast['total_izin'] = $stmtIz->fetchColumn();
 
-            $stmtA = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Alpha'");
-            $stmtA->execute([':pid' => $pid]);
-            $ast['total_alpa'] = $stmtA->fetchColumn();
+            $ast['total_alpa'] = $userModel->calculateRealAlpha($pid, $ast['created_at'], $ast['is_completed']);
+            // $stmtA = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Alpha'");
+            // $stmtA->execute([':pid' => $pid]);
+            // $ast['total_alpa'] = $stmtA->fetchColumn();
         }
 
         $data['assistants'] = $assistants;
-        $data['chart_data'] = $attModel->getChartData();
+        $chartData = [];
+        
+        // A. Harian
+        $dLabels = []; $dData = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-$i days"));
+            $dLabels[] = date('d M', strtotime($date));
+            $stmt = $conn->query("SELECT COUNT(*) FROM presensi WHERE tanggal = '$date' AND status = 'Hadir'");
+            $dData[] = $stmt->fetchColumn();
+        }
+        $chartData['daily'] = ['labels' => $dLabels, 'data' => $dData];
+
+        // B. Mingguan
+        $wLabels = []; $wData = [];
+        for ($i = 3; $i >= 0; $i--) {
+            $wStart = date('Y-m-d', strtotime("-$i weeks Monday this week"));
+            $wEnd   = date('Y-m-d', strtotime("-$i weeks Sunday this week"));
+            $wLabels[] = "Minggu " . date('W', strtotime($wStart));
+            $stmt = $conn->query("SELECT COUNT(*) FROM presensi WHERE tanggal BETWEEN '$wStart' AND '$wEnd' AND status = 'Hadir'");
+            $wData[] = $stmt->fetchColumn();
+        }
+        $chartData['weekly'] = ['labels' => $wLabels, 'data' => $wData];
+
+        // C. Bulanan
+        $mLabels = []; $mData = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $mStart = date('Y-m-01', strtotime("-$i months"));
+            $mEnd   = date('Y-m-t', strtotime("-$i months"));
+            $mLabels[] = date('F', strtotime($mStart));
+            $stmt = $conn->query("SELECT COUNT(*) FROM presensi WHERE tanggal BETWEEN '$mStart' AND '$mEnd' AND status = 'Hadir'");
+            $mData[] = $stmt->fetchColumn();
+        }
+        $chartData['monthly'] = ['labels' => $mLabels, 'data' => $mData];
+
+        $data['chart_data'] = $chartData;
+        // $data['chart_data'] = $attModel->getChartData();
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -89,7 +126,25 @@ class SuperAdminController extends Controller {
         if ($_SESSION['role'] != 'Super Admin') exit;
         $data['judul'] = 'Daftar Pengguna';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
-        $allUsers = $this->model('UserModel')->getAllUsers();
+        
+        // [PERBAIKAN] Query Lengkap (sama seperti Admin)
+        $db = new Database();
+        $conn = $db->getConnection();
+        
+        $query = "SELECT u.id_user as id, u.email, u.role,
+                         p.nama as name, p.photo_profile, p.jabatan as position, 
+                         p.nim, p.kelas, p.prodi, p.no_telp, p.alamat, p.jenis_kelamin, p.is_completed,
+                         p.id_lab, l.nama_lab as lab_name
+                  FROM user u
+                  JOIN profile p ON u.id_user = p.id_user
+                  LEFT JOIN lab l ON p.id_lab = l.id_lab
+                  ORDER BY p.nama ASC";
+
+        $stmt = $conn->prepare($query);
+        $stmt->execute();
+        $allUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Filter: Sembunyikan akun sendiri dari daftar
         $data['users_list'] = array_filter($allUsers, function($u) {
             return $u['id'] != $_SESSION['user_id'];
         });
@@ -224,6 +279,10 @@ class SuperAdminController extends Controller {
         
         $db = new Database(); 
         $conn = $db->getConnection();
+
+        $stmtG = $conn->prepare("SELECT id_token FROM user_google_token WHERE id_user = :uid");
+        $stmtG->execute([':uid' => $_SESSION['user_id']]);
+        $data['is_google_connected'] = $stmtG->rowCount() > 0;
         
         // 1. Total Asisten
         $stmt = $conn->query("SELECT COUNT(*) as total FROM user WHERE role='User'");

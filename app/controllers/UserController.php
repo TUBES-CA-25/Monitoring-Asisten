@@ -9,17 +9,19 @@ class UserController extends Controller {
         }
 
         $data['judul'] = 'Dashboard Asisten';
-        $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+        // [UPDATE] Ambil User lengkap termasuk created_at dan is_completed
+        $userModel = $this->model('UserModel');
+        $user = $userModel->getUserById($_SESSION['user_id']);
+        $data['user'] = $user;
         
         $schModel = $this->model('ScheduleModel');
-        
         $uid = $_SESSION['user_id'];
         $pId = $_SESSION['profil_id']; 
         
         $db = new Database(); 
         $conn = $db->getConnection();
 
-        // 1. STATISTIK TOTAL (Query ke tabel presensi & izin)
+        // 1. STATISTIK TOTAL
         $stmtH = $conn->prepare("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
         $stmtH->execute([':pid' => $pId]);
         $hadir = $stmtH->fetch()['total'];
@@ -28,7 +30,10 @@ class UserController extends Controller {
         $stmtI->execute([':pid' => $pId]);
         $izin = $stmtI->fetch()['total'];
 
-        $alpa = 0; // Logic alpa bisa dikembangkan nanti
+        // [BARU] Hitung Alpha Otomatis
+        // Menggunakan tanggal pembuatan akun dan status verifikasi
+        $alpa = $userModel->calculateRealAlpha($pId, $user['created_at'], $user['is_completed']);
+        
         $data['stats'] = ['hadir' => $hadir, 'izin' => $izin, 'alpa' => $alpa];
         
         // 2. CEK STATUS HARI INI (LOGIKA DIPERBAIKI)
@@ -61,16 +66,45 @@ class UserController extends Controller {
         // 3. JADWAL MINGGUAN
         $data['weekly_schedule'] = $schModel->getUserScheduleForWeek($uid); 
 
-        // 4. CHART DATA
-        $dailyLabels = []; $dailyData = [];
+        $chartData = [];
+
+        $dLabels = []; $dData = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-$i days"));
-            $dailyLabels[] = date('D', strtotime($date));
+            $dLabels[] = date('D', strtotime($date));
             $stmt = $conn->prepare("SELECT count(*) as c FROM presensi WHERE id_profil=:pid AND tanggal=:d AND status='Hadir'");
             $stmt->execute([':pid'=>$pId, ':d'=>$date]);
-            $dailyData[] = $stmt->fetch()['c'] > 0 ? 1 : 0;
+            $dData[] = $stmt->fetch()['c'] > 0 ? 1 : 0;
         }
-        $data['chart_data'] = ['daily' => ['labels' => $dailyLabels, 'data' => $dailyData]];
+        $chartData['daily'] = ['labels' => $dLabels, 'data' => $dData];
+
+        // B. Mingguan (4 Minggu Terakhir)
+        $wLabels = []; $wData = [];
+        for ($i = 3; $i >= 0; $i--) {
+            $wStart = date('Y-m-d', strtotime("-$i weeks Monday this week"));
+            $wEnd   = date('Y-m-d', strtotime("-$i weeks Sunday this week"));
+            $wLabels[] = "Minggu " . date('W', strtotime($wStart));
+            
+            $stmt = $conn->prepare("SELECT count(*) FROM presensi WHERE id_profil=:pid AND tanggal BETWEEN :s AND :e AND status='Hadir'");
+            $stmt->execute([':pid'=>$pId, ':s'=>$wStart, ':e'=>$wEnd]);
+            $wData[] = $stmt->fetchColumn();
+        }
+        $chartData['weekly'] = ['labels' => $wLabels, 'data' => $wData];
+
+        // C. Bulanan (6 Bulan Terakhir)
+        $mLabels = []; $mData = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $mStart = date('Y-m-01', strtotime("-$i months"));
+            $mEnd   = date('Y-m-t', strtotime("-$i months"));
+            $mLabels[] = date('M', strtotime($mStart));
+            
+            $stmt = $conn->prepare("SELECT count(*) FROM presensi WHERE id_profil=:pid AND tanggal BETWEEN :s AND :e AND status='Hadir'");
+            $stmt->execute([':pid'=>$pId, ':s'=>$mStart, ':e'=>$mEnd]);
+            $mData[] = $stmt->fetchColumn();
+        }
+        $chartData['monthly'] = ['labels' => $mLabels, 'data' => $mData];
+
+        $data['chart_data'] = $chartData;
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data); 
@@ -84,9 +118,12 @@ class UserController extends Controller {
         $data['judul'] = 'Profil Saya';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
-        // Ambil statistik untuk ditampilkan di profil
         $pId = $_SESSION['profil_id'];
         $db = new Database(); $conn = $db->getConnection();
+
+        $stmtG = $conn->prepare("SELECT id_token FROM user_google_token WHERE id_user = :uid");
+        $stmtG->execute([':uid' => $_SESSION['user_id']]);
+        $data['is_google_connected'] = $stmtG->rowCount() > 0;
         
         $stmtH = $conn->prepare("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
         $stmtH->execute([':pid'=>$pId]);
@@ -106,11 +143,10 @@ class UserController extends Controller {
 
     public function editProfile() {
         $role = $_SESSION['role'];
-        if ($role != 'User' && $role != 'Super Admin') exit; // Safety check
+        if ($role != 'User' && $role != 'Super Admin') exit;
 
         $user = $this->model('UserModel')->getUserById($_SESSION['user_id']);
 
-        // CEK CONSTRAINT: Jika sudah completed, tolak akses.
         if ($user['is_completed'] == 1) {
             echo "<script>
                 alert('Profil Anda sudah dikunci. Hubungi Admin untuk perubahan data.');
@@ -124,7 +160,7 @@ class UserController extends Controller {
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
-        $this->view('common/edit_profile', $data); // View kita buat di langkah 4
+        $this->view('common/edit_profile', $data); 
         $this->view('layout/footer');
     }
 

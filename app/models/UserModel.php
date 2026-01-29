@@ -20,7 +20,7 @@ class UserModel {
     }
 
     public function getUserById($id) {
-        $sql = "SELECT u.id_user as id, p.id_profil, u.role, u.email, 
+        $sql = "SELECT u.id_user as id, u.created_at, p.id_profil, u.role, u.email, 
                        p.nama as name, p.nim, p.kelas, p.prodi, p.jabatan as position, p.photo_profile,
                        p.alamat, p.no_telp, p.jenis_kelamin, p.peminatan, p.is_completed,
                        l.nama_lab as lab_name,
@@ -32,6 +32,65 @@ class UserModel {
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([':id' => $id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function calculateRealAlpha($id_profil, $accountCreatedAt, $isCompleted) {
+        // Jika akun belum lengkap/verifikasi, Alpha masih 0
+        if ($isCompleted != 1) return 0;
+
+        // 1. Ambil semua tanggal hadir
+        $this->db->query("SELECT tanggal FROM presensi WHERE id_profil = :pid AND status IN ('Hadir', 'Terlambat')");
+        $this->db->bind(':pid', $id_profil);
+        $presensiRaw = $this->db->resultSet();
+        $presensiMap = [];
+        foreach($presensiRaw as $p) $presensiMap[$p['tanggal']] = true;
+
+        // 2. Ambil semua rentang izin (Approved)
+        $this->db->query("SELECT start_date, end_date FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
+        $this->db->bind(':pid', $id_profil);
+        $izinRanges = $this->db->resultSet();
+
+        // 3. Loop Tanggal (Dari Join Date sampai Kemarin)
+        // Alpha dihitung H-1, karena hari ini masih berjalan
+        $startDate = new DateTime($accountCreatedAt); 
+        $endDate = new DateTime(); // Hari ini
+        $endDate->modify('-1 day'); // Sampai kemarin
+
+        if ($startDate > $endDate) return 0; // Baru gabung hari ini
+
+        $alphaCount = 0;
+
+        while ($startDate <= $endDate) {
+            // Format Y-m-d
+            $currDate = $startDate->format('Y-m-d');
+            
+            // Cek Hari Kerja (1=Senin ... 5=Jumat). Sabtu(6) & Minggu(7) Libur -> Tidak dihitung Alpha
+            // Ubah logika ini jika lab buka Sabtu/Minggu
+            if ($startDate->format('N') <= 7) {
+                
+                $isPresent = isset($presensiMap[$currDate]);
+                $isPermitted = false;
+
+                // Cek Izin jika tidak hadir
+                if (!$isPresent) {
+                    foreach($izinRanges as $iz) {
+                        if ($currDate >= $iz['start_date'] && $currDate <= $iz['end_date']) {
+                            $isPermitted = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Jika Tidak Hadir DAN Tidak Izin => Alpha Bertambah
+                if (!$isPresent && !$isPermitted) {
+                    $alphaCount++;
+                }
+            }
+
+            $startDate->modify('+1 day');
+        }
+
+        return $alphaCount;
     }
 
     public function updateSelfProfile($data) {

@@ -6,18 +6,46 @@
     .animate-enter { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     
-    /* CAROUSEL */
-    @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-    .carousel-container { overflow: hidden; padding: 20px 0; mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent); }
-    .carousel-track { display: flex; gap: 2rem; width: max-content; animation: scroll 40s linear infinite; }
-    .carousel-track:hover { animation-play-state: paused; }
-
-    /* KARTU ASISTEN */
-    .polaroid-card {
-        background: white; width: 220px; padding: 10px 10px 40px 10px;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;
-        transition: transform 0.3s; position: relative;
+    /* CAROUSEL INFINITE LOOP */
+    @keyframes scroll { 
+        0% { transform: translateX(0); } 
+        100% { transform: translateX(-50%); } 
     }
+    
+    .carousel-container { 
+        overflow: hidden; 
+        padding: 20px 0; 
+        mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent); 
+    }
+    
+    .carousel-track { 
+        display: flex; 
+        /* GAP DIHAPUS agar perhitungan matematika loop presisi */
+        /* gap: 2rem; */
+        width: max-content; 
+        animation: scroll 80s linear infinite; 
+        will-change: transform; /* Optimasi performa */
+    }
+    
+    .carousel-track:hover { 
+        animation-play-state: paused; 
+    }
+
+    /* KARTU ASISTEN POLAROID */
+    .polaroid-card {
+        background: white; 
+        width: 220px; 
+        padding: 10px 10px 40px 10px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+        border: 1px solid #e5e7eb;
+        transition: transform 0.3s; 
+        position: relative;
+        
+        /* [PERBAIKAN UTAMA] Gunakan margin item, bukan gap container */
+        margin-right: 2rem; 
+        flex-shrink: 0; 
+    }
+    
     .polaroid-card:hover { transform: scale(1.05); z-index: 10; box-shadow: 0 15px 25px rgba(0,0,0,0.1); }
     
     .led { width: 12px; height: 12px; border-radius: 50%; position: absolute; top: 20px; right: 20px; z-index: 10; animation: pulse 2s infinite; }
@@ -106,48 +134,46 @@
             <div class="carousel-container">
                 <div class="carousel-track">
                     <?php 
-                    // Menggabungkan array untuk efek infinite loop
-                    $allCards = array_merge($assistants, $assistants); 
+                    // [PERBAIKAN LOGIKA PHP UNTUK LOOPING]
+                    // 1. Buat temporary list
+                    $workingList = $assistants;
+                    $minItems = 10; // Jumlah minimal item agar track cukup panjang (mengisi layar)
+
+                    // 2. Jika item kurang dari minimal, duplikasi diri sendiri sampai cukup
+                    if (!empty($workingList)) {
+                        while (count($workingList) < $minItems) {
+                            $workingList = array_merge($workingList, $assistants);
+                        }
+                    }
+
+                    // 3. Duplikasi Final (2 Set) untuk efek infinite scroll CSS (0% ke -50%)
+                    $allCards = array_merge($workingList, $workingList); 
                     
                     foreach($allCards as $asisten): 
-                        // [LOGIKA BARU] Menentukan Style berdasarkan visual_status dari Controller
                         $vStatus = $asisten['visual_status'] ?? 'alpha';
-                        
-                        $imgFilter = ''; // Filter CSS untuk Foto
-                        $dotColor = '';  // Warna Dot Indikator
+                        $imgFilter = ''; 
+                        $dotColor = '';  
                         $statusLabel = '';
 
                         switch ($vStatus) {
                             case 'online': 
-                                // Sedang Bertugas: Foto Normal, Dot Hijau
                                 $imgFilter = 'grayscale-0'; 
                                 $dotColor = 'bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]';
-                                $statusLabel = 'Online';
-                                break;
-                            
+                                $statusLabel = 'Online'; break;
                             case 'izin': 
-                                // Izin/Sakit: Foto Kekuningan, Dot Kuning
                                 $imgFilter = 'sepia brightness-90'; 
                                 $dotColor = 'bg-yellow-500 shadow-[0_0_8px_#eab308]';
-                                $statusLabel = 'Izin';
-                                break;
-                            
-                            case 'offline_pulang': // SUDAH PULANG
-                            case 'alpha':          // BELUM DATANG
+                                $statusLabel = 'Izin'; break;
                             default:
-                                // Offline: Foto Hitam Putih, Dot Merah
                                 $imgFilter = 'grayscale opacity-70'; 
                                 $dotColor = 'bg-red-500 shadow-[0_0_8px_#ef4444]';
-                                $statusLabel = 'Offline';
-                                break;
+                                $statusLabel = 'Offline'; break;
                         }
 
-                        // Avatar Logic
                         $photoPath = !empty($asisten['photo_profile']) && file_exists('uploads/profile/' . $asisten['photo_profile'])
                             ? BASE_URL . '/uploads/profile/' . $asisten['photo_profile'] 
                             : "https://ui-avatars.com/api/?name=" . urlencode($asisten['nama']) . "&background=random&size=500";
                         
-                        // Encode data user untuk Modal Detail
                         $jsonUser = htmlspecialchars(json_encode($asisten), ENT_QUOTES, 'UTF-8');
                     ?>
                     
@@ -272,6 +298,13 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="mt-6 w-full">
+                    <a id="btnSchedule" href="/admin/assistant_schedule" class="flex items-center justify-center w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 shadow-md transition-all transform hover:scale-[1.02]">
+                        <i class="fas fa-calendar-alt mr-2"></i> Jadwal Lengkap
+                    </a>
+                </div>
+
             </div>
         </div>
 
@@ -304,8 +337,7 @@
                         <div class="flex bg-gray-100 rounded-lg p-1 gap-1">
                             <button onclick="setModalChartType('bar')" class="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-gray-500 transition text-xs" title="Bar Chart"><i class="fas fa-chart-bar"></i></button>
                             <button onclick="setModalChartType('doughnut')" class="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-gray-500 transition text-xs" title="Doughnut Chart"><i class="fas fa-chart-pie"></i></button>
-                            <!-- <button onclick="setModalChartType('pie')" class="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-gray-500 transition text-xs" title="Pie Chart"><i class="fas fa-chart-area"></i></button> -->
-                        </div>
+                            </div>
                     </div>
                     
                     <div class="relative h-48 w-full flex items-center justify-center">
@@ -481,7 +513,6 @@
         }
 
         // 4. CHART & STATISTIK ANGKA
-        // Simpan data ke variabel global agar bisa dipakai saat ganti tipe grafik
         currentStatsData = {
             hadir: parseInt(user.total_hadir || 0),
             izin: parseInt(user.total_izin || 0),
@@ -493,10 +524,17 @@
         document.getElementById('stat_izin').innerText = currentStatsData.izin;
         document.getElementById('stat_alpa').innerText = currentStatsData.alpa;
 
-        // Render Grafik (Default Doughnut)
+        // Render Grafik
         initModalChart(currentModalChartType);
 
-        // 5. ANIMASI BUKA MODAL
+        // 5. UPDATE BUTTON JADWAL LENGKAP
+        const btnSchedule = document.getElementById('btnSchedule');
+        const currentRole = window.location.href.includes('superadmin') ? 'superadmin' : 'admin';
+        if (btnSchedule) {
+            btnSchedule.href = `<?= BASE_URL ?>/${currentRole}/assistantSchedule/${user.id_user}`;
+        }
+
+        // 6. ANIMASI BUKA MODAL
         modal.classList.remove('hidden');
         setTimeout(() => {
             backdrop.classList.remove('opacity-0');

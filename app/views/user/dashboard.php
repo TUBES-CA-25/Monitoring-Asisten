@@ -136,7 +136,7 @@
                     <h3 class="font-bold text-gray-700 uppercase tracking-wide text-xs">Analisis Kehadiran</h3>
                     <div class="flex gap-2">
                         <select id="timeFilter" class="bg-gray-50 border-none text-gray-600 text-xs font-bold rounded-lg p-2 focus:ring-2 focus:ring-blue-200 cursor-pointer outline-none">
-                            <option value="daily">Harian (7 Hari)</option>
+                            <option value="daily">Harian</option>
                             <option value="weekly">Mingguan</option>
                             <option value="monthly">Bulanan</option>
                         </select>
@@ -368,7 +368,7 @@
             ? ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'] 
             : '#94a3b8';
         
-        const labelText = filter === 'daily' ? 'Status Hadir (1=Ya)' : (filter === 'weekly' ? 'Jumlah Hari Hadir' : 'Total Kehadiran');
+        const labelText = filter === 'daily' ? 'Status Hadir' : (filter === 'weekly' ? 'Jumlah Hari Hadir' : 'Total Kehadiran');
 
         chartInstance = new Chart(ctx, {
             type: currentType,

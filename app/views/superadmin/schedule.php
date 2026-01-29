@@ -35,7 +35,7 @@
         cursor: pointer;
     }
 
-    /* LAYER 2: VISUAL DOTS (DI BAWAH INTERAKSI) */
+    /* LAYER 2: VISUAL DOTS (DI BAWAH INTERAKSI) - DENGAN ANIMASI */
     .day-dots-container {
         display: flex; justify-content: center; flex-wrap: wrap; gap: 3px; padding: 0 4px;
         position: absolute;
@@ -43,6 +43,17 @@
         left: 0; right: 0;
         z-index: 40; 
         pointer-events: none !important; /* Klik tembus */
+        
+        /* Transisi Halus */
+        transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Class untuk state tersembunyi (saat transisi) */
+    .dots-hidden {
+        opacity: 0 !important;
+        transform: translateY(5px) !important;
     }
     
     .dot-category {
@@ -148,7 +159,7 @@
         </div>
         <div class="p-0 overflow-y-auto flex-1 bg-gray-50 custom-scrollbar" id="modalListContainer">
             </div>
-        </div>
+    </div>
 </div>
 
 <script>
@@ -208,10 +219,28 @@
         return false;
     }
 
-    // --- 3. RENDER LAYER (DOTS & KLIK) ---
+    // --- 3. FILTER & TRANSISI SOFT ---
+    function applyFilter(uid) { 
+        // 1. Update UI Sidebar
+        document.querySelectorAll('.filter-item').forEach(el => el.classList.remove('filter-active')); 
+        const activeEl = document.getElementById('filter-' + uid); 
+        if(activeEl) activeEl.classList.add('filter-active'); 
+        
+        // 2. Transisi Soft: Fade Out Dots Lama
+        const dotsContainers = document.querySelectorAll('.day-dots-container');
+        dotsContainers.forEach(el => el.classList.add('dots-hidden'));
+
+        // 3. Render Ulang setelah sedikit jeda (250ms)
+        setTimeout(() => {
+            currentFilter = uid;
+            renderCustomLayers(); 
+        }, 250);
+    }
+
+    // --- 4. RENDER LAYER (DOTS & KLIK) ---
     function renderCustomLayers() {
-        document.querySelectorAll('.interaction-layer').forEach(e => e.remove());
-        document.querySelectorAll('.dots-layer').forEach(e => e.remove());
+        // Bersihkan layer lama
+        document.querySelectorAll('.day-click-overlay, .day-dots-container').forEach(e => e.remove());
         
         document.querySelectorAll('.fc-daygrid-day').forEach(cell => {
             const dateStr = cell.getAttribute('data-date'); 
@@ -222,7 +251,7 @@
 
             // A. LAYER KLIK (Buka Modal Read Only)
             const clickLayer = document.createElement('div');
-            clickLayer.className = 'day-click-overlay'; // Menggunakan class overlay di CSS
+            clickLayer.className = 'day-click-overlay'; 
             clickLayer.title = "Lihat Detail";
             clickLayer.onclick = function(e) {
                 e.stopPropagation(); 
@@ -235,13 +264,19 @@
             // B. LAYER DOTS
             let uniqueColors = new Set();
             rawEvents.forEach(evt => {
-                const uId = evt.id_profil || 0; 
+                const uId = String(evt.id_profil || ''); 
                 const type = (evt.type || 'asisten').toLowerCase();
+                const filterId = String(currentFilter);
                 
+                // [LOGIKA STRICT FILTER]
                 let isVisible = false;
-                if (type === 'umum') isVisible = true; 
-                else if (currentFilter === 'all') isVisible = true;
-                else if (String(uId) === String(currentFilter)) isVisible = true;
+                if (type === 'umum') {
+                    isVisible = true; // Umum selalu muncul
+                } else if (filterId === 'all') {
+                    isVisible = true; // Mode All: semua muncul
+                } else if (uId === filterId) {
+                    isVisible = true; // Mode User: hanya milik user tsb
+                }
 
                 if (!isVisible) return;
 
@@ -249,14 +284,15 @@
                     let color = '#3b82f6'; 
                     if(type === 'piket') color = '#f97316';
                     if(type === 'umum') color = '#1f2937';
-                    if(type === 'kuliah') color = '#10b981';
+                    if(type === 'class' || type === 'kuliah') color = '#10b981';
                     uniqueColors.add(color);
                 }
             });
 
             if (uniqueColors.size > 0) {
                 const dotsLayer = document.createElement('div');
-                dotsLayer.className = 'day-dots-container'; // Menggunakan class dots di CSS
+                dotsLayer.className = 'day-dots-container dots-hidden'; // Mulai dengan hidden (untuk animasi)
+                
                 uniqueColors.forEach(color => {
                     const dot = document.createElement('div');
                     dot.className = 'dot-category';
@@ -264,11 +300,16 @@
                     dotsLayer.appendChild(dot);
                 });
                 frame.appendChild(dotsLayer);
+
+                // Trigger Fade In (Animation)
+                requestAnimationFrame(() => {
+                    dotsLayer.classList.remove('dots-hidden');
+                });
             }
         });
     }
 
-    // --- 4. RENDER MODAL (READ ONLY - TANPA TOMBOL EDIT/HAPUS) ---
+    // --- 5. RENDER MODAL (READ ONLY) ---
     function renderDayDetails(dateStr) {
         const container = document.getElementById('modalListContainer');
         const dateObjForTitle = new Date(dateStr + "T00:00:00");
@@ -279,13 +320,15 @@
         container.innerHTML = '';
 
         const visibleEvents = rawEvents.filter(evt => {
-            const uId = evt.id_profil || 0; 
+            const uId = String(evt.id_profil || ''); 
             const type = (evt.type || 'asisten').toLowerCase();
+            const filterId = String(currentFilter);
             
+            // Logika Filter Modal sama dengan Dots
             let isVisible = false;
             if (type === 'umum') isVisible = true; 
-            else if (currentFilter === 'all') isVisible = true;
-            else if (String(uId) === String(currentFilter)) isVisible = true;
+            else if (filterId === 'all') isVisible = true;
+            else if (uId === filterId) isVisible = true;
             
             if (!isVisible) return false;
             return isEventOnDate(evt, dateStr);
@@ -306,10 +349,18 @@
             let icon = 'fa-user-tie';
             if(type === 'piket') { badgeClass = 'bg-orange-50 text-orange-600 border-orange-100'; icon = 'fa-broom'; }
             else if(type === 'umum') { badgeClass = 'bg-gray-800 text-white border-gray-700'; icon = 'fa-building'; }
-            else if(type === 'kuliah') { badgeClass = 'bg-green-50 text-green-600 border-green-100'; icon = 'fa-graduation-cap'; }
+            else if(type === 'class' || type === 'kuliah') { badgeClass = 'bg-green-50 text-green-600 border-green-100'; icon = 'fa-graduation-cap'; }
 
             // [SUPER ADMIN: TOMBOL ACTIONS (EDIT/HAPUS) DIHILANGKAN]
             
+            let extraInfo = '';
+            if (evt.dosen || evt.kelas) {
+                extraInfo = `<div class="mt-1 flex gap-2 text-[10px] text-gray-500">
+                    ${evt.dosen ? `<span class="bg-gray-100 px-1.5 rounded"><i class="fas fa-user-tie mr-1"></i>${evt.dosen}</span>` : ''}
+                    ${evt.kelas ? `<span class="bg-gray-100 px-1.5 rounded"><i class="fas fa-chalkboard mr-1"></i>Kelas ${evt.kelas}</span>` : ''}
+                </div>`;
+            }
+
             container.innerHTML += `
                 <div class="bg-white p-4 border-b border-gray-100 flex items-center hover:bg-gray-50 transition group">
                     <div class="w-24 text-center mr-3 shrink-0 border-r border-gray-100 pr-3">
@@ -324,20 +375,13 @@
                         </div>
                         <h4 class="font-bold text-gray-800 text-sm truncate">${evt.title}</h4>
                         <p class="text-xs text-gray-500 truncate mt-0.5"><span class="font-semibold text-gray-700">${evt.user_name || 'Lab'}</span> • ${evt.location || 'Lab'}</p>
+                        ${extraInfo}
                     </div>
                 </div>`;
         });
     }
 
-    // --- 5. UTILS ---
-    function applyFilter(uid) { 
-        currentFilter = uid; 
-        document.querySelectorAll('.filter-item').forEach(el => el.classList.remove('filter-active')); 
-        const activeEl = document.getElementById('filter-' + uid); 
-        if(activeEl) activeEl.classList.add('filter-active'); 
-        renderCustomLayers(); 
-    }
-
+    // --- 6. UTILS ---
     function openDayModal() { const m = document.getElementById('dayDetailModal'); m.classList.remove('hidden'); setTimeout(() => { document.getElementById('detailBackdrop').classList.remove('opacity-0'); document.getElementById('detailContent').classList.remove('opacity-0', 'scale-95'); document.getElementById('detailContent').classList.add('scale-100'); }, 10); }
     function closeDayModal() { const m = document.getElementById('dayDetailModal'); document.getElementById('detailBackdrop').classList.add('opacity-0'); document.getElementById('detailContent').classList.add('opacity-0', 'scale-95'); document.getElementById('detailContent').classList.remove('scale-100'); setTimeout(() => { m.classList.add('hidden'); }, 300); }
     function updateClock() { const now = new Date(); document.getElementById('liveDate').innerText = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }); document.getElementById('liveTime').innerText = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\./g, ':'); } setInterval(updateClock, 1000); updateClock();

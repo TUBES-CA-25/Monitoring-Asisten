@@ -23,7 +23,7 @@
     .fc-daygrid-day-frame { position: relative !important; min-height: 100%; z-index: 1; }
     .fc-event { display: none !important; } 
 
-    /* LAYERS OVERLAY */
+    /* LAYERS OVERLAY & DOTS ANIMATION */
     .day-click-overlay {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         z-index: 50; background: transparent; cursor: pointer;
@@ -32,7 +32,16 @@
         display: flex; justify-content: center; flex-wrap: wrap; gap: 3px; padding: 0 4px;
         position: absolute; top: 32px; left: 0; right: 0;
         z-index: 40; pointer-events: none !important;
+        transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; /* Transisi Halus */
+        opacity: 1;
+        transform: translateY(0);
     }
+    /* State Tersembunyi untuk Animasi */
+    .dots-hidden {
+        opacity: 0 !important;
+        transform: translateY(5px) !important;
+    }
+
     .dot-category {
         width: 8px; height: 8px; border-radius: 50%;
         box-shadow: 0 1px 1px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.5);
@@ -144,6 +153,7 @@
                         <option value="umum">Umum (Lab)</option>
                         <option value="asisten">Asisten Lab</option>
                         <option value="piket">Piket</option>
+                        <option value="class">Kuliah Asisten</option>
                         </select>
                 </div>
                 <div id="userSelectContainer" class="hidden">
@@ -251,12 +261,10 @@
             filterInput.addEventListener('keyup', function() {
                 const key = this.value.toLowerCase();
                 const items = document.querySelectorAll('#filterListContainer .assistant-card[data-name]');
-                let visibleCount = 0;
                 items.forEach(item => {
                     const name = item.getAttribute('data-name');
-                    if (name.includes(key)) { item.style.display = 'flex'; visibleCount++; } else { item.style.display = 'none'; }
+                    item.style.display = name.includes(key) ? 'flex' : 'none';
                 });
-                document.getElementById('noResultFilter').classList.toggle('hidden', visibleCount > 0);
             });
         }
     });
@@ -278,45 +286,74 @@
         return false;
     }
 
-    // --- 3. RENDER LAYERS ---
+    // --- 3. FILTER & TRANSISI ---
+    function applyFilter(uid) { 
+        // 1. Update UI Sidebar
+        document.querySelectorAll('.filter-item').forEach(el => el.classList.remove('filter-active')); 
+        const activeEl = document.getElementById('filter-' + uid); 
+        if(activeEl) activeEl.classList.add('filter-active'); 
+        
+        // 2. Transisi Soft: Fade Out Dots Lama
+        const dotsContainers = document.querySelectorAll('.day-dots-container');
+        dotsContainers.forEach(el => el.classList.add('dots-hidden'));
+
+        // 3. Render Ulang setelah sedikit jeda (250ms)
+        setTimeout(() => {
+            currentFilter = uid;
+            renderCustomLayers(); 
+        }, 250);
+    }
+
+    // --- 4. RENDER LAYERS (PERBAIKAN LOGIC WARNA) ---
     function renderCustomLayers() {
-        document.querySelectorAll('.interaction-layer').forEach(e => e.remove());
-        document.querySelectorAll('.dots-layer').forEach(e => e.remove());
+        // Hapus layer lama (kecuali jika ada mekanisme update parsial, tapi di FullCalendar redraw lebih aman)
+        document.querySelectorAll('.day-click-overlay, .day-dots-container').forEach(e => e.remove());
         
         document.querySelectorAll('.fc-daygrid-day').forEach(cell => {
             const dateStr = cell.getAttribute('data-date'); if(!dateStr) return;
             const frame = cell.querySelector('.fc-daygrid-day-frame'); if(!frame) return;
 
+            // Layer Klik
             const clickLayer = document.createElement('div');
             clickLayer.className = 'day-click-overlay';
-            clickLayer.onclick = function(e) {
-                e.stopPropagation(); selectedDateStr = dateStr;
-                renderDayDetails(dateStr); openDayModal();
-            };
+            clickLayer.onclick = function(e) { e.stopPropagation(); selectedDateStr = dateStr; renderDayDetails(dateStr); openDayModal(); };
             frame.appendChild(clickLayer);
 
+            // Layer Dots
             let uniqueColors = new Set();
+            
             rawEvents.forEach(evt => {
-                const uId = evt.id_profil || 0; 
+                const uId = String(evt.id_profil || '');
                 const type = (evt.type || 'asisten').toLowerCase();
-                let isVisible = false;
-                if (type === 'umum') isVisible = true; 
-                else if (currentFilter === 'all') isVisible = true;
-                else if (String(uId) === String(currentFilter)) isVisible = true;
-                if (!isVisible) return;
+                const filterId = String(currentFilter);
+
+                // [LOGIKA STRICT FILTER]
+                // - Jika filter = 'all': Tampilkan semua
+                // - Jika filter = ID User: Tampilkan JIKA (milik user itu) ATAU (tipe umum)
+                let isValid = false;
+                if (type === 'umum') {
+                    isValid = true; // Umum selalu muncul
+                } else if (filterId === 'all') {
+                    isValid = true; // Mode All: semua muncul
+                } else if (uId === filterId) {
+                    isValid = true; // Mode User: hanya milik user tsb
+                }
+
+                if (!isValid) return; // Skip jika tidak valid
 
                 if (isEventOnDate(evt, dateStr)) {
-                    let color = '#3b82f6'; 
+                    let color = '#3b82f6'; // Default (Asisten)
                     if(type === 'piket') color = '#f97316';
                     if(type === 'umum') color = '#1f2937';
-                    if(type === 'kuliah') color = '#10b981';
+                    if(type === 'class' || type === 'kuliah') color = '#10b981';
                     uniqueColors.add(color);
                 }
             });
 
             if (uniqueColors.size > 0) {
                 const dotsLayer = document.createElement('div');
-                dotsLayer.className = 'day-dots-container';
+                dotsLayer.className = 'day-dots-container dots-hidden'; // Mulai dengan hidden (opacity 0)
+                
                 uniqueColors.forEach(color => {
                     const dot = document.createElement('div');
                     dot.className = 'dot-category';
@@ -324,25 +361,34 @@
                     dotsLayer.appendChild(dot);
                 });
                 frame.appendChild(dotsLayer);
+
+                // Trigger Fade In (Animation)
+                requestAnimationFrame(() => {
+                    dotsLayer.classList.remove('dots-hidden');
+                });
             }
         });
     }
 
-    // --- 4. RENDER MODAL ---
+    // --- 5. RENDER MODAL DETAIL (PERBAIKAN LOGIC) ---
     function renderDayDetails(dateStr) {
         const container = document.getElementById('modalListContainer');
         const dateObjForTitle = new Date(dateStr + "T00:00:00");
         document.getElementById('modalDateTitle').innerText = dateObjForTitle.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         container.innerHTML = '';
 
+        // Filter Event untuk Modal (Sama dengan Logic Dots)
         const visibleEvents = rawEvents.filter(evt => {
-            const uId = evt.id_profil || 0; 
+            const uId = String(evt.id_profil || '');
             const type = (evt.type || 'asisten').toLowerCase();
-            let isVisible = false;
-            if (type === 'umum') isVisible = true; 
-            else if (currentFilter === 'all') isVisible = true;
-            else if (String(uId) === String(currentFilter)) isVisible = true;
-            if (!isVisible) return false;
+            const filterId = String(currentFilter);
+
+            let isValid = false;
+            if (type === 'umum') isValid = true;
+            else if (filterId === 'all') isValid = true;
+            else if (uId === filterId) isValid = true;
+
+            if (!isValid) return false;
             return isEventOnDate(evt, dateStr);
         });
 
@@ -360,29 +406,25 @@
             let icon = 'fa-user-tie';
             if(type === 'piket') { badgeClass = 'bg-orange-50 text-orange-600 border-orange-100'; icon = 'fa-broom'; }
             else if(type === 'umum') { badgeClass = 'bg-gray-800 text-white border-gray-700'; icon = 'fa-building'; }
-            else if(type === 'kuliah') { badgeClass = 'bg-green-50 text-green-600 border-green-100'; icon = 'fa-graduation-cap'; }
+            else if(type === 'class' || type === 'kuliah') { badgeClass = 'bg-green-50 text-green-600 border-green-100'; icon = 'fa-graduation-cap'; }
 
-            // DATA PROPS LENGKAP (Termasuk Dosen & Kelas)
             const props = {
                 id: evt.id, type: type, title: evt.title, location: evt.location || 'Lab',
                 userId: evt.id_profil || '',
                 rawDate: evt.start_date, fmtStartTime: (evt.start_time || '00:00').substring(0,5),
                 fmtEndTime: (evt.end_time || '00:00').substring(0,5),
                 repeatModel: evt.model_perulangan || 'sekali', endDateRepeat: evt.end_date,
-                // New Fields
                 dosen: evt.dosen || '', kelas: evt.kelas || ''
             };
             const jsonStr = JSON.stringify({ extendedProps: props }).replace(/"/g, '&quot;');
 
             let actions = '';
-            if (type !== 'kuliah') { // Admin bisa CRUD semua kecuali kuliah (tergantung kebijakan, di sini admin full control non-kuliah)
-                actions = `<div class="flex gap-1 pl-3 border-l border-gray-100 ml-3 shrink-0">
-                    <button onclick="openFormModal('edit', ${jsonStr})" class="w-8 h-8 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition flex items-center justify-center"><i class="fas fa-pen text-xs"></i></button>
-                    <button onclick="triggerDelete('${evt.id}', '${type}')" class="w-8 h-8 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition flex items-center justify-center"><i class="fas fa-trash text-xs"></i></button>
-                </div>`;
-            }
+            // Admin bisa edit semua kecuali kuliah (opsional) atau full access
+            actions = `<div class="flex gap-1 pl-3 border-l border-gray-100 ml-3 shrink-0">
+                <button onclick="openFormModal('edit', ${jsonStr})" class="w-8 h-8 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition flex items-center justify-center"><i class="fas fa-pen text-xs"></i></button>
+                <button onclick="triggerDelete('${evt.id}', '${type}')" class="w-8 h-8 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition flex items-center justify-center"><i class="fas fa-trash text-xs"></i></button>
+            </div>`;
 
-            // Tampilan info tambahan (Dosen/Kelas) jika ada
             let extraInfo = '';
             if (props.dosen || props.kelas) {
                 extraInfo = `<div class="mt-1 flex gap-2 text-[10px] text-gray-500">
@@ -412,14 +454,12 @@
         });
     }
 
-    // --- UTILS ---
-    function applyFilter(uid) { currentFilter = uid; document.querySelectorAll('.filter-item').forEach(el => el.classList.remove('filter-active')); const activeEl = document.getElementById('filter-' + uid); if(activeEl) activeEl.classList.add('filter-active'); renderCustomLayers(); }
-    
+    // --- 6. UTILS LAINNYA ---
     function handleTypeChange() {
         const type = document.getElementById('inputType').value;
         const uContainer = document.getElementById('userSelectContainer');
         const uInput = document.getElementById('inputUser');
-        const aFields = document.getElementById('asistenFields'); // Field Dosen & Kelas
+        const aFields = document.getElementById('asistenFields'); 
 
         if (type === 'umum') { 
             uContainer.classList.add('hidden'); uInput.required = false; uInput.value = ""; 
@@ -427,14 +467,16 @@
         } else if (type === 'piket') {
             uContainer.classList.remove('hidden'); uInput.required = true;
             if(aFields) aFields.classList.add('hidden');
+        } else if (type === 'class' || type === 'kuliah') { // Handle Tipe Kuliah
+            uContainer.classList.remove('hidden'); uInput.required = true;
+            if(aFields) aFields.classList.remove('hidden');
         } else { // Asisten
             uContainer.classList.remove('hidden'); uInput.required = true;
-            if(aFields) aFields.classList.remove('hidden'); // Show Dosen/Kelas
+            if(aFields) aFields.classList.remove('hidden');
         }
     }
 
     function handleRepeatChange() { const m = document.getElementById('inputRepeatModel').value; const c = document.getElementById('endDateContainer'); const i = document.getElementById('inputEndDateRepeat'); const h = document.getElementById('repeatHint'); if (m === 'sekali') { c.classList.add('hidden'); i.required = false; h.innerText = "Jadwal hanya pada tanggal terpilih."; } else { c.classList.remove('hidden'); i.required = true; h.innerText = "Jadwal berulang sampai batas tanggal."; } }
-    
     function openDayModal() { const m = document.getElementById('dayDetailModal'); m.classList.remove('hidden'); setTimeout(() => { document.getElementById('detailBackdrop').classList.remove('opacity-0'); document.getElementById('detailContent').classList.remove('opacity-0', 'scale-95'); document.getElementById('detailContent').classList.add('scale-100'); }, 10); }
     function closeDayModal() { const m = document.getElementById('dayDetailModal'); document.getElementById('detailBackdrop').classList.add('opacity-0'); document.getElementById('detailContent').classList.add('opacity-0', 'scale-95'); document.getElementById('detailContent').classList.remove('scale-100'); setTimeout(() => { m.classList.add('hidden'); }, 300); }
     function closeFormModal() { const m = document.getElementById('formModal'); document.getElementById('formBackdrop').classList.add('opacity-0'); document.getElementById('formContent').classList.add('opacity-0', 'scale-95'); document.getElementById('formContent').classList.remove('scale-100'); setTimeout(() => { m.classList.add('hidden'); }, 300); }
@@ -450,6 +492,8 @@
             document.getElementById('formModalTitle').innerText = "Tambah Jadwal";
             document.getElementById('scheduleForm').action = "<?= BASE_URL ?>/admin/addSchedule";
             document.getElementById('inputDate').value = selectedDateStr;
+            // Jika sedang filter user spesifik, otomatis pilih user tersebut
+            if(currentFilter !== 'all') document.getElementById('inputUser').value = currentFilter;
             handleTypeChange(); handleRepeatChange();
         } else {
             document.getElementById('formModalTitle').innerText = "Edit Jadwal";
@@ -462,16 +506,17 @@
             document.getElementById('inputStart').value = props.fmtStartTime;
             document.getElementById('inputEnd').value = props.fmtEndTime;
             document.getElementById('inputLocation').value = props.location;
+            
+            // Handle User Select visibility
+            handleTypeChange();
             if (props.type !== 'umum') document.getElementById('inputUser').value = props.userId;
             
-            // Populate Dosen & Kelas
             if (document.getElementById('inputDosen')) document.getElementById('inputDosen').value = props.dosen || '';
             if (document.getElementById('inputKelas')) document.getElementById('inputKelas').value = props.kelas || '';
 
             document.getElementById('inputRepeatModel').value = props.repeatModel || 'sekali';
             if (props.repeatModel !== 'sekali') document.getElementById('inputEndDateRepeat').value = props.endDateRepeat;
-
-            handleTypeChange(); handleRepeatChange();
+            handleRepeatChange();
         }
     }
 

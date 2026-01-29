@@ -8,6 +8,9 @@
         color: #374151;            /* gray-700 */
         cursor: default;
     }
+    /* Hide scrollbar for modal content */
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 </style>
 
 <div class="max-w-7xl mx-auto space-y-6 animate-enter pb-12">
@@ -17,8 +20,9 @@
         <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0 text-center md:text-left">
                 <h1 class="text-3xl font-extrabold">Daftar Pengguna</h1>
-                <p class="text-blue-100 mt-2 text-sm">Monitoring detail akun Asisten dan Admin (Mode Lihat).</p>
+                <p class="text-blue-100 mt-2 text-sm">Monitoring data akun Asisten dan Admin.</p>
             </div>
+            
             <div class="text-center md:text-right bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
                 <p class="text-[10px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
                 <h2 id="liveDate" class="text-xl font-bold font-mono"><?= date('d F Y') ?></h2>
@@ -70,6 +74,7 @@
                             default       => 'bg-blue-50 text-blue-600 border-blue-100'
                         };
                     ?>
+                    
                     <tr class="group hover:bg-blue-50/30 transition duration-200 user-row">
                         <td class="p-6">
                             <div class="flex items-center gap-4">
@@ -82,11 +87,6 @@
                                 ?>
                                 <div class="relative shrink-0">
                                     <img src="<?= $avatarUrl ?>" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover bg-gray-100">
-                                    <?php if($u['role'] == 'User'): ?>
-                                        <div class="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
-                                            <div class="w-3 h-3 rounded-full <?= ($u['is_online'] ?? 0) ? 'bg-green-500' : 'bg-gray-300' ?>" title="Status Online"></div>
-                                        </div>
-                                    <?php endif; ?>
                                 </div>
                                 
                                 <div>
@@ -282,7 +282,7 @@
         document.getElementById('detailAddress').innerText = userData.alamat || '-';
         document.getElementById('detailLab').innerText = userData.lab_name || 'Umum';
 
-        // [LOGIC PENTING] Handle Visibility Kelas
+        // [LOGIC] Handle Visibility Kelas (Hanya untuk User)
         const classContainer = document.getElementById('modalClassContainer');
         if (userData.role === 'User') {
             classContainer.classList.remove('hidden');

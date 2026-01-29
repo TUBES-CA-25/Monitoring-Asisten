@@ -226,6 +226,21 @@
     </div>
 </div>
 
+<div id="deleteModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onclick="closeDeleteModal()"></div>
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm relative z-10 p-6 text-center transform scale-100 transition-all">
+        <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-100 text-red-600">
+            <i class="fas fa-exclamation-triangle text-3xl"></i>
+        </div>
+        <h3 class="text-xl font-extrabold text-gray-800 mb-2">Hapus Pengguna?</h3>
+        <p class="text-sm text-gray-500 mb-6">Tindakan ini tidak dapat dibatalkan. Semua data terkait pengguna ini akan hilang.</p>
+        <div class="flex gap-3">
+            <button onclick="closeDeleteModal()" class="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-600 font-bold hover:bg-gray-50 transition">Batal</button>
+            <button id="confirmDeleteBtn" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg transition">Ya, Hapus</button>
+        </div>
+    </div>
+</div>
+
 <div id="alertModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm relative z-10 p-6 text-center transform scale-100 transition-all">
@@ -253,15 +268,12 @@
         if (role === 'User') {
             userFields.forEach(el => el.classList.remove('hidden'));
         } else {
-            // Jika Admin/Super Admin -> Sembunyikan field User
             userFields.forEach(el => el.classList.add('hidden'));
-            
-            // Kosongkan nilai field user agar tidak terkirim/validasi
-            document.getElementById('inputNim').value = '';
-            document.getElementById('inputClass').value = '';
-            document.getElementById('inputProdi').value = '';
-            document.getElementById('inputLab').value = '';
-            document.getElementById('inputInterest').value = '';
+            // Reset nilai agar bersih saat dikirim
+            ['inputNim', 'inputClass', 'inputProdi', 'inputLab', 'inputInterest'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.value = '';
+            });
         }
     }
 
@@ -276,7 +288,7 @@
         
         if (mode === 'add') {
             title.innerText = "Tambah Pengguna Baru";
-            document.getElementById('inputRole').value = 'User'; // Default
+            document.getElementById('inputRole').value = 'User'; 
             document.getElementById('inputPass').required = true;
             document.getElementById('passReq').classList.remove('hidden');
             document.getElementById('passHint').innerText = "";
@@ -287,18 +299,16 @@
             document.getElementById('inputEmail').value = data.email;
             document.getElementById('inputRole').value = data.role;
             
-            // Isi Data Umum
             document.getElementById('inputPosition').value = data.position || '';
             document.getElementById('inputPhone').value = data.no_telp || '';
             document.getElementById('inputAddress').value = data.alamat || '';
             document.getElementById('inputGender').value = data.jenis_kelamin || '';
 
-            // Isi Data Khusus User (Jika ada)
             if (data.role === 'User') {
                 document.getElementById('inputNim').value = data.nim || '';
                 document.getElementById('inputClass').value = data.kelas || '';
                 document.getElementById('inputProdi').value = data.prodi || '';
-                document.getElementById('inputLab').value = data.id_lab || ''; // Pastikan query controller select id_lab
+                document.getElementById('inputLab').value = data.id_lab || '';
                 document.getElementById('inputInterest').value = data.peminatan || '';
             }
 
@@ -307,7 +317,7 @@
             document.getElementById('passHint').innerText = "(Kosongkan jika tidak ingin mengubah password)";
         }
 
-        toggleRoleFields(); // Jalankan logic hide/show
+        toggleRoleFields(); 
 
         modal.classList.remove('hidden');
         setTimeout(() => {
@@ -324,48 +334,115 @@
         setTimeout(() => modal.classList.add('hidden'), 300);
     }
 
-    // Submit AJAX
+    let deleteTargetId = null;
+
+    function triggerDeleteUser(id) {
+        deleteTargetId = id;
+        const modal = document.getElementById('deleteModal');
+        const content = modal.querySelector('div.relative.z-10');
+        
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    function closeDeleteModal() {
+        const modal = document.getElementById('deleteModal');
+        const content = modal.querySelector('div.relative.z-10');
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            deleteTargetId = null;
+        }, 200);
+    }
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        if (deleteTargetId) {
+            const btn = this;
+            const originalText = btn.innerText;
+            btn.innerText = 'Menghapus...';
+            btn.disabled = true;
+
+            fetch('<?= BASE_URL ?>/admin/deleteUser?id=' + deleteTargetId)
+                .then(res => res.json())
+                .then(data => {
+                    closeDeleteModal();
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    showAlert(data.status, data.title, data.message);
+                })
+                .catch(err => {
+                    closeDeleteModal();
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    console.error(err);
+                    showAlert('error', 'Error', 'Terjadi kesalahan jaringan.');
+                });
+        }
+    });
+
     document.getElementById('userForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(this);
         const url = currentMode === 'add' ? '<?= BASE_URL ?>/admin/addUser' : '<?= BASE_URL ?>/admin/editUser';
         const btn = document.getElementById('btnSave');
+        const originalText = btn.innerText;
         
         btn.innerText = 'Menyimpan...';
         btn.disabled = true;
 
         fetch(url, { method: 'POST', body: formData })
-        .then(res => res.json())
+        .then(res => {
+            return res.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error("Server Responded with Non-JSON:", text);
+                    throw new Error("Respon server tidak valid.");
+                }
+            });
+        })
         .then(data => {
-            btn.innerText = 'Simpan Data';
+            btn.innerText = originalText;
             btn.disabled = false;
             closeUserModal();
-            showAlert(data.status, data.status === 'success' ? 'Berhasil!' : 'Gagal!', data.message);
+            showAlert(data.status, data.title || 'Info', data.message);
         })
         .catch(err => {
-            btn.innerText = 'Simpan Data';
+            console.error(err);
+            btn.innerText = originalText;
             btn.disabled = false;
-            showAlert('error', 'Error', 'Terjadi kesalahan sistem.');
+            closeUserModal();
+            showAlert('error', 'Error Sistem', 'Gagal memproses data.');
         });
     });
 
     function showAlert(type, title, msg) {
         const modal = document.getElementById('alertModal');
         const icon = document.getElementById('alertIcon');
+        const titleEl = document.getElementById('alertTitle');
+        const msgEl = document.getElementById('alertMsg');
         const btn = document.getElementById('alertBtn');
 
-        document.getElementById('alertTitle').innerText = title;
-        document.getElementById('alertMsg').innerText = msg;
+        titleEl.innerText = title;
+        msgEl.innerText = msg;
 
         if (type === 'success') {
             icon.className = 'w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-100 text-green-600';
             icon.innerHTML = '<i class="fas fa-check text-3xl"></i>';
             btn.className = 'w-full py-3 rounded-xl font-bold text-white shadow-lg transition bg-green-600 hover:bg-green-700';
+            // Reload halaman setelah OK jika sukses (agar tabel terupdate)
+            btn.onclick = function() { window.location.reload(); };
         } else {
             icon.className = 'w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-100 text-red-600';
             icon.innerHTML = '<i class="fas fa-times text-3xl"></i>';
             btn.className = 'w-full py-3 rounded-xl font-bold text-white shadow-lg transition bg-red-600 hover:bg-red-700';
+            btn.onclick = function() { modal.classList.add('hidden'); };
         }
+        
         modal.classList.remove('hidden');
     }
 
@@ -377,13 +454,6 @@
             const name = rows[i].querySelector('.user-name').innerText.toLowerCase();
             const email = rows[i].querySelector('.user-email').innerText.toLowerCase();
             rows[i].style.display = (name.includes(filter) || email.includes(filter)) ? "" : "none";
-        }
-    }
-    
-    // Delete Confirmation (Simplifikasi)
-    function triggerDeleteUser(id) {
-        if(confirm('Hapus pengguna ini?')) {
-            window.location.href = '<?= BASE_URL ?>/admin/deleteUser?id=' + id;
         }
     }
 </script>

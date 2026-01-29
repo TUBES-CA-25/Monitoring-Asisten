@@ -52,7 +52,6 @@ class LogbookModel {
         return $this->db->resultSet();
     }
 
-    // 3. Simpan Logbook (User)
     public function saveLogbook($data) {
         // A. Cari id_profil
         $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
@@ -71,18 +70,20 @@ class LogbookModel {
         if (!$presensi) return false; 
         $idPresensi = $presensi['id_presensi'];
 
-        // C. Cek Logbook Existing (Update jika ada, Insert jika baru)
+        // C. Cek Logbook Existing (PERBAIKAN LOGIKA)
+        // Gunakan single() agar query benar-benar dieksekusi sebelum dicek
         $this->db->query("SELECT id_logbook FROM logbook WHERE id_presensi = :idp");
         $this->db->bind(':idp', $idPresensi);
+        $existingLog = $this->db->single(); // Eksekusi Query
         
-        if ($this->db->rowCount() > 0) {
-            // Update
+        if ($existingLog) {
+            // Update jika data sudah ada
             $sql = "UPDATE logbook SET detail_aktivitas = :act WHERE id_presensi = :idp";
             $this->db->query($sql);
             $this->db->bind(':idp', $idPresensi);
             $this->db->bind(':act', $data['activity']);
         } else {
-            // Insert
+            // Insert jika data belum ada
             $sql = "INSERT INTO logbook (id_profil, id_presensi, detail_aktivitas, is_verified) 
                     VALUES (:pid, :idp, :act, 0)";
             $this->db->query($sql);
@@ -124,59 +125,133 @@ class LogbookModel {
         return $this->db->resultSet();
     }
 
-    // 5. Admin Save (Create/Update Manual)
     public function saveLogAdmin($data) {
         try {
             $this->db->getConnection()->beginTransaction();
 
+            // 1. Ambil ID Profil
             $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
             $this->db->bind(':uid', $data['user_id']);
             $pid = $this->db->single()['id_profil'] ?? null;
             if(!$pid) return false;
 
+            $date = $data['date'];
+            $status = $data['status']; // Hadir, Izin, Sakit, Alpha
+
+            // 2. Cek Data Eksisting
+            // Cek Presensi
             $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :date");
             $this->db->bind(':pid', $pid);
-            $this->db->bind(':date', $data['date']);
-            $presensi = $this->db->single();
+            $this->db->bind(':date', $date);
+            $existPresensi = $this->db->single();
 
-            $idPresensi = null;
+            // Cek Izin
+            $this->db->query("SELECT id_izin FROM izin WHERE id_profil = :pid AND :date BETWEEN start_date AND end_date");
+            $this->db->bind(':pid', $pid);
+            $this->db->bind(':date', $date);
+            $existIzin = $this->db->single();
 
-            if ($presensi) {
-                $idPresensi = $presensi['id_presensi'];
-                $sqlUpdPres = "UPDATE presensi SET waktu_presensi = :tin, waktu_pulang = :tout WHERE id_presensi = :idp";
-                $this->db->query($sqlUpdPres);
-                $this->db->bind(':tin', $data['time_in']);
-                $this->db->bind(':tout', !empty($data['time_out']) ? $data['time_out'] : null);
+            // --- SKENARIO 1: STATUS BARU = HADIR ---
+            if ($status == 'Hadir') {
+                // A. Bersihkan data Izin jika ada (Konflik)
+                if ($existIzin) {
+                    $this->db->query("DELETE FROM izin WHERE id_izin = :id");
+                    $this->db->bind(':id', $existIzin['id_izin']);
+                    $this->db->execute();
+                }
+
+                // B. Insert/Update Presensi
+                $file = $data['file'] ?? ($existPresensi ? null : 'admin_manual.jpg'); // Default jika tidak upload
+                
+                if ($existPresensi) {
+                    $idPresensi = $existPresensi['id_presensi'];
+                    $sql = "UPDATE presensi SET waktu_presensi = :tin, waktu_pulang = :tout";
+                    if ($data['file']) $sql .= ", foto_presensi = :foto";
+                    $sql .= " WHERE id_presensi = :id";
+                    
+                    $this->db->query($sql);
+                    $this->db->bind(':tin', $data['time_in']);
+                    $this->db->bind(':tout', $data['time_out']);
+                    $this->db->bind(':id', $idPresensi);
+                    if ($data['file']) $this->db->bind(':foto', $data['file']);
+                    $this->db->execute();
+                } else {
+                    $sql = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, waktu_pulang, status, foto_presensi) 
+                            VALUES (:pid, :date, :tin, :tout, 'Hadir', :foto)";
+                    $this->db->query($sql);
+                    $this->db->bind(':pid', $pid);
+                    $this->db->bind(':date', $date);
+                    $this->db->bind(':tin', $data['time_in']);
+                    $this->db->bind(':tout', $data['time_out']);
+                    $this->db->bind(':foto', $file);
+                    $this->db->execute();
+                    $idPresensi = $this->db->getConnection()->lastInsertId();
+                }
+
+                // C. Insert/Update Logbook
+                // Cek Logbook
+                $this->db->query("SELECT id_logbook FROM logbook WHERE id_presensi = :idp");
                 $this->db->bind(':idp', $idPresensi);
+                $existLog = $this->db->single();
+
+                if ($existLog) {
+                    $this->db->query("UPDATE logbook SET detail_aktivitas = :act WHERE id_presensi = :idp");
+                } else {
+                    $this->db->query("INSERT INTO logbook (id_profil, id_presensi, detail_aktivitas, is_verified) VALUES (:pid, :idp, :act, 1)");
+                    $this->db->bind(':pid', $pid);
+                }
+                $this->db->bind(':idp', $idPresensi);
+                $this->db->bind(':act', $data['activity']);
                 $this->db->execute();
-            } else {
-                $sqlInsPres = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, waktu_pulang, status, foto_presensi) 
-                               VALUES (:pid, :date, :tin, :tout, 'Hadir', 'admin_manual.jpg')";
-                $this->db->query($sqlInsPres);
-                $this->db->bind(':pid', $pid);
-                $this->db->bind(':date', $data['date']);
-                $this->db->bind(':tin', $data['time_in']);
-                $this->db->bind(':tout', !empty($data['time_out']) ? $data['time_out'] : null);
-                $this->db->execute();
-                $idPresensi = $this->db->getConnection()->lastInsertId();
             }
 
-            $this->db->query("SELECT id_logbook FROM logbook WHERE id_presensi = :idp");
-            $this->db->bind(':idp', $idPresensi);
-            
-            if ($this->db->rowCount() > 0) {
-                $sqlLog = "UPDATE logbook SET detail_aktivitas = :act WHERE id_presensi = :idp";
-                $this->db->query($sqlLog);
-            } else {
-                $sqlLog = "INSERT INTO logbook (id_profil, id_presensi, detail_aktivitas, is_verified) 
-                           VALUES (:pid, :idp, :act, 1)";
-                $this->db->query($sqlLog);
-                $this->db->bind(':pid', $pid);
+            // --- SKENARIO 2: STATUS BARU = IZIN / SAKIT ---
+            else if ($status == 'Izin' || $status == 'Sakit') {
+                // A. Bersihkan Presensi (dan Logbook via Cascade) jika ada
+                if ($existPresensi) {
+                    $this->db->query("DELETE FROM presensi WHERE id_presensi = :id");
+                    $this->db->bind(':id', $existPresensi['id_presensi']);
+                    $this->db->execute();
+                }
+
+                // B. Insert/Update Izin
+                if ($existIzin) {
+                    $sql = "UPDATE izin SET tipe = :type, deskripsi = :desc, status_approval = 'Approved'";
+                    if ($data['file']) $sql .= ", file_bukti = :file";
+                    $sql .= " WHERE id_izin = :id";
+
+                    $this->db->query($sql);
+                    $this->db->bind(':id', $existIzin['id_izin']);
+                } else {
+                    $sql = "INSERT INTO izin (id_profil, tipe, start_date, end_date, deskripsi, file_bukti, status_approval) 
+                            VALUES (:pid, :type, :date, :date, :desc, :file, 'Approved')";
+                    $this->db->query($sql);
+                    $this->db->bind(':pid', $pid);
+                    $this->db->bind(':date', $date);
+                    // Jika file kosong saat insert baru, gunakan placeholder/null
+                    $this->db->bind(':file', $data['file'] ?? null);
+                }
+                
+                $this->db->bind(':type', $status);
+                $this->db->bind(':desc', $data['activity']); // Gunakan input aktivitas sebagai deskripsi izin
+                if ($existIzin && $data['file']) $this->db->bind(':file', $data['file']);
+                
+                $this->db->execute();
             }
-            
-            $this->db->bind(':idp', $idPresensi);
-            $this->db->bind(':act', $data['activity']);
-            $this->db->execute();
+
+            // --- SKENARIO 3: STATUS BARU = ALPHA (HAPUS DATA) ---
+            else if ($status == 'Alpha') {
+                if ($existPresensi) {
+                    $this->db->query("DELETE FROM presensi WHERE id_presensi = :id");
+                    $this->db->bind(':id', $existPresensi['id_presensi']);
+                    $this->db->execute();
+                }
+                if ($existIzin) {
+                    $this->db->query("DELETE FROM izin WHERE id_izin = :id");
+                    $this->db->bind(':id', $existIzin['id_izin']);
+                    $this->db->execute();
+                }
+            }
 
             $this->db->getConnection()->commit();
             return true;

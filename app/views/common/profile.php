@@ -191,6 +191,43 @@
                     </a>
                 <?php endif; ?>
             </div>
+            
+            <div class="mt-6 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <i class="fab fa-google text-6xl text-blue-500"></i>
+                </div>
+                
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 relative z-10">
+                    <div>
+                        <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                            Integrasi Google Calendar
+                            <!-- <i class="fab fa-google text-blue-500"></i> Integrasi Google Calendar -->
+                        </h3>
+                        <p class="text-xs text-gray-500 mt-1 max-w-md">
+                            Hubungkan akun untuk sinkronisasi otomatis jadwal asisten, kuliah, dan piket ke kalender pribadi Anda.
+                        </p>
+                    </div>
+
+                    <div class="w-full md:w-auto">
+                        <?php if (!empty($is_google_connected) && $is_google_connected): ?>
+                            <div class="flex items-center justify-center md:justify-start gap-3 py-2 px-5 bg-green-50 border border-green-200 rounded-xl">
+                                <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 shadow-sm">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                                <div>
+                                    <span class="block text-sm font-bold text-green-700">Terhubung</span>
+                                    <span class="text-[10px] text-green-600 font-medium">Sinkronisasi Aktif</span>
+                                </div>
+                            </div>
+                        <?php else: ?>
+                            <a href="<?= BASE_URL ?>/google/connect" class="flex items-center justify-center gap-3 w-full md:w-auto py-3 px-6 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-blue-300 hover:shadow-md transition-all group-btn">
+                                <img src="https://nordichost.fi/wp-content/uploads/2025/02/HiView-Solutions-Google-Workspace-Reseller.-Super-G-Icon-min.png" class="w-5 h-5 transition-transform group-hover:scale-110">
+                                <span class="text-sm font-bold text-gray-700 group-hover:text-blue-600">Hubungkan Sekarang</span>
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="w-full lg:w-2/3 flex flex-col gap-6">

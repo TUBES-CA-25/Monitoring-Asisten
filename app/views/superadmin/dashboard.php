@@ -5,29 +5,49 @@
     .animate-enter { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     
-    /* CAROUSEL */
-    @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-    .carousel-container { overflow: hidden; padding: 20px 0; mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent); }
-    .carousel-track { display: flex; gap: 2rem; width: max-content; animation: scroll 40s linear infinite; }
-    .carousel-track:hover { animation-play-state: paused; }
+    /* CAROUSEL INFINITE LOOP */
+    @keyframes scroll { 
+        0% { transform: translateX(0); } 
+        100% { transform: translateX(-50%); } 
+    }
+    
+    .carousel-container { 
+        overflow: hidden; 
+        padding: 20px 0; 
+        mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent); 
+    }
+    
+    .carousel-track { 
+        display: flex; 
+        width: max-content; 
+        animation: scroll 80s linear infinite; 
+        will-change: transform; /* Optimasi performa */
+    }
+    
+    .carousel-track:hover { 
+        animation-play-state: paused; 
+    }
 
     /* KARTU ASISTEN POLAROID */
     .polaroid-card {
-        background: white; width: 220px; padding: 10px 10px 40px 10px;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;
-        transition: transform 0.3s; position: relative;
+        background: white; 
+        width: 220px; 
+        padding: 10px 10px 40px 10px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+        border: 1px solid #e5e7eb;
+        transition: transform 0.3s; 
+        position: relative;
         cursor: pointer;
+        
+        /* [PERBAIKAN UTAMA] Gunakan margin item, bukan gap container */
+        margin-right: 2rem; 
+        flex-shrink: 0; 
     }
-    /* Efek Hover: Scale sedikit dan Z-Index naik */
+    
     .polaroid-card:hover { transform: scale(1.05); z-index: 10; box-shadow: 0 15px 25px rgba(0,0,0,0.1); }
     
     .led { width: 12px; height: 12px; border-radius: 50%; position: absolute; top: 20px; right: 20px; z-index: 10; animation: pulse 2s infinite; }
-    .led.green { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
-    .led.red { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
-    .led.yellow { background: #eab308; box-shadow: 0 0 10px #eab308; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    .img-status.red { filter: grayscale(100%); opacity: 0.8; }
-    .img-status.yellow { filter: sepia(100%); opacity: 0.9; }
 </style>
 
 <div class="max-w-7xl mx-auto space-y-8 animate-enter">
@@ -37,10 +57,10 @@
         <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0 text-center md:text-left">
                 <?php
+                    // Logika Nama Panggilan
                     $fullName = $user['name'];
                     $parts = explode(',', $fullName);
                     $frontNameOnly = trim($parts[0]);
-
                     $words = explode(' ', $frontNameOnly);
                     $displayName = $words[0];
                     foreach ($words as $word) {
@@ -71,17 +91,14 @@
                 <span class="block text-3xl font-extrabold text-blue-600"><?= $stats['total_asisten'] ?></span>
                 <span class="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Total Asisten</span>
             </div>
-
             <div class="bg-green-50 p-4 rounded-2xl border border-green-100 text-center hover:shadow-md transition">
                 <span class="block text-3xl font-extrabold text-green-600"><?= $stats['hadir_today'] ?></span>
                 <span class="text-[10px] font-bold text-green-700 uppercase tracking-wider">Hadir Hari Ini</span>
             </div>
-
             <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 text-center hover:shadow-md transition">
                 <span class="block text-3xl font-extrabold text-yellow-600"><?= $stats['izin_today'] ?></span>
                 <span class="text-[10px] font-bold text-yellow-700 uppercase tracking-wider">Izin Hari Ini</span>
             </div>
-
             <div class="bg-red-50 p-4 rounded-2xl border border-red-100 text-center hover:shadow-md transition">
                 <span class="block text-3xl font-extrabold text-red-600"><?= $stats['alpa_today'] ?></span>
                 <span class="text-[10px] font-bold text-red-700 uppercase tracking-wider">Tidak Hadir</span>
@@ -103,7 +120,22 @@
             <div class="carousel-container">
                 <div class="carousel-track">
                     <?php 
-                    $allCards = array_merge($assistants, $assistants); 
+                    // [PERBAIKAN LOGIKA PHP UNTUK LOOPING]
+                    // 1. Buat temporary list
+                    $workingList = $assistants;
+                    $minItems = 10; // Jumlah minimal item agar track cukup panjang (mengisi layar)
+
+                    // 2. Jika item kurang dari minimal, duplikasi diri sendiri sampai cukup
+                    if (!empty($workingList)) {
+                        while (count($workingList) < $minItems) {
+                            $workingList = array_merge($workingList, $assistants);
+                        }
+                    }
+
+                    // 3. Duplikasi Final (2 Set) untuk efek infinite scroll CSS (0% ke -50%)
+                    // Set pertama akan terlihat, set kedua adalah bayangan untuk transisi
+                    $allCards = array_merge($workingList, $workingList); 
+                    
                     foreach($allCards as $asisten): 
                         $vStatus = $asisten['visual_status'] ?? 'alpha';
                         $imgFilter = ''; 
@@ -168,7 +200,7 @@
                 <div class="flex bg-gray-100 p-1 rounded-lg">
                     <button onclick="setChartType('bar')" class="p-1.5 rounded hover:bg-white shadow-sm transition"><i class="fas fa-chart-bar text-xs text-gray-600"></i></button>
                     <button onclick="setChartType('line')" class="p-1.5 rounded hover:bg-white shadow-sm transition"><i class="fas fa-chart-line text-xs text-gray-600"></i></button>
-                    <!-- <button onclick="setChartType('pie')" class="p-1.5 rounded hover:bg-white shadow-sm transition"><i class="fas fa-chart-pie text-xs text-gray-600"></i></button> -->
+                    <button onclick="setChartType('pie')" class="p-1.5 rounded hover:bg-white shadow-sm transition"><i class="fas fa-chart-pie text-xs text-gray-600"></i></button>
                 </div>
             </div>
         </div>
@@ -213,6 +245,11 @@
                         <p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Alamat</p>
                         <div class="flex items-start gap-2"><i class="fas fa-map-marker-alt text-gray-300 w-4 mt-0.5"></i><span id="m_address" class="text-xs text-gray-600 leading-snug">-</span></div>
                     </div>
+                    <div class="mt-6 w-full">
+                    <a id="btnSchedule" href="/superadmin/assistant_schedule" class="flex items-center justify-center w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 shadow-md transition-all transform hover:scale-[1.02]">
+                        <i class="fas fa-calendar-alt mr-2"></i> Jadwal Lengkap
+                    </a>
+                </div>
                 </div>
             </div>
         </div>
@@ -238,7 +275,6 @@
                         <div class="flex bg-gray-100 rounded-lg p-1 gap-1">
                             <button onclick="setModalChartType('bar')" class="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-gray-500 transition text-xs"><i class="fas fa-chart-bar"></i></button>
                             <button onclick="setModalChartType('doughnut')" class="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-gray-500 transition text-xs"><i class="fas fa-chart-pie"></i></button>
-                            <button onclick="setModalChartType('pie')" class="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-gray-500 transition text-xs"><i class="fas fa-chart-area"></i></button>
                         </div>
                     </div>
                     <div class="relative h-48 w-full flex items-center justify-center"><canvas id="modalChartCanvas"></canvas></div>
@@ -336,6 +372,12 @@
 
         initModalChart(currentModalChartType);
 
+        const btnSchedule = document.getElementById('btnSchedule');
+        const currentRole = window.location.href.includes('superadmin') ? 'superadmin' : 'admin';
+        if (btnSchedule) {
+            btnSchedule.href = `<?= BASE_URL ?>/${currentRole}/assistantSchedule/${user.id_user}`;
+        }
+
         // Show Modal
         modal.classList.remove('hidden');
         setTimeout(() => {
@@ -385,6 +427,7 @@
         content.classList.add('scale-95', 'opacity-0');
         setTimeout(() => { modal.classList.add('hidden'); }, 300);
     }
+
     // === 1. CHART UTAMA DASHBOARD ===
     const chartData = <?= json_encode($chart_data) ?>;
     let chartInstance = null;
