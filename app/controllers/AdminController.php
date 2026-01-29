@@ -17,7 +17,6 @@ class AdminController extends Controller {
         $db = new Database(); 
         $conn = $db->getConnection();
 
-        // Statistik Global
         $stmt = $conn->query("SELECT COUNT(*) as total FROM user WHERE role = 'User'");
         $totalAsisten = $stmt->fetch()['total'];
 
@@ -44,7 +43,6 @@ class AdminController extends Controller {
         foreach ($assistants as &$ast) {
             $pid = $ast['id_profil'];
 
-            // 1. Cek Status Visual (Logic Lama Tetap Ada)
             $stmtP = $conn->prepare("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
             $stmtP->execute([':pid' => $pid]);
             $presensi = $stmtP->fetch(PDO::FETCH_ASSOC);
@@ -61,42 +59,31 @@ class AdminController extends Controller {
                 $ast['visual_status'] = 'alpha';
             }
 
-            // 2. [BARU] HITUNG STATISTIK INDIVIDU (REAL DATA)
-            // Hitung Total Hadir
             $stmtH = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
             $stmtH->execute([':pid' => $pid]);
             $ast['total_hadir'] = $stmtH->fetchColumn();
 
-            // Hitung Total Izin/Sakit
             $stmtIz = $conn->prepare("SELECT COUNT(*) FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
             $stmtIz->execute([':pid' => $pid]);
             $ast['total_izin'] = $stmtIz->fetchColumn();
 
-            // Hitung Total Alpa (Berdasarkan data yang tersimpan di DB sebagai 'Alpha')
             $ast['total_alpa'] = $userModel->calculateRealAlpha($pid, $ast['created_at'], $ast['is_completed']);
-            // $stmtA = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Alpha'");
-            // $stmtA->execute([':pid' => $pid]);
-            // $ast['total_alpa'] = $stmtA->fetchColumn();
         }
 
         $data['assistants'] = $assistants;
         $chartData = [];
         
-        // A. Harian (7 Hari Terakhir)
         $dLabels = []; $dData = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-$i days"));
             $dLabels[] = date('d M', strtotime($date));
-            // Hitung total kehadiran semua asisten pada tanggal tersebut
             $stmt = $conn->query("SELECT COUNT(*) FROM presensi WHERE tanggal = '$date' AND status = 'Hadir'");
             $dData[] = $stmt->fetchColumn();
         }
         $chartData['daily'] = ['labels' => $dLabels, 'data' => $dData];
 
-        // B. Mingguan (4 Minggu Terakhir)
         $wLabels = []; $wData = [];
         for ($i = 3; $i >= 0; $i--) {
-            // Hitung start (Senin) dan end (Minggu) untuk minggu ke-$i yg lalu
             $wStart = date('Y-m-d', strtotime("-$i weeks Monday this week"));
             $wEnd   = date('Y-m-d', strtotime("-$i weeks Sunday this week"));
             $wLabels[] = "Minggu " . date('W', strtotime($wStart));
@@ -106,7 +93,6 @@ class AdminController extends Controller {
         }
         $chartData['weekly'] = ['labels' => $wLabels, 'data' => $wData];
 
-        // C. Bulanan (6 Bulan Terakhir)
         $mLabels = []; $mData = [];
         for ($i = 5; $i >= 0; $i--) {
             $mStart = date('Y-m-01', strtotime("-$i months"));
@@ -119,9 +105,7 @@ class AdminController extends Controller {
         $chartData['monthly'] = ['labels' => $mLabels, 'data' => $mData];
 
         $data['chart_data'] = $chartData;
-        // $data['chart_data'] = $attModel->getChartData();
 
-        // QR Code
         $qrModel = $this->model('QrModel');
         $data['qr_in'] = json_encode(['type'=>'CHECK_IN', 'token'=>$qrModel->getOrGenerateToken('check_in')]);
         $data['qr_out'] = json_encode(['type'=>'CHECK_OUT', 'token'=>$qrModel->getOrGenerateToken('check_out')]);
@@ -152,7 +136,6 @@ class AdminController extends Controller {
         $stmt->execute();
         $allUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Dropdown Lab (Tetap Ada)
         $db->query("SELECT * FROM lab ORDER BY nama_lab ASC");
         $data['labs'] = $db->resultSet();
 
@@ -171,9 +154,8 @@ class AdminController extends Controller {
             ob_clean(); 
             header('Content-Type: application/json');
 
-            $photoName = 'default.jpg'; // Default foto
+            $photoName = 'default.jpg';
             
-            // Logika Upload Foto
             if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 $targetDir = "../public/uploads/profile/";
                 if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
@@ -192,19 +174,14 @@ class AdminController extends Controller {
             $role = $_POST['role'];
             $isUser = ($role == 'User');
             
-            // Logic Completed: Hanya jika field opsional diisi
             $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
 
-            // [PERBAIKAN PENTING] 
-            // Gunakan !empty() agar jika input kosong dikirim sebagai NULL ke database
-            // Ini mencegah error saat input data wajib saja.
             $data = [
                 'email'    => $_POST['email'],
                 'password' => $_POST['password'], 
                 'role'     => $role,
                 'name'     => $_POST['name'],
                 
-                // Data Opsional (Ubah "" menjadi NULL)
                 'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : null,
                 'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : null,
                 'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : null,
@@ -222,7 +199,6 @@ class AdminController extends Controller {
             if ($this->model('UserModel')->createUser($data)) {
                 echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
             } else {
-                // Pesan error lebih spesifik biasanya karena duplikat email
                 echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user (Email mungkin sudah ada).']);
             }
             exit;
@@ -239,7 +215,6 @@ class AdminController extends Controller {
             $oldUser = $this->model('UserModel')->getUserById($_POST['id_user']);
             $photoName = $oldUser['photo_profile'];
 
-            // Logika Upload Foto
             if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 $targetDir = "../public/uploads/profile/";
                 $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
@@ -285,7 +260,6 @@ class AdminController extends Controller {
                 $this->model('UserModel')->changePassword($data['id'], $_POST['password']);
             }
 
-            // Panggil Model Update
             $updateResult = $this->model('UserModel')->updateUser($data);
 
             if ($updateResult) {
@@ -320,21 +294,16 @@ class AdminController extends Controller {
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $attModel = $this->model('AttendanceModel');
 
-        // 1. Ambil Data untuk Dropdown Filter
         $data['assistants_list'] = $attModel->getAllAssistantsList();
 
-        // 2. Tangkap Input Filter
-        // Logika: Jika tanggal kosong, default ke Hari Ini
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
         $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
 
-        // Kirim parameter ke View agar input filter tetap terisi
         $data['start_date'] = $startDate;
         $data['end_date'] = $endDate;
         $data['selected_assistant'] = $assistantId;
 
-        // 3. Ambil Data Rekap (Model Pintar: Generate Alpha Otomatis)
         $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
 
         $this->view('layout/header', $data);
@@ -358,7 +327,6 @@ class AdminController extends Controller {
         header('Content-Disposition: attachment; filename="' . $filename . '"');
 
         $output = fopen('php://output', 'w');
-        // Header CSV
         fputcsv($output, ['No', 'Tanggal', 'Nama Asisten', 'NIM', 'Jabatan', 'Jam Masuk', 'Jam Pulang', 'Status']);
 
         $no = 1;
@@ -391,7 +359,6 @@ class AdminController extends Controller {
         $data['start_date'] = $startDate;
         $data['end_date'] = $endDate;
         
-        // Nama Filter untuk Judul PDF
         $data['assistant_name'] = 'Semua Asisten';
         if($assistantId) {
             $user = $this->model('UserModel')->getUserById($assistantId);
@@ -472,7 +439,6 @@ class AdminController extends Controller {
         $data['judul'] = 'Monitoring Logbook';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
-        // Ambil daftar user aktif untuk sidebar
         $allUsers = $this->model('UserModel')->getAllUsers();
         $data['assistants'] = array_filter($allUsers, fn($u) => $u['role'] == 'User');
 
@@ -482,27 +448,24 @@ class AdminController extends Controller {
         $this->view('layout/footer');
     }
     
-    // [UPDATE] Mengambil Data Logbook (Unified Data)
     public function getLogsByUser() {
         if ($_SESSION['role'] != 'Admin') exit;
         $userId = $_POST['user_id'] ?? 0;
         
-        // Panggil Model Cerdas (Unified) agar Admin melihat status Alpha/Izin/Hadir yang akurat
         $logs = $this->model('LogbookModel')->getUnifiedLogbook($userId);
         
         echo json_encode($logs);
     }
     
-    // [BARU] Fitur Super Reset (Admin)
     public function reset_logbook() {
         if ($_SESSION['role'] != 'Admin') { 
             echo json_encode(['status'=>'error', 'message'=>'Unauthorized']); exit; 
         }
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $idRef = $_POST['id_ref']; // ID Presensi atau ID Izin
-            $type = $_POST['type'];    // 'Hadir' atau 'Izin'
-            $mode = $_POST['mode'];    // 'partial' (Hapus Ket) atau 'full' (Hapus Data)
+            $idRef = $_POST['id_ref'];
+            $type = $_POST['type'];
+            $mode = $_POST['mode'];
 
             if ($this->model('LogbookModel')->resetLogAdmin($idRef, $type, $mode)) {
                 echo json_encode(['status' => 'success', 'message' => 'Logbook berhasil direset.']);
@@ -515,10 +478,8 @@ class AdminController extends Controller {
     public function saveLogbookAdmin() {
         if ($_SESSION['role'] != 'Admin') exit;
         
-        // Setup Upload Config
         $fileName = null;
         if (isset($_FILES['proof_file']['name']) && $_FILES['proof_file']['name'] != "") {
-            // Tentukan folder berdasarkan status (Attendance / Leaves)
             $status = $_POST['status'];
             $folder = ($status == 'Hadir') ? 'attendance' : 'leaves';
             $targetDir = "../public/uploads/$folder/";
@@ -567,17 +528,14 @@ class AdminController extends Controller {
         $stmtG->execute([':uid' => $_SESSION['user_id']]);
         $data['is_google_connected'] = $stmtG->rowCount() > 0;
         
-        // 1. Total Asisten
         $stmt = $conn->query("SELECT COUNT(*) as total FROM user WHERE role='User'");
         $data['total_managed_users'] = $stmt->fetch()['total'];
 
-        // 2. Chart Kehadiran
         $attModel = $this->model('AttendanceModel');
         $data['chart_data'] = $attModel->getChartData(); 
 
         $userModel = $this->model('UserModel');
 
-        // 3. Demografi
         $data['demographics'] = $userModel->getDemographics();
 
         $stmtSch = $conn->query("SELECT * FROM jadwal_lab 
@@ -586,15 +544,12 @@ class AdminController extends Controller {
                                  LIMIT 5");
         $rawSchedules = $stmtSch->fetchAll(PDO::FETCH_ASSOC);
         
-        // Format Tanggal & Mapping Key untuk View
         foreach ($rawSchedules as &$sch) {
             $sch['display_date'] = date('d M Y', strtotime($sch['tanggal']));
-            // Menambahkan key 'type' manual agar sesuai dengan logika view
             $sch['type'] = 'umum'; 
         }
         $data['upcoming_schedules'] = $rawSchedules;
         
-        // 5. Peringkat Asisten
         $data['rankings'] = [
             'online' => $userModel->getAssistantRankings('online'),
             'rajin' => $userModel->getAssistantRankings('rajin'),
@@ -628,11 +583,9 @@ class AdminController extends Controller {
             $userModel = $this->model('UserModel');
             $currentUser = $userModel->getUserById($_SESSION['user_id']);
 
-            // --- LOGIKA UPLOAD FOTO (Tetap Sama) ---
             $photoName = $currentUser['photo_profile'];
             $targetDir = "../public/uploads/profile/";
 
-            // Cek Base64 Cropper
             if (!empty($_POST['cropped_image'])) {
                 $dataImg = $_POST['cropped_image'];
                 if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
@@ -652,7 +605,6 @@ class AdminController extends Controller {
                     }
                 }
             } 
-            // Cek Upload Biasa
             elseif (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
                 $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
@@ -662,8 +614,6 @@ class AdminController extends Controller {
                 }
             }
 
-            // [LOGIC BARU] Cek Kelengkapan Profil Admin
-            // Jika Nama, HP, dan Alamat terisi -> Set Completed = 1
             $isCompleted = 0;
             if (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) {
                 $isCompleted = 1;
@@ -688,7 +638,6 @@ class AdminController extends Controller {
                 $_SESSION['name'] = $_POST['name'];
                 $_SESSION['jabatan'] = $_POST['position'];
                 
-                // [PERBAIKAN UTAMA: Masalah Undefined & Redirect]
                 echo json_encode([
                     'status'   => 'success', 
                     'title'    => 'Berhasil', 
@@ -705,10 +654,9 @@ class AdminController extends Controller {
     public function getQrAjax() {
         if ($_SESSION['role'] != 'Admin') exit;
         
-        $type = $_POST['type'] ?? 'check_in'; // 'check_in' atau 'check_out'
+        $type = $_POST['type'] ?? 'check_in';
         $token = $this->model('QrModel')->getOrGenerateToken($type);
         
-        // Format JSON agar bisa dibaca oleh QRCodeJS di frontend
         $qrString = json_encode([
             'type' => ($type == 'check_in') ? 'CHECK_IN' : 'CHECK_OUT', 
             'token' => $token

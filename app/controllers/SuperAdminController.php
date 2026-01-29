@@ -18,7 +18,6 @@ class SuperAdminController extends Controller {
         $db = new Database(); 
         $conn = $db->getConnection();
 
-        // Statistik Global
         $stmt = $conn->query("SELECT COUNT(*) as total FROM user WHERE role = 'User'");
         $totalAsisten = $stmt->fetch()['total'];
 
@@ -45,7 +44,6 @@ class SuperAdminController extends Controller {
         foreach ($assistants as &$ast) {
             $pid = $ast['id_profil'];
 
-            // A. Cek Status Visual Hari Ini
             $stmtP = $conn->prepare("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
             $stmtP->execute([':pid' => $pid]);
             $presensi = $stmtP->fetch(PDO::FETCH_ASSOC);
@@ -55,7 +53,6 @@ class SuperAdminController extends Controller {
             $izin = $stmtI->fetch(PDO::FETCH_ASSOC);
 
             if ($presensi) {
-                // Jika sudah pulang -> Merah (Offline), jika belum -> Hijau (Online)
                 $ast['visual_status'] = ($presensi['waktu_pulang'] != null) ? 'offline_pulang' : 'online';
             } elseif ($izin) {
                 $ast['visual_status'] = 'izin';
@@ -63,7 +60,6 @@ class SuperAdminController extends Controller {
                 $ast['visual_status'] = 'alpha';
             }
 
-            // B. Hitung Statistik Individu (Total Hadir/Izin/Alpa)
             $stmtH = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
             $stmtH->execute([':pid' => $pid]);
             $ast['total_hadir'] = $stmtH->fetchColumn();
@@ -73,15 +69,11 @@ class SuperAdminController extends Controller {
             $ast['total_izin'] = $stmtIz->fetchColumn();
 
             $ast['total_alpa'] = $userModel->calculateRealAlpha($pid, $ast['created_at'], $ast['is_completed']);
-            // $stmtA = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Alpha'");
-            // $stmtA->execute([':pid' => $pid]);
-            // $ast['total_alpa'] = $stmtA->fetchColumn();
         }
 
         $data['assistants'] = $assistants;
         $chartData = [];
         
-        // A. Harian
         $dLabels = []; $dData = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-$i days"));
@@ -91,7 +83,6 @@ class SuperAdminController extends Controller {
         }
         $chartData['daily'] = ['labels' => $dLabels, 'data' => $dData];
 
-        // B. Mingguan
         $wLabels = []; $wData = [];
         for ($i = 3; $i >= 0; $i--) {
             $wStart = date('Y-m-d', strtotime("-$i weeks Monday this week"));
@@ -102,7 +93,6 @@ class SuperAdminController extends Controller {
         }
         $chartData['weekly'] = ['labels' => $wLabels, 'data' => $wData];
 
-        // C. Bulanan
         $mLabels = []; $mData = [];
         for ($i = 5; $i >= 0; $i--) {
             $mStart = date('Y-m-01', strtotime("-$i months"));
@@ -114,7 +104,6 @@ class SuperAdminController extends Controller {
         $chartData['monthly'] = ['labels' => $mLabels, 'data' => $mData];
 
         $data['chart_data'] = $chartData;
-        // $data['chart_data'] = $attModel->getChartData();
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -127,7 +116,6 @@ class SuperAdminController extends Controller {
         $data['judul'] = 'Daftar Pengguna';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
-        // [PERBAIKAN] Query Lengkap (sama seperti Admin)
         $db = new Database();
         $conn = $db->getConnection();
         
@@ -144,7 +132,6 @@ class SuperAdminController extends Controller {
         $stmt->execute();
         $allUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Filter: Sembunyikan akun sendiri dari daftar
         $data['users_list'] = array_filter($allUsers, function($u) {
             return $u['id'] != $_SESSION['user_id'];
         });
@@ -176,10 +163,8 @@ class SuperAdminController extends Controller {
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $attModel = $this->model('AttendanceModel');
 
-        // 1. Data Dropdown
         $data['assistants_list'] = $attModel->getAllAssistantsList();
 
-        // 2. Filter Logic
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
         $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
@@ -188,12 +173,10 @@ class SuperAdminController extends Controller {
         $data['end_date'] = $endDate;
         $data['selected_assistant'] = $assistantId;
 
-        // 3. Get Data
         $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
-        // Pastikan view mengarah ke folder yang sesuai atau gunakan view admin jika dishare
         $this->view('superadmin/attendance', $data); 
         $this->view('layout/footer');
     }
@@ -244,7 +227,6 @@ class SuperAdminController extends Controller {
             $data['assistant_name'] = $user['name'] ?? 'Asisten';
         }
 
-        // Menggunakan view PDF yang sama dengan Admin (Shared View)
         $this->view('admin/pdf_attendance', $data);
     }
 
@@ -284,17 +266,14 @@ class SuperAdminController extends Controller {
         $stmtG->execute([':uid' => $_SESSION['user_id']]);
         $data['is_google_connected'] = $stmtG->rowCount() > 0;
         
-        // 1. Total Asisten
         $stmt = $conn->query("SELECT COUNT(*) as total FROM user WHERE role='User'");
         $data['total_managed_users'] = $stmt->fetch()['total'];
 
-        // 2. Chart Kehadiran
         $attModel = $this->model('AttendanceModel');
         $data['chart_data'] = $attModel->getChartData(); 
 
         $userModel = $this->model('UserModel');
 
-        // 3. Demografi
         $data['demographics'] = $userModel->getDemographics();
 
         $stmtSch = $conn->query("SELECT * FROM jadwal_lab 
@@ -303,15 +282,12 @@ class SuperAdminController extends Controller {
                                  LIMIT 5");
         $rawSchedules = $stmtSch->fetchAll(PDO::FETCH_ASSOC);
         
-        // Format Tanggal & Mapping
         foreach ($rawSchedules as &$sch) {
             $sch['display_date'] = date('d M Y', strtotime($sch['tanggal']));
-            // Inject type agar dibaca 'UMUM' oleh view
             $sch['type'] = 'umum';
         }
         $data['upcoming_schedules'] = $rawSchedules;
         
-        // 5. Peringkat Asisten
         $data['rankings'] = [
             'online' => $userModel->getAssistantRankings('online'),
             'rajin' => $userModel->getAssistantRankings('rajin'),
@@ -405,14 +381,12 @@ class SuperAdminController extends Controller {
                 'gender'   => $_POST['gender'],
                 'interest' => null,
                 'photo'    => ($photoName != $currentUser['photo_profile']) ? $photoName : null,
-                // 'is_completed' => $isCompleted
             ];
 
             if ($userModel->updateSelfProfile($data)) {
                 $_SESSION['name'] = $_POST['name'];
                 $_SESSION['jabatan'] = $_POST['position'];
                 
-                // [PERBAIKAN UTAMA: Masalah Undefined & Redirect]
                 echo json_encode([
                     'status'   => 'success', 
                     'title'    => 'Berhasil',
@@ -441,7 +415,6 @@ class SuperAdminController extends Controller {
         $data['user'] = $userModel->getUserById($_SESSION['user_id']); 
         $data['assistant'] = $assistant; 
 
-        // 1. Ambil Statistik Presensi
         $db = new Database(); $conn = $db->getConnection();
         $pId = $assistant['id_profil'];
         
@@ -457,10 +430,8 @@ class SuperAdminController extends Controller {
 
         $data['stats'] = ['hadir' => $hadir, 'izin' => $izin, 'alpa' => $alpa];
 
-        // 2. Ambil Riwayat Logbook
         $data['logs'] = $this->model('LogbookModel')->getUserLogbookHistory($id);
 
-        // 3. Ambil Jadwal
         $data['schedules'] = $this->model('ScheduleModel')->getAllUserSchedules($id);
 
         $this->view('layout/header', $data);

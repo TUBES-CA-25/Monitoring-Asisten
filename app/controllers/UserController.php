@@ -9,7 +9,6 @@ class UserController extends Controller {
         }
 
         $data['judul'] = 'Dashboard Asisten';
-        // [UPDATE] Ambil User lengkap termasuk created_at dan is_completed
         $userModel = $this->model('UserModel');
         $user = $userModel->getUserById($_SESSION['user_id']);
         $data['user'] = $user;
@@ -21,7 +20,6 @@ class UserController extends Controller {
         $db = new Database(); 
         $conn = $db->getConnection();
 
-        // 1. STATISTIK TOTAL
         $stmtH = $conn->prepare("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
         $stmtH->execute([':pid' => $pId]);
         $hadir = $stmtH->fetch()['total'];
@@ -30,21 +28,16 @@ class UserController extends Controller {
         $stmtI->execute([':pid' => $pId]);
         $izin = $stmtI->fetch()['total'];
 
-        // [BARU] Hitung Alpha Otomatis
-        // Menggunakan tanggal pembuatan akun dan status verifikasi
         $alpa = $userModel->calculateRealAlpha($pId, $user['created_at'], $user['is_completed']);
         
         $data['stats'] = ['hadir' => $hadir, 'izin' => $izin, 'alpa' => $alpa];
         
-        // 2. CEK STATUS HARI INI (LOGIKA DIPERBAIKI)
         $today = date('Y-m-d');
         
-        // Cek Presensi Hari Ini
         $stmtTod = $conn->prepare("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = :d");
         $stmtTod->execute([':pid' => $pId, ':d' => $today]);
         $presensiToday = $stmtTod->fetch(PDO::FETCH_ASSOC);
 
-        // Cek Izin Hari Ini
         $stmtIz = $conn->prepare("SELECT id_izin FROM izin WHERE id_profil = :pid AND :d BETWEEN start_date AND end_date AND status_approval = 'Approved'");
         $stmtIz->execute([':pid' => $pId, ':d' => $today]);
         $izinToday = $stmtIz->fetch(PDO::FETCH_ASSOC);
@@ -58,12 +51,11 @@ class UserController extends Controller {
                 $data['is_working'] = true;
             }
         } elseif ($izinToday) {
-            $data['status_today'] = 'yellow'; // IZIN / SAKIT
+            $data['status_today'] = 'yellow';
         } else {
-            $data['status_today'] = 'red'; // BELUM HADIR
+            $data['status_today'] = 'red';
         }
 
-        // 3. JADWAL MINGGUAN
         $data['weekly_schedule'] = $schModel->getUserScheduleForWeek($uid); 
 
         $chartData = [];
@@ -78,7 +70,6 @@ class UserController extends Controller {
         }
         $chartData['daily'] = ['labels' => $dLabels, 'data' => $dData];
 
-        // B. Mingguan (4 Minggu Terakhir)
         $wLabels = []; $wData = [];
         for ($i = 3; $i >= 0; $i--) {
             $wStart = date('Y-m-d', strtotime("-$i weeks Monday this week"));
@@ -91,7 +82,6 @@ class UserController extends Controller {
         }
         $chartData['weekly'] = ['labels' => $wLabels, 'data' => $wData];
 
-        // C. Bulanan (6 Bulan Terakhir)
         $mLabels = []; $mData = [];
         for ($i = 5; $i >= 0; $i--) {
             $mStart = date('Y-m-01', strtotime("-$i months"));
@@ -165,22 +155,17 @@ class UserController extends Controller {
     }
 
     public function updateProfile() {
-        // Hanya proses jika request POST
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $role = $_SESSION['role'];
             $userModel = $this->model('UserModel');
             
-            // Ambil data user saat ini
             $currentUser = $userModel->getUserById($_SESSION['user_id']);
 
-            // 1. CEK KUNCI PROFIL
             if ($role != 'Admin' && isset($currentUser['is_completed']) && $currentUser['is_completed'] == 1) {
                 echo "<script>alert('Profil terkunci.'); window.location.href='" . BASE_URL . "/user/profile';</script>";
                 exit;
             }
 
-            // 2. VALIDASI DATA WAJIB
-            // Tambahkan validasi kelas jika role adalah User
             if (empty($_POST['name']) || empty($_POST['nim']) || empty($_POST['position']) || empty($_POST['phone']) || empty($_POST['address'])) {
                 echo "<script>alert('Semua data bertanda (*) wajib diisi!'); window.history.back();</script>";
                 exit;
@@ -191,12 +176,10 @@ class UserController extends Controller {
                 exit;
             }
 
-            // 3. LOGIKA UPLOAD FOTO (Sama seperti sebelumnya...)
             $photoName = $currentUser['photo_profile']; 
             $targetDir = "../public/uploads/profile/";
             
             if (!empty($_POST['cropped_image'])) {
-                // ... (Logika crop image tetap sama) ...
                 $dataImg = $_POST['cropped_image'];
                 if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
                     $dataImg = substr($dataImg, strpos($dataImg, ',') + 1);
@@ -215,7 +198,6 @@ class UserController extends Controller {
                     }
                 }
             } elseif (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
-                // ... (Logika upload biasa tetap sama) ...
                 if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
                 $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
                 $targetFilePath = $targetDir . $fileName;
@@ -228,7 +210,6 @@ class UserController extends Controller {
                 }
             }
 
-            // 4. PERSIAPAN DATA (Update kolom kelas)
             $data = [
                 'id'       => $_SESSION['user_id'],
                 'role'     => 'User',
@@ -245,13 +226,10 @@ class UserController extends Controller {
                 'photo'    => ($photoName != $currentUser['photo_profile']) ? $photoName : null
             ];
 
-            // 5. EKSEKUSI UPDATE
             if ($userModel->updateSelfProfile($data)) {
-                // Update Session Data
                 $_SESSION['name'] = $_POST['name'];
                 $_SESSION['jabatan'] = $_POST['position'];
 
-                // Return JSON Sukses dengan URL Redirect
                 echo json_encode([
                     'status' => 'success',
                     'title'  => 'Profil Terkunci',
@@ -274,7 +252,6 @@ class UserController extends Controller {
         $data['judul'] = 'Logbook Kegiatan';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
 
-        // [UPDATE] Menggunakan Unified Logbook (Gabungan Presensi, Izin, Alpha)
         $data['logs'] = $this->model('LogbookModel')->getUnifiedLogbook($_SESSION['user_id']); 
 
         $this->view('layout/header', $data);
@@ -291,7 +268,6 @@ class UserController extends Controller {
         
         $db = new Database(); $conn = $db->getConnection();
         
-        // Cek apakah sudah presensi (waktu_presensi) dan belum pulang (waktu_pulang)
         $stmt = $conn->prepare("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = :d");
         $stmt->execute([':pid'=>$pId, ':d'=>$today]);
         $att = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -303,7 +279,6 @@ class UserController extends Controller {
             echo json_encode(['status'=>'error', 'message'=>'Logbook terkunci karena Anda sudah scan pulang.']); exit;
         }
 
-        // Simpan Logbook
         $payload = [
             'user_id'  => $_SESSION['user_id'],
             'date'     => $today,
@@ -327,7 +302,6 @@ class UserController extends Controller {
         $logId = $_POST['log_id'];
         $userId = $_SESSION['user_id'];
 
-        // Panggil Model Reset User (Hanya menghapus detail_aktivitas)
         if ($this->model('LogbookModel')->resetLogUser($logId, $userId)) {
             echo json_encode(['status' => 'success', 'message' => 'Isi logbook berhasil dikosongkan.']);
         } else {
@@ -342,7 +316,6 @@ class UserController extends Controller {
         $data['judul'] = 'Jadwal Saya & Lab';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
-        // Ambil Jadwal Umum + Jadwal Milik User Sendiri
         $data['raw_schedules'] = $this->model('ScheduleModel')->getAllUserSchedules($_SESSION['user_id']); 
 
         $this->view('layout/header', $data);
@@ -354,7 +327,6 @@ class UserController extends Controller {
     public function addSchedule() {
         if ($_SESSION['role'] != 'User') exit;
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            // User hanya bisa tambah tipe 'kuliah', tanpa SKS, wajib Dosen & Kelas
             $data = [
                 'type' => 'kuliah', 'user_id' => $_SESSION['profil_id'],
                 'title' => $_POST['title'], 'location' => $_POST['location'],
@@ -395,7 +367,6 @@ class UserController extends Controller {
     public function deleteSchedule() {
         if ($_SESSION['role'] != 'User') exit;
         if (isset($_GET['id']) && isset($_GET['type'])) {
-            // Validasi: User hanya boleh hapus tipe kuliah
             if ($_GET['type'] !== 'kuliah') {
                 $_SESSION['flash'] = ['type' => 'error', 'title' => 'Ditolak', 'message' => 'Hanya jadwal kuliah yang bisa dihapus.'];
                 header("Location: " . BASE_URL . "/user/schedule"); exit;
@@ -514,7 +485,6 @@ class UserController extends Controller {
     }
 
     public function submit_leave() {
-        // Pastikan hanya User yang bisa akses
         if ($_SESSION['role'] != 'User') {
             echo json_encode(['status' => 'error', 'message' => 'Akses ditolak']);
             exit;
@@ -530,13 +500,11 @@ class UserController extends Controller {
             $startDate = $_POST['start_date'];
             $endDate = $_POST['end_date'];
 
-            // 1. Validasi Tanggal
             if ($endDate < $startDate) {
                 echo json_encode(['status' => 'error', 'message' => 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.']);
                 exit;
             }
 
-            // 2. Handle Upload Bukti
             $fileName = null;
             if (isset($_FILES['attachment']['name']) && $_FILES['attachment']['name'] != "") {
                 $targetDir = "../public/uploads/leaves/"; 
@@ -560,7 +528,6 @@ class UserController extends Controller {
                 exit;
             }
 
-            // 3. Simpan ke Database
             $data = [
                 'id_profil'  => $pId,
                 'type'       => $type,
@@ -570,19 +537,16 @@ class UserController extends Controller {
                 'file_bukti' => $fileName
             ];
 
-            // Panggil Model
             if ($this->model('AttendanceModel')->createLeaveRequest($data)) {
-                // SUKSES: Return JSON Success
                 echo json_encode([
                     'status' => 'success', 
                     'title' => 'Berhasil', 
                     'message' => 'Data Izin/Sakit berhasil dicatat. Status kehadiran otomatis diperbarui.'
                 ]);
             } else {
-                // GAGAL: Return JSON Error
                 echo json_encode(['status' => 'error', 'message' => 'Terjadi kesalahan database.']);
             }
-            exit; // Penting: Hentikan script agar tidak me-load view
+            exit; 
         }
     }
 }

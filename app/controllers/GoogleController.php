@@ -3,7 +3,6 @@ require_once '../app/core/GoogleClient.php';
 
 class GoogleController extends Controller {
     
-    // Redirect User ke Google
     public function connect() {
         if (!isset($_SESSION['user_id'])) { header("Location: " . BASE_URL); exit; }
         
@@ -12,7 +11,6 @@ class GoogleController extends Controller {
         exit;
     }
 
-    // Menangani Callback setelah Login
     public function callback() {
         if (!isset($_GET['code'])) { header("Location: " . BASE_URL); exit; }
         if (!isset($_SESSION['user_id'])) { header("Location: " . BASE_URL . "/auth/login"); exit; }
@@ -25,7 +23,6 @@ class GoogleController extends Controller {
             $conn = $db->getConnection();
             $userId = $_SESSION['user_id'];
 
-            // Simpan / Update Token di DB
             $sql = "INSERT INTO user_google_token (id_user, access_token, refresh_token, expires_in) 
                     VALUES (:uid, :at, :rt, :exp)
                     ON DUPLICATE KEY UPDATE 
@@ -39,14 +36,12 @@ class GoogleController extends Controller {
                 ':exp' => $token['expires_in']
             ]);
 
-            // [MODIFIKASI] Gunakan Session Flash untuk Modal, bukan Alert
             $_SESSION['google_modal'] = [
                 'type' => 'success',
                 'title' => 'Integrasi Berhasil!',
                 'message' => 'Akun Google Calendar berhasil terhubung. Jadwal Anda kini tersinkronisasi otomatis.'
             ];
         } else {
-            // [MODIFIKASI] Pesan Gagal
             $_SESSION['google_modal'] = [
                 'type' => 'error',
                 'title' => 'Gagal Terhubung',
@@ -54,7 +49,6 @@ class GoogleController extends Controller {
             ];
         }
 
-        // Redirect kembali ke Profil
         header("Location: " . BASE_URL . "/user/profile");
         exit;
     }
