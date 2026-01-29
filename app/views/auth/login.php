@@ -84,7 +84,7 @@
             <p class="text-slate-400 text-sm mt-1 font-light tracking-wide">Monitoring Asisten Laboratorium</p>
         </div>
 
-        <form action="<?= BASE_URL ?>?page=auth&action=login" method="POST" class="space-y-5" onsubmit="return validateLogin()">
+        <form action="<?= BASE_URL ?>/auth/login" method="POST" class="space-y-5" onsubmit="return validateLogin()">
             
             <div class="relative group">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

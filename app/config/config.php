@@ -1,10 +1,8 @@
 <?php
-// URL Dasar (Sesuaikan dengan folder langkah 1)
-// define('BASE_URL', 'http://0.0.0.0/Code/Project_ICLabs/iclabs_v2/public/');
-define('BASE_URL', 'http://localhost/iclabs_v2/public');
+// BASEURL: Ganti sesuai nama folder kamu di htdocs
+define('BASE_URL', 'http://localhost/ICLABS/public');
 
-// Database
-//ini devine
+// DB CONFIG
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');
