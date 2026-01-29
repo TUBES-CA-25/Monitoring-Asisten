@@ -19,7 +19,16 @@
         </div>
         
         <div class="w-12 h-12 rounded-full p-1 bg-white shadow-md border border-gray-100">
-            <img src="https://ui-avatars.com/api/?name=<?= urlencode($assistant['name']) ?>&background=random" class="w-full h-full rounded-full object-cover">
+            <?php 
+                $photoName = $assistant['photo_profile'] ?? '';
+                $photoPath = 'uploads/profile/' . $photoName;
+                if (!empty($photoName) && file_exists($photoPath)) {
+                    $avatarUrl = BASE_URL . '/' . $photoPath;
+                } else {
+                    $avatarUrl = "https://ui-avatars.com/api/?name=" . urlencode($assistant['name']) . "&background=random&size=500";
+                }
+            ?>
+            <img src="<?= $avatarUrl ?>" class="w-full h-full rounded-full object-cover shadow-lg">
         </div>
     </div>
 
@@ -91,6 +100,5 @@
             </div>
 
         <?php endif; ?>
-        
     </div>
 </div>

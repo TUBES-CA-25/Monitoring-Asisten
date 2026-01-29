@@ -1,393 +1,441 @@
-<?php
-// PHP Data Processing
-$calendarEvents = [];
-
-// Pastikan variabel data tersedia (support $raw_schedules dari admin atau $all_schedules dari user)
-$schedulesData = $raw_schedules ?? $all_schedules ?? [];
-
-if (!empty($schedulesData)) {
-    foreach ($schedulesData as $sch) {
-        // 1. Tentukan Warna Berdasarkan Tipe Jadwal
-        // Default (Umum/Lainnya) = Abu-abu
-        $bgColor = '#64748b'; 
-        $bdColor = '#475569';
-        $typeLabel = 'Umum';
-
-        // Normalisasi input tipe (lowercase)
-        $type = strtolower($sch['type'] ?? '');
-
-        if ($type == 'kuliah' || $type == 'class') {
-            $bgColor = '#10b981'; // Hijau (Emerald-500)
-            $bdColor = '#059669';
-            $typeLabel = 'Kuliah';
-        } elseif ($type == 'asisten' || $type == 'assistant') {
-            $bgColor = '#3b82f6'; // Biru (Blue-500)
-            $bdColor = '#2563eb';
-            $typeLabel = 'Asisten';
-        } elseif ($type == 'piket') {
-            $bgColor = '#ef4444'; // Merah (Red-500)
-            $bdColor = '#dc2626';
-            $typeLabel = 'Piket';
-        }
-
-        // 2. Format Tanggal ISO8601
-        // Cek apakah start_time sudah datetime lengkap atau terpisah
-        $start = $sch['start_time'];
-        $end = $sch['end_time'] ?? null;
-        
-        // Jika data dari model baru (terpisah tanggal & jam), gabungkan:
-        if (isset($sch['tanggal']) && strpos($start, ' ') === false) {
-            $start = $sch['tanggal'] . 'T' . $sch['start_time'];
-            $end   = $sch['tanggal'] . 'T' . ($sch['end_time'] ?? '00:00:00');
-        }
-
-        $calendarEvents[] = [
-            'title' => $sch['title'] ?? 'Kegiatan',
-            'start' => $start, 
-            'end' => $end,
-            // Warna Event
-            'backgroundColor' => '#ffffff', // Background kartu tetap putih bersih
-            'borderColor' => 'transparent',
-            'textColor' => '#1e293b',
-            'extendedProps' => [
-                'type' => $typeLabel, // Label untuk ditampilkan
-                'colorCode' => $bgColor, // Warna untuk Dot Indikator
-                'userId' => $sch['user_id'] ?? 'general',
-                'userName' => $sch['user_name'] ?? 'Laboratorium',
-                'location' => $sch['location'] ?? '-',
-                'desc' => $sch['description'] ?? '-'
-            ]
-        ];
-    }
-}
-?>
-
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
 
 <style>
-    /* --- ANIMASI & TRANSISI --- */
-    .animate-enter { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* --- GOOGLE CALENDAR STYLE --- */
+    .animate-enter { animation: fadeInUp 0.5s ease-out forwards; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
     #calendar { 
         font-family: 'Inter', sans-serif; 
-        --fc-border-color: #f1f5f9;
-        --fc-button-text-color: #475569;
-        --fc-button-bg-color: #ffffff;
+        --fc-border-color: #f1f5f9; 
+        --fc-button-text-color: #475569; 
+        --fc-button-bg-color: white; 
         --fc-button-border-color: #e2e8f0;
-        --fc-button-hover-bg-color: #f8fafc;
-        --fc-button-active-bg-color: #eff6ff;
-        --fc-today-bg-color: transparent;
-        --fc-page-bg-color: #ffffff;
-    }
-
-    .fc-header-toolbar { margin-bottom: 2rem !important; padding: 0 1rem; }
-    .fc-toolbar-title { font-size: 1.5rem !important; font-weight: 800; color: #1e293b; letter-spacing: -0.025em; }
-    
-    .fc-button {
-        border-radius: 9999px !important;
-        padding: 0.5rem 1.25rem !important;
-        font-size: 0.875rem !important;
-        font-weight: 600 !important;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        transition: all 0.2s;
-        text-transform: capitalize;
-    }
-    .fc-button:focus { box-shadow: 0 0 0 2px #bfdbfe !important; }
-    
-    .fc-theme-standard td, .fc-theme-standard th { border-color: var(--fc-border-color); }
-    .fc-col-header-cell-cushion { 
-        padding: 1rem 0 !important; color: #94a3b8; font-size: 0.75rem; 
-        text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;
+        --fc-today-bg-color: #e8f4ffff;
+        min-height: 700px;
     }
     
-    .fc-daygrid-day-top { flex-direction: row; padding: 8px 12px !important; }
-    .fc-daygrid-day-number { 
-        font-size: 0.9rem; font-weight: 600; color: #475569; z-index: 2; 
-        width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%;
+    .fc-header-toolbar { margin-bottom: 1.5rem !important; }
+    .fc-button { 
+        border-radius: 12px !important; 
+        font-weight: 600 !important; 
+        text-transform: capitalize; 
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important; 
+        padding: 0.5rem 1rem !important;
     }
-    .fc-day-today .fc-daygrid-day-number { background-color: #3b82f6; color: white; }
-
-    /* Event Pill Style */
-    .fc-h-event {
-        border: 1px solid #e2e8f0; background-color: white; border-radius: 6px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-top: 4px;
-        transition: transform 0.1s, box-shadow 0.1s; cursor: pointer;
+    .fc-button-active { 
+        background: #eff6ff !important; 
+        color: #2563eb !important; 
+        border-color: #bfdbfe !important; 
     }
-    .fc-h-event:hover { transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-color: #bfdbfe; z-index: 5; }
-    .fc-event-main { padding: 4px 8px; }
+    .fc-daygrid-day { transition: background 0.2s; cursor: pointer; }
+    .fc-daygrid-day:hover { background-color: #f0f9ff; }
+    
+    .fc-event { display: none; } 
 
-    /* Sidebar & Scrollbar */
-    .asisten-item.active { background: #eff6ff; border-left: 4px solid #3b82f6; }
+    .day-dots-container {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+        padding: 0 4px;
+    }
+    
+    .dot-category {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-
-    /* SCHEDULE ROW STYLE */
-    .sch-row { display: grid; grid-template-columns: 80px 1fr 120px; gap: 0; border: 1px solid #e2e8f0; margin-bottom: 8px; border-radius: 8px; overflow: hidden; transition: all 0.2s; background: white; }
-    .sch-row:hover { border-color: #3b82f6; box-shadow: 0 4px 10px -2px rgba(0,0,0,0.05); transform: translateY(-1px); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     
-    .sch-col { padding: 12px 16px; display: flex; flex-direction: column; justify-content: center; }
-    .sch-time { background: #f8fafc; border-right: 1px solid #e2e8f0; text-align: center; font-family: monospace; font-weight: 700; color: #475569; font-size: 0.8rem; }
-    .sch-content { border-right: 1px solid #e2e8f0; }
-    .sch-room { text-align: center; background: #fff; }
-
-    .sch-header { font-weight: 800; text-transform: uppercase; color: #64748b; font-size: 0.7rem; letter-spacing: 0.05em; background: #f1f5f9; border: none; padding: 10px 0; margin-bottom: 10px; border-radius: 6px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+    
+    .assistant-card { transition: all 0.2s ease; border: 1px solid transparent; }
+    
+    /* State Active (Saat dipilih) */
+    .assistant-card.filter-active {
+        background-color: #eff6ff; /* blue-50 */
+        border-color: #bfdbfe;     /* blue-200 */
+    }
+    
+    .assistant-card.filter-active .check-icon {
+        opacity: 1;
+    }
 </style>
 
-<div class="max-w-7xl mx-auto space-y-6 animate-enter h-full flex flex-col">
-    
-    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20 shrink-0">
-        <div class="flex flex-col md:flex-row justify-between items-end">
-            <div>
-                <h1 class="text-3xl font-extrabold tracking-tight">Jadwal Laboratorium</h1>
-                <p class="text-blue-100 mt-2 text-sm">Kalender kegiatan dan jadwal asisten.</p>
+<div class="max-w-7xl mx-auto space-y-6 animate-enter pb-12">
+
+    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
+        <div class="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-left"></div>
+        <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
+            <div class="mb-4 md:mb-0 text-center md:text-left">
+                <h1 class="text-3xl font-extrabold tracking-tight">Monitoring Jadwal</h1>
+                <p class="text-blue-100 mt-2 text-sm">Pantau aktivitas, shift jaga, dan penggunaan lab.</p>
             </div>
-           <div class="mt-4 md:mt-0 text-right">
-                <p class="text-xs font-bold text-blue-200 uppercase tracking-widest mb-1">Waktu Server</p>
-                <h2 id="liveDate" class="text-2xl font-bold font-mono"><?= date('d F Y') ?></h2>
-                <p class="text-sm opacity-80">
-                    <span id="liveTime"><?= date('H:i:s') ?></span> <span>WITA</span>
+            <div class="text-center md:text-right bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
+                <p class="text-[10px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
+                <h2 id="liveDate" class="text-xl font-bold font-mono"><?= date('d F Y') ?></h2>
+                <p class="text-sm opacity-90 font-mono mt-1">
+                    <span id="liveTime" class="bg-blue-900/30 px-2 py-0.5 rounded"><?= date('H:i:s') ?></span> WITA
                 </p>
             </div>
         </div>
     </div>
 
-    <div class="flex flex-col lg:flex-row gap-8 flex-1">
+    <div class="flex flex-col lg:flex-row gap-6 h-[850px]">
         
-        <div class="w-full lg:w-80 bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col overflow-hidden shrink-0 h-auto self-start sticky top-6">
-            <div class="p-6 border-b border-gray-100 bg-white">
-                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide mb-3">Filter Jadwal</h3>
-                <div class="relative group">
-                    <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-xs"></i>
-                    <input type="text" id="searchAsisten" onkeyup="filterAsistenList()" placeholder="Cari nama..." class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition">
-                </div>
-            </div>
+        <div class="w-full lg:w-72 space-y-6 flex flex-col h-full">
             
-            <div class="px-6 py-3 bg-gray-50 border-b border-gray-100 flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-wider">
-                <div class="flex items-center gap-1.5 text-gray-600"><span class="w-2 h-2 rounded-full bg-green-500"></span> Kuliah</div>
-                <div class="flex items-center gap-1.5 text-blue-600"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Asisten</div>
-                <div class="flex items-center gap-1.5 text-red-600"><span class="w-2 h-2 rounded-full bg-red-500"></span> Piket</div>
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
+                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide mb-4">Kategori</h3>
+                <div class="space-y-3 text-sm font-medium text-gray-600">
+                    <div class="flex items-center"><span class="legend-dot bg-gray-800"></span> Umum (Lab)</div>
+                    <div class="flex items-center"><span class="legend-dot bg-blue-500"></span> Asisten Lab</div>
+                    <div class="flex items-center"><span class="legend-dot bg-orange-500"></span> Piket</div>
+                    <div class="flex items-center"><span class="legend-dot bg-green-500"></span> Kuliah Asisten</div>
+                </div>
             </div>
 
-            <div class="max-h-[500px] overflow-y-auto p-3 space-y-1 custom-scrollbar">
-                <div onclick="setFilter('all')" class="asisten-item active p-3 rounded-xl cursor-pointer flex items-center gap-3 transition" id="usr-all">
-                    <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100"><i class="fas fa-calendar-alt"></i></div>
-                    <div class="font-bold text-gray-700 text-sm">Semua Jadwal</div>
-                </div>
-                <?php if(!empty($assistants)): foreach($assistants as $ast): ?>
-                <div onclick="setFilter(<?= $ast['id'] ?>)" class="asisten-item p-3 rounded-xl cursor-pointer flex items-center gap-3 transition filter-item group" id="usr-<?= $ast['id'] ?>" data-name="<?= strtolower($ast['name']) ?>">
-                    <img src="https://ui-avatars.com/api/?name=<?= urlencode($ast['name']) ?>&background=random" class="w-10 h-10 rounded-full border border-gray-200 group-hover:scale-110 transition shrink-0">
-                    <div class="flex-1 min-w-0">
-                        <div class="font-bold text-gray-700 text-sm truncate"><?= $ast['name'] ?></div>
-                        <div class="text-xs text-gray-400">Asisten Lab</div>
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col overflow-hidden flex-1 h-full">
+                <div class="p-5 border-b border-gray-100 bg-white sticky top-0 z-20">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 class="font-extrabold text-gray-700 text-sm uppercase tracking-wide">Filter Asisten</h3>
+                            <p class="text-[10px] text-gray-400">Pilih untuk filter kalender</p>
+                        </div>
+                        <div class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 shadow-sm">
+                            <span class="font-normal text-blue-400">Total: </span> <?= count($assistants) ?> 
+                        </div>
+                    </div>
+
+                    <div class="relative group">
+                        <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 group-focus-within:text-blue-500 transition-colors text-sm"></i>
+                        <input type="text" id="searchFilterInput" placeholder="Cari nama..." 
+                            class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all">
                     </div>
                 </div>
-                <?php endforeach; endif; ?>
+
+                <div class="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar" id="filterListContainer">
+                    
+                    <div onclick="applyFilter('all')" id="filter-all" 
+                        class="assistant-card filter-item filter-active p-3 rounded-2xl cursor-pointer flex items-center gap-3 border border-transparent hover:bg-gray-50 hover:border-gray-200 transition-all duration-200 group">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                            <i class="fas fa-layer-group text-sm"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-sm leading-tight">Semua Jadwal</h4>
+                            <p class="text-[10px] text-gray-500 font-medium mt-0.5">Gabungan semua data</p>
+                        </div>
+                        <div class="ml-auto opacity-0 check-icon text-blue-600 transition-opacity"><i class="fas fa-check-circle"></i></div>
+                    </div>
+
+                    <?php foreach($assistants as $ast): ?>
+                    <div onclick="applyFilter(<?= $ast['id'] ?>)" id="filter-<?= $ast['id'] ?>" 
+                        class="assistant-card filter-item p-3 rounded-2xl cursor-pointer flex items-center gap-3 border border-transparent hover:bg-gray-50 hover:border-gray-200 transition-all duration-200 group"
+                        data-name="<?= strtolower($ast['name']) ?>">
+                        
+                        <div class="relative shrink-0">
+                            <img src="<?= !empty($ast['photo_profile']) ? BASE_URL.'/uploads/profile/'.$ast['photo_profile'] : 'https://ui-avatars.com/api/?name='.urlencode($ast['name']).'&background=random' ?>" 
+                                class="w-10 h-10 rounded-full object-cover border border-gray-100 shadow-sm group-hover:scale-105 transition-transform">
+                        </div>
+                        
+                        <div class="min-w-0 flex-1">
+                            <h4 class="font-bold text-gray-800 text-sm leading-tight truncate group-hover:text-blue-600 transition-colors"><?= $ast['name'] ?></h4>
+                            <p class="text-[10px] text-gray-500 font-medium mt-0.5 truncate"><?= $ast['position'] ?? 'Anggota Lab' ?></p>
+                        </div>
+
+                        <div class="ml-auto opacity-0 check-icon text-blue-600 transition-opacity"><i class="fas fa-check-circle"></i></div>
+                    </div>
+                    <?php endforeach; ?>
+
+                    <div id="noResultFilter" class="hidden text-center py-8 text-gray-400 text-xs italic">
+                        Tidak ditemukan.
+                    </div>
+
+                </div>
             </div>
         </div>
 
-        <div class="flex-1 bg-white rounded-3xl shadow-sm border border-gray-200 p-2 relative min-h-[600px]">
-            <div id='calendar'></div>
+        <div class="flex-1 bg-white rounded-3xl shadow-sm border border-gray-200 p-6 relative overflow-hidden">
+            <div id='calendar' class="h-full"></div>
         </div>
     </div>
 </div>
 
-<div id="scheduleModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="modalBackdrop" onclick="closeModal()"></div>
+<div id="dayDetailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="detailBackdrop" onclick="closeDayModal()"></div>
     
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[85vh]" id="modalContent">
-        
-        <div class="bg-white border-b border-gray-100 p-6 shrink-0 flex justify-between items-center">
+    <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl relative z-10 overflow-hidden transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[85vh]" id="detailContent">
+        <div class="bg-white px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0">
             <div>
-                <p id="modalSubtitle" class="text-blue-600 text-xs font-extrabold uppercase tracking-widest mb-1">Detail Jadwal</p>
-                <h3 id="modalDateTitle" class="text-2xl font-extrabold text-gray-800"></h3>
+                <p class="text-blue-600 text-[10px] font-extrabold uppercase tracking-widest mb-1">Detail Kegiatan</p>
+                <h3 id="modalDateTitle" class="text-xl font-extrabold text-gray-800"></h3>
             </div>
-            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-red-100 hover:text-red-600 transition"><i class="fas fa-times"></i></button>
+            <button onclick="closeDayModal()" class="w-8 h-8 rounded-full bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 transition flex items-center justify-center"><i class="fas fa-times"></i></button>
         </div>
 
-        <div class="p-6 overflow-y-auto flex-1 bg-gray-50 custom-scrollbar">
-            <div class="sch-row sch-header text-center">
-                <div>JAM</div>
-                <div class="text-left pl-4">MATA KULIAH / KEGIATAN</div>
-                <div>RUANGAN</div>
+        <div class="p-0 overflow-y-auto flex-1 bg-gray-50 custom-scrollbar" id="modalListContainer">
             </div>
-            <div id="modalListContainer" class="space-y-2"></div>
         </div>
-
-        <div class="p-4 border-t border-gray-100 bg-white text-right shrink-0">
-            <button onclick="closeModal()" class="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition shadow-lg shadow-gray-900/20">Tutup</button>
-        </div>
-    </div>
 </div>
 
 <script>
-    const rawSchedules = <?= json_encode($schedulesData ?? []) ?>; 
-    const calendarEvents = <?= json_encode($calendarEvents) ?>;
-    let currentFilterId = 'all';
+    // 1. DATA PROCESSING
+    const rawEvents = <?= json_encode($raw_schedules ?? []) ?>;
+    
+    // Transform Data untuk FullCalendar
+    const events = rawEvents.map(s => {
+        let color = '#3b82f6'; // Asisten (Blue)
+        if(s.type === 'piket') color = '#f97316'; // Piket (Orange)
+        if(s.type === 'umum') color = '#1f2937';  // Umum (Dark)
+        if(s.type === 'kuliah') color = '#10b981'; // Kuliah (Green)
+        
+        return {
+            id: s.id,
+            title: s.title,
+            start: s.tanggal ? s.tanggal + 'T' + s.start_time : null,
+            startTime: s.start_time,
+            endTime: s.end_time,
+            daysOfWeek: s.hari ? [s.hari] : null,
+            
+            // Hide event asli, render manual via renderCalendarDots()
+            display: 'none', 
+            
+            // Simpan info
+            backgroundColor: color, 
+            extendedProps: { 
+                type: s.type, 
+                location: s.location, 
+                userId: s.user_id, 
+                userName: s.user_name,
+                isRepeat: s.hari ? true : false,
+                rawDate: s.tanggal,
+                dotColor: color
+            }
+        };
+    });
+
+    let calendar;
+    let selectedDateStr = new Date().toISOString().split('T')[0];
+    let currentFilter = 'all';
 
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
-
-        window.calendar = new FullCalendar.Calendar(calendarEl, {
+        calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             themeSystem: 'standard',
-            height: 'auto',
-            locale: 'id', 
-            dayHeaderFormat: { weekday: 'long' },
             headerToolbar: { left: 'title', right: 'prev,today,next' },
-            selectable: true,
-            events: calendarEvents,
+            events: events, // Load semua data
             
-            // Interaction
-            eventClick: function(info) { openScheduleModal(info.event.start); },
-            dateClick: function(info) { openScheduleModal(info.date); },
+            // Render Dots
+            datesSet: function() {
+                renderCalendarDots();
+            },
 
-            // CUSTOM EVENT RENDER (Dengan Dot Warna Sesuai DB)
-            eventContent: function(arg) {
-                let props = arg.event.extendedProps;
-                let shortName = props.userName.split(' ')[0];
-                let isFiltered = currentFilterId !== 'all';
-                
-                // Ambil warna dari PHP yang sudah ditentukan
-                let dotColorStyle = `background-color: ${props.colorCode};`;
-                
-                let displayText = isFiltered ? arg.event.title : `<span class="font-bold text-gray-800 mr-1">${shortName}:</span> ${arg.event.title}`;
-
-                return { 
-                    html: `
-                    <div class="flex items-center gap-2 w-full overflow-hidden">
-                        <div class="w-1.5 h-1.5 rounded-full shrink-0" style="${dotColorStyle}"></div>
-                        <div class="flex-1 truncate text-xs text-gray-600">
-                            ${displayText}
-                        </div>
-                    </div>` 
-                };
+            // Klik Tanggal -> Buka Modal Detail
+            dateClick: function(info) {
+                selectedDateStr = info.dateStr;
+                renderDayDetails(info.date);
+                openDayModal();
             }
         });
-        window.calendar.render();
+        calendar.render();
+
+        // Fitur Search Filter
+        const filterInput = document.getElementById('searchFilterInput');
+        if (filterInput) {
+            filterInput.addEventListener('keyup', function() {
+                const key = this.value.toLowerCase();
+                const items = document.querySelectorAll('#filterListContainer .assistant-card[data-name]');
+                let visibleCount = 0;
+
+                items.forEach(item => {
+                    const name = item.getAttribute('data-name');
+                    if (name.includes(key)) {
+                        item.style.display = 'flex';
+                        visibleCount++;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                const noResult = document.getElementById('noResultFilter');
+                if (noResult) {
+                    if (visibleCount === 0) noResult.classList.remove('hidden');
+                    else noResult.classList.add('hidden');
+                }
+            });
+        }
     });
 
-    // --- MODAL LOGIC ---
-    function openScheduleModal(dateObj) {
-        const dateStr = dateObj.toISOString().split('T')[0];
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        document.getElementById('modalDateTitle').innerText = dateObj.toLocaleDateString('id-ID', options);
+    // --- RENDER VISUALISASI DOTS DI KALENDER ---
+    function renderCalendarDots() {
+        document.querySelectorAll('.day-dots-container').forEach(e => e.remove());
+        const allEvents = calendar.getEvents();
         
+        document.querySelectorAll('.fc-daygrid-day').forEach(cell => {
+            const dateStr = cell.getAttribute('data-date');
+            if(!dateStr) return;
+            
+            const cellDate = new Date(dateStr);
+            const dayNum = cellDate.getDay() === 0 ? 7 : cellDate.getDay(); 
+            
+            let uniqueColors = new Set();
+
+            allEvents.forEach(evt => {
+                const props = evt.extendedProps;
+                
+                const isMatchFilter = (currentFilter === 'all') || 
+                                      (props.userId == currentFilter) || 
+                                      (props.type === 'umum');
+                
+                if(!isMatchFilter) return;
+
+                let isMatchDate = false;
+                if (props.isRepeat) {
+                    if (evt._def.recurringDef.typeData.daysOfWeek.includes(dayNum)) {
+                        isMatchDate = true;
+                    }
+                } else {
+                    if (evt.startStr.split('T')[0] === dateStr) {
+                        isMatchDate = true;
+                    }
+                }
+
+                if (isMatchDate) {
+                    uniqueColors.add(props.dotColor);
+                }
+            });
+
+            if (uniqueColors.size > 0) {
+                const frame = cell.querySelector('.fc-daygrid-day-frame');
+                const container = document.createElement('div');
+                container.className = 'day-dots-container';
+                
+                uniqueColors.forEach(color => {
+                    const dot = document.createElement('div');
+                    dot.className = 'dot-category';
+                    dot.style.backgroundColor = color;
+                    container.appendChild(dot);
+                });
+                
+                frame.appendChild(container);
+            }
+        });
+    }
+
+    // --- FILTER LOGIC ---
+    window.applyFilter = function(uid) {
+        currentFilter = uid;
+        
+        document.querySelectorAll('.filter-item').forEach(el => {
+            el.classList.remove('filter-active');
+        });
+        
+        const activeEl = document.getElementById('filter-' + uid);
+        if(activeEl) {
+            activeEl.classList.add('filter-active');
+        }
+
+        renderCalendarDots();
+    }
+
+    // --- RENDER DETAIL MODAL (READ ONLY) ---
+    function renderDayDetails(dateObj) {
         const container = document.getElementById('modalListContainer');
+        const dateTitle = document.getElementById('modalDateTitle');
+        const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+        dateTitle.innerText = dateObj.toLocaleDateString('id-ID', options);
         container.innerHTML = '';
 
-        // Filter jadwal
-        const dailySch = rawSchedules.filter(sch => {
-            let startT = sch.start_time || sch.tanggal + 'T' + sch.start_time; // Handle kedua format
-            let dateMatch = startT.startsWith(dateStr);
-            let userMatch = (currentFilterId === 'all') || (sch.user_id == currentFilterId);
-            return dateMatch && userMatch;
+        const dateStr = dateObj.toISOString().split('T')[0];
+        const dayNum = dateObj.getDay() === 0 ? 7 : dateObj.getDay();
+
+        // Cari event yang cocok
+        const visibleEvents = calendar.getEvents().filter(evt => {
+            const props = evt.extendedProps;
+            const isMatchFilter = (currentFilter === 'all') || (props.userId == currentFilter) || (props.type === 'umum');
+            if(!isMatchFilter) return false;
+
+            if (props.isRepeat) {
+                return evt._def.recurringDef.typeData.daysOfWeek.includes(dayNum);
+            } else {
+                return evt.startStr.split('T')[0] === dateStr;
+            }
         });
 
-        dailySch.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+        visibleEvents.sort((a, b) => (a.extendedProps.startTime || '00:00').localeCompare(b.extendedProps.startTime || '00:00'));
 
-        if (dailySch.length > 0) {
-            dailySch.forEach(sch => {
-                // Parsing Data Jam
-                let rawStart = sch.start_time; 
-                if(rawStart.includes('T')) rawStart = rawStart.split('T')[1]; // Ambil jam saja
-                let timeStart = rawStart.substring(0,5);
-
-                let rawEnd = sch.end_time || '';
-                if(rawEnd.includes('T')) rawEnd = rawEnd.split('T')[1];
-                let timeEnd = rawEnd ? rawEnd.substring(0,5) : 'Selesai';
-                
-                let room = sch.location || sch.ruangan || 'Lab';
-                
-                // Label User / Tipe
-                let type = (sch.type || '').toLowerCase();
-                let badgeClass = 'bg-gray-100 text-gray-600'; // Default
-                if(type.includes('kuliah') || type == 'class') badgeClass = 'bg-green-100 text-green-700';
-                else if(type.includes('asisten') || type == 'assistant') badgeClass = 'bg-blue-100 text-blue-700';
-                else if(type == 'piket') badgeClass = 'bg-red-100 text-red-700';
-
-                let badge = `<span class="text-[10px] ${badgeClass} px-2 py-0.5 rounded font-bold ml-2 uppercase">${type || 'Umum'}</span>`;
-
-                container.innerHTML += `
-                    <div class="sch-row">
-                        <div class="sch-col sch-time">
-                            <div>${timeStart}</div>
-                            <div class="text-[10px] font-normal opacity-70">s/d</div>
-                            <div>${timeEnd}</div>
-                        </div>
-                        <div class="sch-col sch-content">
-                            <div class="flex items-center mb-1">
-                                <h4 class="font-bold text-gray-800 text-sm truncate">${sch.title}</h4>
-                                ${badge}
-                            </div>
-                            <p class="text-xs text-gray-500 truncate"><span class="font-bold">${sch.user_name}</span> - ${sch.description || '-'}</p>
-                        </div>
-                        <div class="sch-col sch-room">
-                            <span class="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded border border-gray-200 uppercase tracking-wide truncate max-w-full">
-                                ${room}
-                            </span>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
+        if (visibleEvents.length === 0) {
             container.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-64 text-gray-400 text-center p-6">
-                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                        <i class="fas fa-calendar-times text-2xl opacity-40"></i>
+                <div class="flex flex-col items-center justify-center py-12 text-gray-400">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3 text-2xl opacity-50">
+                        <i class="fas fa-calendar-times"></i>
                     </div>
-                    <p class="font-medium text-gray-500">Jadwal Kosong</p>
-                    <p class="text-xs text-gray-400 mt-1">Tidak ada kegiatan terjadwal pada tanggal ini.</p>
-                </div>
-            `;
+                    <p class="text-sm italic">Tidak ada jadwal.</p>
+                </div>`;
+            return;
         }
 
-        const modal = document.getElementById('scheduleModal');
-        modal.classList.remove('hidden');
+        visibleEvents.forEach(evt => {
+            const props = evt.extendedProps;
+            const timeStr = props.startTime ? props.startTime.substring(0,5) : '-';
+            
+            // Badge Styles
+            let badgeClass = 'bg-blue-50 text-blue-600 border-blue-100';
+            let icon = 'fa-user-tie';
+            if(props.type === 'piket') { badgeClass = 'bg-orange-50 text-orange-600 border-orange-100'; icon = 'fa-broom'; }
+            if(props.type === 'umum') { badgeClass = 'bg-gray-100 text-gray-600 border-gray-200'; icon = 'fa-building'; }
+            if(props.type === 'kuliah') { badgeClass = 'bg-green-50 text-green-600 border-green-100'; icon = 'fa-graduation-cap'; }
+
+            // [SUPER ADMIN] Tidak ada tombol Edit/Hapus
+            let html = `
+                <div class="bg-white p-4 border-b border-gray-100 flex items-center hover:bg-gray-50 transition group">
+                    <div class="w-14 text-center mr-4 shrink-0">
+                        <span class="block text-sm font-bold text-gray-800">${timeStr}</span>
+                        <span class="block text-[10px] text-gray-400 font-medium uppercase tracking-wide">WITA</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="w-6 h-6 rounded-md flex items-center justify-center border text-[10px] ${badgeClass}"><i class="fas ${icon}"></i></span>
+                            <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">${props.type}</span>
+                        </div>
+                        <h4 class="font-bold text-gray-800 text-sm truncate">${evt.title}</h4>
+                        <p class="text-xs text-gray-500 truncate mt-0.5">
+                            <span class="font-semibold text-gray-700">${props.userName}</span> • ${props.location || 'Lab'}
+                        </p>
+                    </div>
+                </div>`;
+            container.innerHTML += html;
+        });
+    }
+
+    // --- MODAL UTILS ---
+    function openDayModal() {
+        const m = document.getElementById('dayDetailModal');
+        m.classList.remove('hidden');
         setTimeout(() => {
-            document.getElementById('modalBackdrop').classList.remove('opacity-0');
-            document.getElementById('modalContent').classList.remove('opacity-0', 'scale-95');
-            document.getElementById('modalContent').classList.add('scale-100');
+            document.getElementById('detailBackdrop').classList.remove('opacity-0');
+            document.getElementById('detailContent').classList.remove('opacity-0', 'scale-95');
+            document.getElementById('detailContent').classList.add('scale-100');
         }, 10);
     }
-
-    function closeModal() {
-        const modal = document.getElementById('scheduleModal');
-        document.getElementById('modalBackdrop').classList.add('opacity-0');
-        document.getElementById('modalContent').classList.add('opacity-0', 'scale-95');
-        document.getElementById('modalContent').classList.remove('scale-100');
-        setTimeout(() => { modal.classList.add('hidden'); }, 300);
+    function closeDayModal() {
+        const m = document.getElementById('dayDetailModal');
+        document.getElementById('detailBackdrop').classList.add('opacity-0');
+        document.getElementById('detailContent').classList.add('opacity-0', 'scale-95');
+        document.getElementById('detailContent').classList.remove('scale-100');
+        setTimeout(() => { m.classList.add('hidden'); }, 300);
     }
 
-    function setFilter(userId) {
-        currentFilterId = userId;
-        document.querySelectorAll('.asisten-item').forEach(el => el.classList.remove('active'));
-        document.getElementById('usr-' + userId).classList.add('active');
-        
-        var allEvents = window.calendar.getEvents();
-        allEvents.forEach(evt => {
-            let props = evt.extendedProps;
-            let shouldShow = (userId === 'all') || (props.userId == userId);
-            evt.setProp('display', shouldShow ? 'auto' : 'none');
-        });
-        window.calendar.render();
-    }
-
-    function filterAsistenList() {
-        var input = document.getElementById('searchAsisten').value.toLowerCase();
-        var items = document.getElementsByClassName('filter-item');
-        for (var i = 0; i < items.length; i++) {
-            var name = items[i].getAttribute('data-name');
-            items[i].style.display = name.includes(input) ? "flex" : "none";
-        }
-    }
-
+    // --- JAM ---
     function updateClock() {
         const now = new Date();
-        document.getElementById('liveDate').innerText = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-        document.getElementById('liveTime').innerText = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':');
+        document.getElementById('liveDate').innerText = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+        document.getElementById('liveTime').innerText = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\./g, ':');
     }
-    setInterval(updateClock, 1000);
-    updateClock();
+    setInterval(updateClock, 1000); updateClock();
 </script>

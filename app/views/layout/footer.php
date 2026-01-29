@@ -1,5 +1,5 @@
 </main> <footer class="bg-white border-t border-gray-200 py-6 px-8 mt-auto shrink-0 z-10 relative">
-        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex flex-col md:flex-row justify-between text-center items-center gap-4">
             <p class="text-xs text-gray-400 font-medium">
                 &copy; <?= date('Y') ?> Laboratorium Komputer FIK UMI. All rights reserved.
             </p>

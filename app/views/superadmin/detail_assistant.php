@@ -22,9 +22,18 @@
         <div class="w-full lg:w-1/3 bg-white rounded-3xl shadow-sm border border-gray-200 p-8 flex flex-col items-center relative overflow-hidden">
             
             <div class="mt-2 mb-6 relative">
-                <div class="w-40 h-40 rounded-full p-2 bg-gray-50 border border-gray-100 shadow-inner mx-auto">
-                    <img src="https://ui-avatars.com/api/?name=<?= urlencode($assistant['name']) ?>&background=random&size=500" 
-                         class="w-full h-full rounded-full object-cover shadow-lg">
+                <div class="w-40 h-40 rounded-full p-2 bg-gray-50 border border-gray-100 shadow-inner mx-auto relative">
+                    <?php 
+                        $photoName = $assistant['photo_profile'] ?? '';
+                        $photoPath = 'uploads/profile/' . $photoName;
+                        
+                        if (!empty($photoName) && file_exists($photoPath)) {
+                            $avatarUrl = BASE_URL . '/' . $photoPath;
+                        } else {
+                            $avatarUrl = "https://ui-avatars.com/api/?name=" . urlencode($assistant['name']) . "&background=random&size=500";
+                        }
+                    ?>
+                    <img src="<?= $avatarUrl ?>" class="w-full h-full rounded-full object-cover shadow-lg">
                 </div>
             </div>
 

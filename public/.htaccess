@@ -3,7 +3,7 @@
     RewriteEngine On
     
     # Pastikan RewriteBase sesuai nama folder di htdocs
-    RewriteBase /Code/Project_ICLabs/iclabs_v2/public/
+    RewriteBase /iclabs_v2/public/
     
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f

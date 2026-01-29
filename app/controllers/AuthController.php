@@ -4,26 +4,32 @@ class AuthController extends Controller {
     public function index() { $this->login(); }
 
     public function login() {
+        // Cek jika sudah login, redirect sesuai role
         if (isset($_SESSION['role'])) {
             header("Location: " . BASE_URL . $this->getRoleUrl($_SESSION['role']));
             exit;
         }
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            // Panggil method login di Model (Pastikan UserModel sudah update ke tabel baru)
+            // 1. Ambil data User (Login credential)
             $user = $this->model('UserModel')->login($_POST['email']);
 
             if ($user && password_verify($_POST['password'], $user['password'])) {
-                // SIMPAN DATA PENTING KE SESSION
-                $_SESSION['user_id']   = $user['id'];       // id_user
-                $_SESSION['profil_id'] = $user['id_profil'];// id_profil (PENTING untuk relasi)
+                // 2. Ambil data Profile (Info detail user) untuk Session
+                // Method getUserById di UserModel baru sudah melakukan JOIN ke tabel Profile
+                $profile = $this->model('UserModel')->getUserById($user['id']);
+
+                // 3. SET SESSION LENGKAP
+                $_SESSION['user_id']   = $user['id'];       // id_user (FK)
+                $_SESSION['profil_id'] = $user['id_profil'];// id_profil (PK tabel profile) -> PENTING!
                 $_SESSION['role']      = ucwords(strtolower($user['role'])); 
-                $_SESSION['name']      = $user['name'];     // nama dari tabel profile
+                $_SESSION['name']      = $user['name'];     // Nama dari tabel profile
                 
                 // Ambil Jabatan (Prioritas: Jabatan di Profile -> Role di User)
-                $_SESSION['jabatan']   = !empty($user['position']) ? $user['position'] : $_SESSION['role'];
-                $_SESSION['photo']     = $user['photo_profile'] ?? 'default.jpg'; // Untuk foto di sidebar
+                $_SESSION['jabatan']   = !empty($profile['position']) ? $profile['position'] : $_SESSION['role'];
+                $_SESSION['photo']     = $profile['photo_profile'] ?? 'default.jpg'; 
 
+                // 4. Redirect
                 header("Location: " . BASE_URL . $this->getRoleUrl($_SESSION['role']));
                 exit;
             } else {
@@ -46,3 +52,4 @@ class AuthController extends Controller {
         return ''; 
     }
 }
+?>

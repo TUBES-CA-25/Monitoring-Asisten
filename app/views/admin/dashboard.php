@@ -30,56 +30,51 @@
 </style>
 
 <div class="max-w-7xl mx-auto space-y-8 animate-enter">
-    
-    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-8 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden">
-        <div class="relative z-10 flex flex-col md:flex-row justify-between items-end">
-            <div>
-                <h1 class="text-3xl font-extrabold tracking-tight">Dashboard Admin</h1>
-                <p class="text-indigo-100 mt-2">Kelola operasional lab dan pantau presensi real-time.</p>
-                <button onclick="openQRModal()" class="mt-6 bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition transform hover:scale-105 flex items-center gap-2">
-                    <i class="fas fa-qrcode"></i> Buka QR Presensi
-                </button>
-            </div>
-            <div class="mt-4 md:mt-0 text-right">
-                <p class="text-xs font-bold text-indigo-200 uppercase tracking-widest mb-1">Waktu Server</p>
-                <h2 id="liveDate" class="text-2xl font-bold font-mono"><?= date('d F Y') ?></h2>
-                <p class="text-sm opacity-80"><span id="liveTime"><?= date('H:i:s') ?></span> WITA</p>
-            </div>
+    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
+        <div class="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-left"></div>
+        
+        <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
+        <div class="mb-4 md:mb-0 text-center md:text-left">
+            <h1 class="text-3xl font-extrabold">Halo, <?= explode(' ', $user['name'])[0] ?> ! 👋</h1>
+            <p class="text-blue-100 mt-2 text-sm">Kelola operasional lab dan pantau presensi real-time.</p>
+            
+            <button onclick="openQRModal()" class="mt-6 bg-white text-blue-600 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition transform hover:scale-105 flex items-center gap-2 mx-auto md:mx-0">
+                <i class="fas fa-qrcode"></i> Buka QR Presensi
+            </button>
+            
+        </div>
+        <div class="text-center md:text-right bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
+            <p class="text-[10px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
+            <h2 id="liveDate" class="text-xl font-bold font-mono"><?= date('d F Y') ?></h2>
+            <p class="text-sm opacity-90 font-mono mt-1">
+                <span id="liveTime" class="bg-blue-900/30 px-2 py-0.5 rounded"><?= date('H:i:s') ?></span> WITA
+            </p>
         </div>
     </div>
+</div>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div class="flex justify-between items-start mb-4">
-                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i class="fas fa-users"></i></div>
-                <span class="text-xs font-bold text-gray-300">TOTAL</span>
+    <div class="bg-white p-6 rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 mt-8">
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Ringkasan Aktivitas Hari Ini</h4>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-center hover:shadow-md transition">
+                <span class="block text-3xl font-extrabold text-blue-600"><?= $stats['total_asisten'] ?></span>
+                <span class="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Total Asisten</span>
             </div>
-            <h3 class="text-3xl font-extrabold text-gray-800"><?= $stats['total_asisten'] ?></h3>
-            <p class="text-xs font-bold text-gray-400 uppercase">Asisten</p>
-        </div>
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div class="flex justify-between items-start mb-4">
-                <div class="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center"><i class="fas fa-check-circle"></i></div>
-                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">TODAY</span>
+
+            <div class="bg-green-50 p-4 rounded-2xl border border-green-100 text-center hover:shadow-md transition">
+                <span class="block text-3xl font-extrabold text-green-600"><?= $stats['hadir_today'] ?></span>
+                <span class="text-[10px] font-bold text-green-700 uppercase tracking-wider">Hadir Hari Ini</span>
             </div>
-            <h3 class="text-3xl font-extrabold text-gray-800"><?= $stats['hadir_today'] ?></h3>
-            <p class="text-xs font-bold text-gray-400 uppercase">Hadir</p>
-        </div>
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div class="flex justify-between items-start mb-4">
-                <div class="w-10 h-10 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center"><i class="fas fa-envelope-open"></i></div>
-                <span class="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded">TODAY</span>
+
+            <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 text-center hover:shadow-md transition">
+                <span class="block text-3xl font-extrabold text-yellow-600"><?= $stats['izin_today'] ?></span>
+                <span class="text-[10px] font-bold text-yellow-700 uppercase tracking-wider">Izin Hari Ini</span>
             </div>
-            <h3 class="text-3xl font-extrabold text-gray-800"><?= $stats['izin_today'] ?></h3>
-            <p class="text-xs font-bold text-gray-400 uppercase">Izin</p>
-        </div>
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div class="flex justify-between items-start mb-4">
-                <div class="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center"><i class="fas fa-clock"></i></div>
-                <span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">ALERT</span>
+
+            <div class="bg-red-50 p-4 rounded-2xl border border-red-100 text-center hover:shadow-md transition">
+                <span class="block text-3xl font-extrabold text-red-600"><?= $stats['alpa_today'] ?></span>
+                <span class="text-[10px] font-bold text-red-700 uppercase tracking-wider">Tidak Hadir</span>
             </div>
-            <h3 class="text-3xl font-extrabold text-gray-800"><?= $stats['total_late'] ?></h3>
-            <p class="text-xs font-bold text-gray-400 uppercase">Terlambat</p>
         </div>
     </div>
 
@@ -102,7 +97,11 @@
                     <div class="polaroid-card rounded-xl cursor-pointer" onclick="openDetailModal(<?= $jsonUser ?>)">
                         <div class="led <?= $statusColor ?>"></div>
                         <div class="aspect-square bg-gray-100 mb-3 border border-gray-100 overflow-hidden rounded">
-                            <img src="https://ui-avatars.com/api/?name=<?= urlencode($asisten['name']) ?>&background=random&size=500" 
+                            <?php 
+                                $photoPath = !empty($asisten['photo_profile']) ? BASE_URL . '/uploads/profile/' . $asisten['photo_profile'] : null;
+                                $avatarUrl = $photoPath ?? "https://ui-avatars.com/api/?name=" . urlencode($asisten['name']) . "&background=random&size=500";
+                            ?>
+                            <img src="<?= $avatarUrl ?>" 
                                 class="w-full h-full object-cover img-status <?= $statusColor ?>" 
                                 alt="<?= $asisten['name'] ?>">
                         </div>
@@ -256,7 +255,13 @@
         // Isi Data Profil
         document.getElementById('m_name').innerText = user.name;
         document.getElementById('m_position').innerText = user.position || 'Asisten Laboratorium';
-        document.getElementById('m_photo').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random&size=500`;
+        let photoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random&size=500`;
+        
+        if (user.photo_profile && user.photo_profile.trim() !== "") {
+            photoUrl = `<?= BASE_URL ?>/uploads/profile/${user.photo_profile}`;
+        }
+        
+        document.getElementById('m_photo').src = photoUrl;
 
         // Simpan Stats untuk Chart
         currentStats = user.stats;
@@ -276,7 +281,7 @@
                 <div class="text-2xl font-bold text-gray-800">${user.stats.izin}</div>
             </div>
             <div class="p-4 bg-red-50 rounded-xl border border-red-100">
-                <div class="text-xs text-red-600 font-bold uppercase">Alpa</div>
+                <div class="text-xs text-red-600 font-bold uppercase">Tidak Hadir</div>
                 <div class="text-2xl font-bold text-gray-800">${user.stats.alpa}</div>
             </div>
             <div class="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
@@ -310,7 +315,7 @@
         modalChartInstance = new Chart(ctx, {
             type: currentModalChartType,
             data: {
-                labels: ['Hadir', 'Izin', 'Alpa'],
+                labels: ['Hadir', 'Izin', 'Tidak Hadir'],
                 datasets: [{
                     data: [stats.hadir, stats.izin, stats.alpa],
                     backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
@@ -384,9 +389,19 @@
     // === 4. JAM ===
     function updateClock() {
         const now = new Date();
-        document.getElementById('liveDate').innerText = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-        document.getElementById('liveTime').innerText = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':');
+        
+        const dateOptions = { day: '2-digit', month: 'long', year: 'numeric' };
+        const dateString = now.toLocaleDateString('id-ID', dateOptions);
+        
+        const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+        const timeString = now.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':');
+        
+        // Update DOM dengan Safety Check
+        const elDate = document.getElementById('liveDate');
+        const elTime = document.getElementById('liveTime');
+        
+        if (elDate) elDate.innerText = dateString;
+        if (elTime) elTime.innerText = timeString;
     }
     setInterval(updateClock, 1000); updateClock();
-    
 </script>

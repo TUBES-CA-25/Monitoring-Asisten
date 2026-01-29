@@ -13,24 +13,20 @@
     
     <div class="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
         <div class="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-left"></div>
-        <div class="relative z-10 flex justify-between items-center">
-            <div>
+        
+        <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
+            <div class="mb-4 md:mb-0 text-center md:text-left">
                 <h1 class="text-3xl font-extrabold">Logbook Asisten</h1>
                 <p class="text-blue-100 mt-2 text-sm">Catat aktivitas harianmu selama bertugas di laboratorium.</p>
             </div>
-            <div class="mt-4 md:mt-0 text-right">
-                <p class="text-xs font-bold text-blue-200 uppercase tracking-widest mb-1">Waktu Sistem</p>
-                <h2 id="liveDate" class="text-2xl font-bold font-mono"><?= date('d F Y') ?></h2>
-                <p class="text-sm opacity-80">
-                    <span id="liveTime"><?= date('H:i:s') ?></span> <span>WITA</span>
+            
+            <div class="text-center md:text-right bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
+                <p class="text-[10px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
+                <h2 id="liveDate" class="text-xl font-bold font-mono"><?= date('d F Y') ?></h2>
+                <p class="text-sm opacity-90 font-mono mt-1">
+                    <span id="liveTime" class="bg-blue-900/30 px-2 py-0.5 rounded"><?= date('H:i:s') ?></span> WITA
                 </p>
             </div>
-            <!-- <a href="<?= BASE_URL ?>/user/scan" class="group flex items-center gap-3 bg-white text-blue-600 px-6 py-3 rounded-2xl font-bold shadow-lg hover:bg-blue-50 transition transform hover:scale-105">
-                <div class="p-2 bg-blue-100 rounded-full group-hover:bg-blue-200 transition">
-                    <i class="fas fa-qrcode text-xl"></i>
-                </div>
-                <span>Scan Presensi</span>
-            </a> -->
         </div>
     </div>
 
@@ -207,8 +203,9 @@
 
     function updateClock() {
         const now = new Date();
-        const dateOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+        const dateOptions = { day: '2-digit', month: 'long', year: 'numeric' };
         const dateString = now.toLocaleDateString('id-ID', dateOptions);
+        
         const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
         const timeString = now.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':');
         document.getElementById('liveDate').innerText = dateString;
@@ -216,5 +213,4 @@
     }
     setInterval(updateClock, 1000);
     updateClock();
-    
 </script>

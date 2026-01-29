@@ -241,7 +241,6 @@
                 btn.disabled = false;
             });
         }
-        
     </script>
 </body>
 </html>

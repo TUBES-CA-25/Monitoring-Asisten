@@ -1,380 +1,235 @@
-<?php
-// PHP Data Processing
-// Pastikan Controller mengirim data lengkap (termasuk waktu_presensi jika ada di query model)
-$calendarEvents = [];
-if (!empty($raw_logs)) {
-    foreach ($raw_logs as $log) {
-        $names = explode(' ', $log['user_name']);
-        $shortName = $names[0];
-        
-        $calendarEvents[] = [
-            'title' => $log['activity_detail'],
-            'start' => $log['date'],
-            'backgroundColor' => '#ffffff', 
-            'borderColor' => 'transparent',
-            'textColor' => '#1e293b',
-            'extendedProps' => [
-                'userId' => $log['user_id'],
-                'userName' => $log['user_name'],
-                'fullActivity' => $log['activity_detail'],
-                // Pastikan model mengirim check_in_time/out, jika tidak set default '-'
-                'checkIn' => $log['check_in_time'] ?? '-', 
-                'checkOut' => $log['check_out_time'] ?? '-',
-                'type' => 'logbook'
-            ]
-        ];
-    }
-}
-?>
-
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
-
 <style>
-    /* --- ANIMASI & TRANSISI --- */
-    .animate-enter { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* --- GOOGLE CALENDAR STYLE --- */
-    #calendar { 
-        font-family: 'Inter', sans-serif; 
-        --fc-border-color: #f1f5f9;
-        --fc-button-text-color: #475569;
-        --fc-button-bg-color: #ffffff;
-        --fc-button-border-color: #e2e8f0;
-        --fc-button-hover-bg-color: #f8fafc;
-        --fc-button-active-bg-color: #eff6ff;
-        --fc-today-bg-color: transparent;
-        --fc-page-bg-color: #ffffff;
-    }
-
-    .fc-header-toolbar { margin-bottom: 2rem !important; padding: 0 1rem; }
-    .fc-toolbar-title { font-size: 1.5rem !important; font-weight: 800; color: #1e293b; letter-spacing: -0.025em; }
+    .animate-enter { animation: fadeInUp 0.5s ease-out forwards; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     
-    .fc-button {
-        border-radius: 9999px !important;
-        padding: 0.5rem 1.25rem !important;
-        font-size: 0.875rem !important;
-        font-weight: 600 !important;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        transition: all 0.2s;
-        text-transform: capitalize;
-    }
-    .fc-button:focus { box-shadow: 0 0 0 2px #bfdbfe !important; }
-    
-    .fc-theme-standard td, .fc-theme-standard th { border-color: var(--fc-border-color); }
-    .fc-col-header-cell-cushion { 
-        padding: 1rem 0 !important; color: #94a3b8; font-size: 0.75rem; 
-        text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;
-    }
-    
-    .fc-daygrid-day-top { flex-direction: row; padding: 8px 12px !important; }
-    .fc-daygrid-day-number { 
-        font-size: 0.9rem; font-weight: 600; color: #475569; z-index: 2; 
-        width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%;
-    }
-    .fc-day-today .fc-daygrid-day-number { background-color: #3b82f6; color: white; }
-
-    /* Event Pill Style */
-    .fc-h-event {
-        border: 1px solid #e2e8f0; background-color: white; border-radius: 6px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-top: 4px;
-        transition: transform 0.1s, box-shadow 0.1s; cursor: pointer;
-    }
-    .fc-h-event:hover { transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-color: #bfdbfe; z-index: 5; }
-    .fc-event-main { padding: 4px 8px; }
-
-    /* Sidebar & Scrollbar */
-    .asisten-item.active { background: #eff6ff; border-left: 4px solid #3b82f6; }
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
-    /* TABLE ROW STYLE (Untuk Modal List) */
-    .log-row { display: grid; grid-template-columns: 1fr 100px 3fr 100px; gap: 1rem; align-items: center; border: 1px solid #e5e7eb; padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 0.5rem; font-size: 0.875rem; background: white; transition: all 0.2s; }
-    .log-row:hover { border-color: #3b82f6; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-    .log-header { font-weight: 700; text-transform: uppercase; color: #64748b; font-size: 0.7rem; letter-spacing: 0.05em; background: #f8fafc; border: none; }
+    .assistant-card { transition: all 0.2s ease; border: 1px solid transparent; }
+    .assistant-card:hover, .assistant-card.active { 
+        background-color: #eff6ff; 
+        border-color: #bfdbfe; 
+        transform: translateX(4px); 
+    }
+    .assistant-card.active .icon-arrow { opacity: 1; transform: translateX(0); }
+    .assistant-card .icon-arrow { opacity: 0; transform: translateX(-10px); transition: all 0.2s; }
+    
+    .assistant-card.active .action-icon { color: #2563eb; }
 </style>
 
-<div class="max-w-7xl mx-auto space-y-6 animate-enter h-full flex flex-col">
-    
-    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20 shrink-0">
-        <div class="flex flex-col md:flex-row justify-between items-end">
+<div class="max-w-7xl mx-auto space-y-6 animate-enter pb-12 h-[calc(100vh-100px)] flex flex-col">
+
+    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden shrink-0">
+        <div class="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-left"></div>
+        <div class="relative z-10 flex justify-between items-center">
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight">Monitoring Logbook</h1>
-                <p class="text-blue-100 mt-2 text-sm">Kalender aktivitas laboratorium terintegrasi.</p>
+                <p class="text-blue-100 mt-2 text-sm">Pantau aktivitas harian asisten laboratorium.</p>
             </div>
-           <div class="mt-4 md:mt-0 text-right">
-                <p class="text-xs font-bold text-blue-200 uppercase tracking-widest mb-1">Waktu Server</p>
-                <h2 id="liveDate" class="text-2xl font-bold font-mono"><?= date('d F Y') ?></h2>
-                <p class="text-sm opacity-80">
-                    <span id="liveTime"><?= date('H:i:s') ?></span> <span>WITA</span>
+            <div class="text-center md:text-right bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
+                <p class="text-[10px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
+                <h2 id="liveDate" class="text-xl font-bold font-mono"><?= date('d F Y') ?></h2>
+                <p class="text-sm opacity-90 font-mono mt-1">
+                    <span id="liveTime" class="bg-blue-900/30 px-2 py-0.5 rounded"><?= date('H:i:s') ?></span> WITA
                 </p>
             </div>
         </div>
     </div>
 
-    <div class="flex flex-col lg:flex-row gap-8 flex-1">
+    <div class="flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
         
-        <div class="w-full lg:w-80 bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col overflow-hidden shrink-0 h-auto self-start sticky top-6">
-            <div class="p-6 border-b border-gray-100 bg-white">
-                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide mb-3">Filter Asisten</h3>
-                <div class="relative group">
-                    <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-xs"></i>
-                    <input type="text" id="searchAsisten" onkeyup="filterAsistenList()" placeholder="Cari nama asisten..." class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition">
-                </div>
-            </div>
-            
-            <div class="max-h-[500px] overflow-y-auto p-3 space-y-1 custom-scrollbar">
-                <div onclick="setFilter('all')" class="asisten-item active p-3 rounded-xl cursor-pointer flex items-center gap-3 transition" id="usr-all">
-                    <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100"><i class="fas fa-users"></i></div>
-                    <div class="font-bold text-gray-700 text-sm">Semua Asisten</div>
-                </div>
-                <?php if(!empty($assistants)): foreach($assistants as $ast): ?>
-                <div onclick="setFilter(<?= $ast['id'] ?>)" class="asisten-item p-3 rounded-xl cursor-pointer flex items-center gap-3 transition filter-item group" id="usr-<?= $ast['id'] ?>" data-name="<?= strtolower($ast['name']) ?>">
-                    <img src="https://ui-avatars.com/api/?name=<?= urlencode($ast['name']) ?>&background=random" class="w-10 h-10 rounded-full border border-gray-200 group-hover:scale-110 transition">
-                    <div class="flex-1 min-w-0">
-                        <div class="font-bold text-gray-700 text-sm truncate"><?= $ast['name'] ?></div>
-                        <div class="text-xs text-gray-400">Asisten Lab</div>
+        <div class="w-full lg:w-1/3 bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+            <div class="p-5 border-b border-gray-100 bg-white sticky top-0 z-10">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 class="font-extrabold text-gray-700 text-sm uppercase tracking-wide">Data Asisten</h3>
+                        <p class="text-[10px] text-gray-400">Pilih asisten untuk melihat logbook</p>
+                    </div>
+                    <div class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 shadow-sm">
+                        <span class="font-normal text-blue-400">Total: </span> <?= count($assistants) ?> 
                     </div>
                 </div>
-                <?php endforeach; endif; ?>
+                <div class="relative group">
+                    <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 text-sm"></i>
+                    <input type="text" id="searchAssistant" placeholder="Cari nama asisten..." 
+                           class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 transition">
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar" id="assistantList">
+                <?php foreach($assistants as $ast): ?>
+                <div onclick="loadLogs(<?= $ast['id'] ?>, '<?= htmlspecialchars($ast['name'], ENT_QUOTES) ?>', '<?= $ast['photo_profile'] ?? '' ?>', this)" 
+                     class="assistant-card p-3 rounded-2xl cursor-pointer flex items-center justify-between group" 
+                     data-id="<?= $ast['id'] ?>" 
+                     data-name="<?= strtolower($ast['name']) ?>">
+                    
+                    <div class="flex items-center gap-3">
+                        <img src="<?= !empty($ast['photo_profile']) ? BASE_URL.'/uploads/profile/'.$ast['photo_profile'] : 'https://ui-avatars.com/api/?name='.urlencode($ast['name']).'&background=random' ?>" 
+                             class="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm">
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-sm leading-tight"><?= $ast['name'] ?></h4>
+                            <p class="text-[10px] text-gray-500 font-medium mt-0.5"><?= $ast['position'] ?? 'Anggota' ?></p>
+                        </div>
+                    </div>
+                    
+                    <button class="w-8 h-8 rounded-full bg-white border border-gray-100 text-gray-400 flex items-center justify-center shadow-sm group-hover:text-blue-600 transition action-icon">
+                        <i class="fas fa-chevron-right text-xs icon-default"></i>
+                        <i class="fas fa-times text-xs icon-active hidden"></i>
+                    </button>
+                </div>
+                <?php endforeach; ?>
             </div>
         </div>
 
-        <div class="flex-1 bg-white rounded-3xl shadow-sm border border-gray-200 p-2 relative min-h-[600px]">
-            <div id='calendar'></div>
-        </div>
-    </div>
-</div>
-
-<div id="dailyModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="modalBackdrop" onclick="closeModal()"></div>
-    
-    <div class="bg-white rounded-2xl shadow-2xl w-full relative z-10 overflow-hidden transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[85vh]" id="modalContent">
-        
-        <div class="bg-white border-b border-gray-100 p-6 shrink-0 flex justify-between items-center">
-            <div>
-                <p id="modalSubtitle" class="text-blue-600 text-xs font-extrabold uppercase tracking-widest mb-1">Logbook</p>
-                <h3 id="modalDateTitle" class="text-2xl font-extrabold text-gray-800"></h3>
-            </div>
-            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-red-100 hover:text-red-600 transition"><i class="fas fa-times"></i></button>
-        </div>
-
-        <div class="p-6 overflow-y-auto flex-1 bg-gray-50 custom-scrollbar" id="modalListContainer">
+        <div class="w-full lg:w-2/3 bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col overflow-hidden relative">
+            
+            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center bg-white z-20 transition-opacity duration-300">
+                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 animate-bounce">
+                    <i class="fas fa-book-open text-3xl text-gray-300"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-800">Pilih Asisten</h3>
+                <p class="text-sm text-gray-500 mt-1">Klik salah satu asisten di samping untuk melihat logbook.</p>
             </div>
 
-        <div class="p-4 border-t border-gray-100 bg-white text-right shrink-0">
-            <button onclick="closeModal()" class="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition shadow-lg shadow-gray-900/20">Tutup</button>
+            <div id="logContent" class="flex flex-col h-full hidden opacity-0 transition-opacity duration-300">
+                <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <div class="flex items-center gap-4">
+                        <img id="headerAvatar" src="" class="w-12 h-12 rounded-full border-2 border-white shadow-md object-cover">
+                        <div>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Logbook Asisten</p>
+                            <h2 id="headerName" class="text-xl font-extrabold text-gray-800"></h2>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-0 custom-scrollbar">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-white sticky top-0 z-10 shadow-sm text-xs font-bold text-gray-400 uppercase">
+                            <tr>
+                                <th class="p-5 border-b border-gray-100">Tanggal</th>
+                                <th class="p-5 border-b border-gray-100">Jam Masuk</th>
+                                <th class="p-5 border-b border-gray-100">Aktivitas</th>
+                                <th class="p-5 border-b border-gray-100">Jam Pulang</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody" class="divide-y divide-gray-50 text-sm text-gray-700">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    const rawLogs = <?= json_encode($raw_logs ?? []) ?>; 
-    const calendarEvents = <?= json_encode($calendarEvents) ?>;
-    let currentFilterId = 'all'; // State untuk menyimpan filter aktif
+    let currentUserId = null;
+    let currentUserName = '';
 
-    document.addEventListener('DOMContentLoaded', function() {
-        var calendarEl = document.getElementById('calendar');
-
-        window.calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            themeSystem: 'standard',
-            height: 'auto',
-            locale: 'id', 
-            dayHeaderFormat: { weekday: 'long' },
-            headerToolbar: { left: 'title', right: 'prev,today,next' },
-            selectable: true,
-            events: calendarEvents,
-            
-            // Interaction
-            eventClick: function(info) { openDynamicModal(info.event.start); },
-            dateClick: function(info) { openDynamicModal(info.date); },
-
-            // Render
-            eventContent: function(arg) {
-                let props = arg.event.extendedProps;
-                let shortName = props.userName.split(' ')[0];
-                let isFiltered = currentFilterId !== 'all';
-                
-                // Jika sedang filter user tertentu, tampilkan task saja
-                // Jika all user, tampilkan nama: task
-                let titleText = isFiltered ? arg.event.title : `<span class="font-bold text-blue-600 mr-1">${shortName}:</span> ${arg.event.title}`;
-
-                return { 
-                    html: `
-                    <div class="flex items-center gap-2 w-full overflow-hidden">
-                        <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></div>
-                        <div class="flex-1 truncate text-xs text-gray-700">
-                            ${titleText}
-                        </div>
-                    </div>` 
-                };
-            }
+    document.getElementById('searchAssistant').addEventListener('keyup', function() {
+        const key = this.value.toLowerCase();
+        document.querySelectorAll('.assistant-card').forEach(card => {
+            const name = card.getAttribute('data-name');
+            card.style.display = name.includes(key) ? 'flex' : 'none';
         });
-        window.calendar.render();
     });
 
-    // --- LOGIKA UTAMA: MEMBUKA MODAL SESUAI KONDISI ---
-    function openDynamicModal(dateObj) {
-        const dateStr = dateObj.toISOString().split('T')[0];
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        const dateFormatted = dateObj.toLocaleDateString('id-ID', options);
-        
-        document.getElementById('modalDateTitle').innerText = dateFormatted;
-        const container = document.getElementById('modalListContainer');
-        const modalContent = document.getElementById('modalContent');
-        const modalSubtitle = document.getElementById('modalSubtitle');
-        
-        container.innerHTML = '';
-
-        // 1. FILTER: ALL USER (TAMPILAN TABEL LIST)
-        if (currentFilterId === 'all') {
-            modalContent.className = "bg-white rounded-2xl shadow-2xl w-full max-w-4xl relative z-10 overflow-hidden transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[85vh]"; // Lebar
-            modalSubtitle.innerText = "DAFTAR AKTIVITAS HARIAN";
-
-            // Filter log hari itu
-            const dailyLogs = rawLogs.filter(log => log.date === dateStr);
-
-            if (dailyLogs.length > 0) {
-                // Header Tabel
-                let html = `
-                    <div class="log-row log-header">
-                        <div>Nama Asisten</div>
-                        <div class="text-center">Jam Datang</div>
-                        <div>Deskripsi Kegiatan</div>
-                        <div class="text-center">Jam Pulang</div>
-                    </div>
-                `;
-
-                // Isi Tabel
-                dailyLogs.forEach(log => {
-                    const checkIn = log.check_in_time ? log.check_in_time.substring(0,5) : '-'; // Placeholder logic
-                    const checkOut = log.check_out_time ? log.check_out_time.substring(0,5) : '-';
-                    
-                    html += `
-                        <div class="log-row">
-                            <div class="font-bold text-gray-800 truncate pr-2">${log.user_name}</div>
-                            <div class="text-center font-mono text-green-600 font-bold bg-green-50 rounded py-1">${checkIn}</div>
-                            <div class="text-gray-600 truncate" title="${log.activity_detail}">${log.activity_detail}</div>
-                            <div class="text-center font-mono text-red-600 font-bold bg-red-50 rounded py-1">${checkOut}</div>
-                        </div>
-                    `;
-                });
-                container.innerHTML = html;
-            } else {
-                renderEmptyState(container, "Tidak ada asisten yang mengisi logbook hari ini.");
-            }
-
-        } 
-        // 2. FILTER: SPECIFIC USER (TAMPILAN DETAIL FORM)
-        else {
-            modalContent.className = "bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 overflow-hidden transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[85vh]"; // Sempit
-            
-            // Cari data user spesifik di hari itu
-            const userLog = rawLogs.find(log => log.date === dateStr && log.user_id == currentFilterId);
-            
-            if (userLog) {
-                modalSubtitle.innerText = "DETAIL LOGBOOK - " + userLog.user_name.toUpperCase();
-                const checkIn = userLog.check_in_time ? userLog.check_in_time.substring(0,5) : '-';
-                const checkOut = userLog.check_out_time ? userLog.check_out_time.substring(0,5) : '-';
-
-                container.innerHTML = `
-                    <div class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Absen Datang</label>
-                                <div class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-mono text-green-600 font-bold text-center">
-                                    ${checkIn}
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Absen Pulang</label>
-                                <div class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-mono text-red-600 font-bold text-center">
-                                    ${checkOut}
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Deskripsi Kegiatan</label>
-                            <div class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 leading-relaxed min-h-[120px]">
-                                ${userLog.activity_detail}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                modalSubtitle.innerText = "DETAIL LOGBOOK";
-                renderEmptyState(container, "Asisten ini belum mengisi logbook / absen pada tanggal ini.");
-            }
-        }
-
-        // Animasi Buka Modal
-        const modal = document.getElementById('dailyModal');
-        const backdrop = document.getElementById('modalBackdrop');
-        const content = document.getElementById('modalContent');
-        
-        modal.classList.remove('hidden');
-        setTimeout(() => {
-            backdrop.classList.remove('opacity-0');
-            content.classList.remove('opacity-0', 'scale-95');
-            content.classList.add('scale-100');
-        }, 10);
-    }
-
-    function renderEmptyState(container, message) {
-        container.innerHTML = `
-            <div class="flex flex-col items-center justify-center h-64 text-gray-400 text-center p-6">
-                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <i class="fas fa-clipboard-list text-2xl opacity-40"></i>
-                </div>
-                <p class="font-medium text-gray-500">Data Kosong</p>
-                <p class="text-xs text-gray-400 mt-1">${message}</p>
-            </div>
-        `;
-    }
-
-    function closeModal() {
-        const modal = document.getElementById('dailyModal');
-        document.getElementById('modalBackdrop').classList.add('opacity-0');
-        document.getElementById('modalContent').classList.add('opacity-0', 'scale-95');
-        document.getElementById('modalContent').classList.remove('scale-100');
-        setTimeout(() => { modal.classList.add('hidden'); }, 300);
-    }
-
-    // --- FILTER LOGIC ---
-    function setFilter(userId) {
-        currentFilterId = userId; // Update State Global
-
-        // Update UI Sidebar
-        document.querySelectorAll('.asisten-item').forEach(el => el.classList.remove('active'));
-        document.getElementById('usr-' + userId).classList.add('active');
-        
-        // Update Tampilan Kalender (Filter Event)
-        var allEvents = window.calendar.getEvents();
-        allEvents.forEach(evt => {
-            let shouldShow = (userId === 'all' || evt.extendedProps.userId == userId);
-            evt.setProp('display', shouldShow ? 'auto' : 'none');
+    function loadLogs(userId, name, photo, element) {
+        document.querySelectorAll('.assistant-card').forEach(c => {
+            c.querySelector('.icon-default').classList.remove('hidden');
+            c.querySelector('.icon-active').classList.add('hidden');
         });
 
-        // Re-render calendar untuk trigger eventContent formatter ulang (biar nama asisten hilang/muncul)
-        window.calendar.render(); 
-    }
-
-    function filterAsistenList() {
-        var input = document.getElementById('searchAsisten').value.toLowerCase();
-        var items = document.getElementsByClassName('filter-item');
-        for (var i = 0; i < items.length; i++) {
-            var name = items[i].getAttribute('data-name');
-            items[i].style.display = name.includes(input) ? "flex" : "none";
+        if (currentUserId === userId) {
+            resetView();
+            return;
         }
+
+        currentUserId = userId;
+        currentUserName = name;
+
+        document.querySelectorAll('.assistant-card').forEach(c => c.classList.remove('active'));
+        element.classList.add('active');
+        
+        element.querySelector('.icon-default').classList.add('hidden');
+        element.querySelector('.icon-active').classList.remove('hidden');
+        
+        const emptyState = document.getElementById('emptyState');
+        const logContent = document.getElementById('logContent');
+        
+        emptyState.classList.add('opacity-0');
+        setTimeout(() => {
+            emptyState.classList.add('hidden');
+            logContent.classList.remove('hidden');
+            setTimeout(() => logContent.classList.remove('opacity-0'), 50);
+        }, 300);
+        
+        document.getElementById('headerName').innerText = name;
+        document.getElementById('headerAvatar').src = photo ? `<?= BASE_URL ?>/uploads/profile/${photo}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+
+        const fd = new FormData();
+        fd.append('user_id', userId);
+
+        fetch('<?= BASE_URL ?>/admin/getLogsByUser', { method: 'POST', body: fd })
+        .then(res => res.json())
+        .then(data => renderTable(data))
+        .catch(err => console.error(err));
     }
 
-    // Clock
-    function updateClock() {
-        const now = new Date();
-        document.getElementById('liveDate').innerText = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-        document.getElementById('liveTime').innerText = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':');
+    function resetView() {
+        currentUserId = null;
+        currentUserName = '';
+
+        document.querySelectorAll('.assistant-card').forEach(c => {
+            c.classList.remove('active');
+            c.querySelector('.icon-default').classList.remove('hidden');
+            c.querySelector('.icon-active').classList.add('hidden');
+        });
+
+        const emptyState = document.getElementById('emptyState');
+        const logContent = document.getElementById('logContent');
+
+        logContent.classList.add('opacity-0');
+        setTimeout(() => {
+            logContent.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            setTimeout(() => emptyState.classList.remove('opacity-0'), 50);
+        }, 300);
     }
-    setInterval(updateClock, 1000);
-    updateClock();
+
+    function renderTable(logs) {
+        const tbody = document.getElementById('logsTableBody');
+        tbody.innerHTML = '';
+
+        if(logs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">Belum ada data logbook untuk asisten ini.</td></tr>`;
+            return;
+        }
+
+        logs.forEach(log => {
+            const timeIn = log.time_in ? log.time_in.substring(0,5) : '-';
+            const timeOut = log.time_out ? log.time_out.substring(0,5) : '-';
+            const desc = log.activity || '<span class="text-gray-400 italic">Belum diisi</span>';
+            const dateStr = new Date(log.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
+
+            const row = `
+                <tr class="hover:bg-blue-50/50 transition group">
+                    <td class="p-5 font-bold text-gray-700 w-32">${dateStr}</td>
+                    <td class="p-5 font-mono text-green-600 font-bold">${timeIn}</td>
+                    <td class="p-5 max-w-xs">
+                        <div class="line-clamp-2 text-gray-600">${desc}</div>
+                    </td>
+                    <td class="p-5 font-mono text-red-600 font-bold">${timeOut}</td>
+                    <td class="p-5 text-center">
+                        <div class="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                            <button onclick='editLog(${JSON.stringify(log)})' class="w-8 h-8 rounded-lg bg-white border border-gray-200 text-yellow-500 hover:bg-yellow-50 hover:border-yellow-200 transition shadow-sm"><i class="fas fa-pen text-xs"></i></button>
+                            ${log.id_logbook ? 
+                                `<button onclick="triggerDeleteLog(${log.id_logbook})" class="w-8 h-8 rounded-lg bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 transition shadow-sm"><i class="fas fa-trash text-xs"></i></button>` 
+                                : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    }
 </script>
