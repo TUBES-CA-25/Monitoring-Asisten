@@ -1,6 +1,6 @@
 <?php
 // BASEURL: Ganti sesuai nama folder kamu di htdocs
-define('BASE_URL', 'http://localhost/ICLABS/public');
+define('BASE_URL', 'http://localhost/iclabs/public');
 
 // DB CONFIG
 define('DB_HOST', 'localhost');
