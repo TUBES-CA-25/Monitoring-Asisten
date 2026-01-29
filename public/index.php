@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Makassar');
 // 1. Mulai Session
 if( !session_id() ) session_start();
 
