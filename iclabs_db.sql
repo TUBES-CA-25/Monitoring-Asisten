@@ -247,3 +247,10 @@ ADD COLUMN jam_selesai TIME NULL;
 
 ALTER TABLE jadwal_kuliah
 ADD COLUMN kelas VARCHAR(50) NULL AFTER dosen;
+
+ALTER TABLE profile
+ADD COLUMN prodi VARCHAR(255) NULL AFTER kelas;
+
+ALTER TABLE profile
+MODIFY COLUMN jabatan ENUM('Kepala Lab', 'Laboran', 'Koordinator Asisten', 'Asisten 1', 'Asisten 2', 'Asisten Pendamping'),
+MODIFY COLUMN peminatan VARCHAR(255) NULL;

@@ -10,7 +10,7 @@ class UserModel {
 
     public function login($email) {
         $sql = "SELECT u.id_user as id, p.id_profil, u.email, u.password, u.role, 
-                       p.nama as name, p.jabatan as position, p.photo_profile, p.is_completed 
+                       p.nama as name, p.prodi, p.jabatan as position, p.photo_profile, p.is_completed 
                 FROM user u 
                 JOIN profile p ON u.id_user = p.id_user 
                 WHERE u.email = :email";
@@ -21,7 +21,7 @@ class UserModel {
 
     public function getUserById($id) {
         $sql = "SELECT u.id_user as id, p.id_profil, u.role, u.email, 
-                       p.nama as name, p.nim, p.kelas, p.jabatan as position, p.photo_profile,
+                       p.nama as name, p.nim, p.kelas, p.prodi, p.jabatan as position, p.photo_profile,
                        p.alamat, p.no_telp, p.jenis_kelamin, p.peminatan, p.is_completed,
                        l.nama_lab as lab_name,
                        (SELECT COUNT(*) FROM presensi pr WHERE pr.id_profil = p.id_profil AND pr.tanggal = CURDATE() AND pr.waktu_pulang IS NULL) as is_online
@@ -41,38 +41,50 @@ class UserModel {
             $query = "UPDATE profile SET 
                       nama = :nama, 
                       nim = :nim, 
+                      kelas = :kelas,
+                      prodi = :prodi,
                       jabatan = :pos,
                       no_telp = :hp, 
                       alamat = :alamat, 
                       jenis_kelamin = :jk,
-                      peminatan = :minat
+                      peminatan = :minat,
+                      id_lab = :lab,
+                      is_completed = :completed 
                       WHERE id_user = :uid";
+            
+            $stmt = $this->conn->prepare($query);
             
             $params = [
                 ':nama' => $data['name'],
                 ':nim' => $data['nim'],
+                ':kelas' => $data['class'] ?? null,
+                ':prodi' => $data['prodi'] ?? null,
                 ':pos' => $data['position'],
                 ':hp' => $data['phone'],
                 ':alamat' => $data['address'],
                 ':jk' => $data['gender'],
                 ':minat' => $data['interest'] ?? null,
+                ':lab' => $data['lab_id'] ?? null,
+                ':completed' => $data['is_completed'] ?? 1, 
                 ':uid' => $data['id']
             ];
 
+            // Update Foto jika ada
             if (!empty($data['photo'])) {
-                $query = str_replace("WHERE", ", photo_profile = :foto WHERE", $query);
-                $params[':foto'] = $data['photo'];
+                $queryFoto = "UPDATE profile SET photo_profile = :photo WHERE id_user = :uid";
+                $stmtFoto = $this->conn->prepare($queryFoto);
+                $stmtFoto->execute([':photo' => $data['photo'], ':uid' => $data['id']]);
             }
 
-            if ($data['role'] != 'Admin') {
-                $query = str_replace("WHERE", ", is_completed = 1 WHERE", $query);
-            }
+            // Update Status Completed
+            $queryStatus = "UPDATE profile SET is_completed = 1 WHERE id_user = :uid";
+            $stmtStatus = $this->conn->prepare($queryStatus);
+            $stmtStatus->execute([':uid' => $data['id']]);
 
-            $stmt = $this->conn->prepare($query);
             $stmt->execute($params);
-
             $this->conn->commit();
             return true;
+
         } catch (Exception $e) {
             $this->conn->rollBack();
             return false;
@@ -80,8 +92,8 @@ class UserModel {
     }
 
     public function getAllUsers() {
-        $sql = "SELECT u.id_user as id, p.id_profil, u.role, u.email, 
-                       p.nama as name, p.nim, p.jabatan as position, p.photo_profile,
+       $sql = "SELECT u.id_user as id, p.id_profil, u.role, u.email, 
+                       p.nama as name, p.nim, p.prodi, p.jabatan as position, p.photo_profile,
                        p.no_telp, p.alamat, 
                        l.nama_lab as lab_name, p.is_completed
                 FROM user u 
@@ -110,49 +122,52 @@ class UserModel {
             $this->conn->beginTransaction();
             $sqlUser = "INSERT INTO user (email, password, role) VALUES (:email, :pass, :role)";
             $stmtUser = $this->conn->prepare($sqlUser);
-            $hash = password_hash($data['password'], PASSWORD_DEFAULT);
-            $stmtUser->execute([':email' => $data['email'], ':pass' => $hash, ':role' => $data['role']]);
+            $stmtUser->execute([':email'=>$data['email'], ':pass'=>password_hash($data['password'], PASSWORD_BCRYPT), ':role'=>$data['role']]);
             $newUserId = $this->conn->lastInsertId();
-            $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, jabatan, id_lab, jenis_kelamin) 
-                        VALUES (:uid, :name, :nim, :cls, :pos, :lab, :jk)";
+
+            $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile) 
+                        VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo)";
             $stmtProf = $this->conn->prepare($sqlProf);
             $stmtProf->execute([
-                ':uid'  => $newUserId, ':name' => $data['name'], ':nim'  => $data['nim'] ?? null,
-                ':cls'  => $data['class_name'] ?? null, ':pos'  => $data['position'] ?? 'Anggota',
-                ':lab'  => !empty($data['assigned_lab_id']) ? $data['assigned_lab_id'] : null, ':jk'   => $data['gender'] ?? null
+                ':uid'  => $newUserId, 
+                ':name' => $data['name'], 
+                ':nim'  => $data['nim'] ?? null,
+                ':cls'  => $data['class'] ?? null, 
+                ':prodi'=> $data['prodi'] ?? null,
+                ':pos'  => $data['position'] ?? 'Anggota',
+                ':hp'   => $data['no_telp'],
+                ':addr' => $data['alamat'],
+                ':photo'=> $data['photo']
             ]);
             $this->conn->commit();
             return true;
-        } catch (Exception $e) {
-            $this->conn->rollBack();
-            return false;
-        }
+        } catch (Exception $e) { $this->conn->rollBack(); return false; }
     }
 
     public function updateUser($data) {
         try {
             $this->conn->beginTransaction();
-            $sqlProf = "UPDATE profile SET nama = :name, nim = :nim, no_telp = :telp, alamat = :alamat, jabatan = :pos";
+            $sqlProf = "UPDATE profile SET nama = :name, nim = :nim, kelas = :cls, prodi = :prodi, no_telp = :telp, alamat = :alamat, jabatan = :pos";
             if (!empty($data['photo'])) { $sqlProf .= ", photo_profile = :photo"; }
             $sqlProf .= " WHERE id_user = :uid";
+            
             $stmtProf = $this->conn->prepare($sqlProf);
             $params = [
-                ':name' => $data['name'], ':nim' => $data['nim'], ':telp' => $data['no_telp'],
+                ':name' => $data['name'], ':nim' => $data['nim'], ':cls' => $data['class'] ?? null, 
+                ':prodi' => $data['prodi'] ?? null, ':telp' => $data['no_telp'], 
                 ':alamat' => $data['alamat'], ':pos' => $data['position'], ':uid' => $data['id']
             ];
-            if (!empty($data['photo'])) { $params[':photo'] = $data['photo']; }
+            if (!empty($data['photo'])) $params[':photo'] = $data['photo'];
+            
             $stmtProf->execute($params);
-            if (!empty($data['email'])) {
-                $sqlUser = "UPDATE user SET email = :email, role = :role WHERE id_user = :uid";
-                $stmtUser = $this->conn->prepare($sqlUser);
-                $stmtUser->execute([':email' => $data['email'], ':role' => $data['role'], ':uid' => $data['id']]);
-            }
+            
+            $sqlUser = "UPDATE user SET email = :email, role = :role WHERE id_user = :uid";
+            $stmtUser = $this->conn->prepare($sqlUser);
+            $stmtUser->execute([':email'=>$data['email'], ':role'=>$data['role'], ':uid'=>$data['id']]);
+            
             $this->conn->commit();
             return true;
-        } catch (Exception $e) {
-            $this->conn->rollBack();
-            return false;
-        }
+        } catch (Exception $e) { $this->conn->rollBack(); return false; }
     }
 
     public function deleteUser($id) {
@@ -214,14 +229,6 @@ class UserModel {
                         WHERE i.status_approval = 'Approved'
                         GROUP BY p.id_profil ORDER BY score DESC LIMIT 5";
                 break;
-            case 'jarang_izin':
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(i.id_izin) as score 
-                        FROM profile p 
-                        JOIN user u ON p.id_user = u.id_user
-                        LEFT JOIN izin i ON p.id_profil = i.id_profil AND i.status_approval = 'Approved'
-                        WHERE u.role = 'User'
-                        GROUP BY p.id_profil ORDER BY score ASC LIMIT 5";
-                break;
             case 'logbook_lengkap':
                 $sql = "SELECT p.nama, p.jabatan, p.photo_profile, FLOOR(AVG(LENGTH(l.detail_aktivitas) - LENGTH(REPLACE(l.detail_aktivitas, ' ', '')) + 1)) as score 
                         FROM profile p 
@@ -258,14 +265,9 @@ class UserModel {
 
     public function getDemographics() {
         $results = [];
-
         $sqlJK = "SELECT jenis_kelamin, COUNT(*) as count FROM profile p JOIN user u ON p.id_user = u.id_user WHERE u.role = 'User' GROUP BY jenis_kelamin";
         $stmt = $this->conn->prepare($sqlJK); $stmt->execute();
         $results['gender'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $sqlAngkatan = "SELECT SUBSTRING(nim, 5, 2) as angkatan, COUNT(*) as count FROM profile p JOIN user u ON p.id_user = u.id_user WHERE u.role = 'User' AND nim IS NOT NULL GROUP BY angkatan";
-        $stmt = $this->conn->prepare($sqlAngkatan); $stmt->execute();
-        $results['year'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $sqlKelas = "SELECT kelas, COUNT(*) as count FROM profile p JOIN user u ON p.id_user = u.id_user WHERE u.role = 'User' AND kelas IS NOT NULL GROUP BY kelas";
         $stmt = $this->conn->prepare($sqlKelas); $stmt->execute();

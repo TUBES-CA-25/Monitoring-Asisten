@@ -16,7 +16,22 @@
         
         <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0 text-center md:text-left">
-                <h1 class="text-3xl font-extrabold">Halo, <?= explode(' ', $user['name'])[0] ?>! 👋</h1>
+                <?php
+                    $fullName = $user['name'];
+                    $parts = explode(',', $fullName);
+                    $frontNameOnly = trim($parts[0]);
+
+                    $words = explode(' ', $frontNameOnly);
+                    $displayName = $words[0];
+                    foreach ($words as $word) {
+                        $word = trim($word);
+                        if (!empty($word) && strpos($word, '.') === false) {
+                            $displayName = $word;
+                            break;
+                        }
+                    }
+                ?>
+                <h1 class="text-3xl font-extrabold">Halo, <?= htmlspecialchars($displayName) ?> ! 👋</h1>
                 <p class="text-blue-100 mt-2 text-sm">Siap untuk berkontribusi di laboratorium hari ini?</p>
             </div>
             
@@ -69,8 +84,12 @@
                             <span class="text-sm font-bold text-gray-700"><?= $user['nim'] ?? '-' ?></span>
                         </div>
                         <div class="flex justify-between items-center border-b border-gray-200 pb-2">
-                            <span class="text-[10px] font-bold text-gray-400 uppercase">Jurusan</span>
-                            <span class="text-xs font-bold text-gray-700 truncate w-32 text-right">Informatika</span>
+                            <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas</span>
+                            <span class="text-xs font-bold text-gray-700"><?= $user['kelas'] ?? '-' ?></span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase">Program Studi</span>
+                            <span class="text-xs font-bold text-gray-700"><?= $user['prodi'] ?? '-' ?></span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-[10px] font-bold text-gray-400 uppercase">No. HP</span>
@@ -95,15 +114,15 @@
                 </div>
             </a>
             <div class="grid grid-cols-3 gap-4 p-2">
-                <div class="bg-green-50 p-4 rounded-2xl border border-green-100 text-center">
+                <div class="bg-green-50 p-5 rounded-2xl border border-green-100 text-center">
                     <span class="block text-2xl font-extrabold text-green-600"><?= $stats['hadir'] ?></span>
                     <span class="text-[10px] font-bold text-green-700 uppercase tracking-wider">Hadir</span>
                 </div>
-                <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 text-center">
+                <div class="bg-yellow-50 p-5 rounded-2xl border border-yellow-100 text-center">
                     <span class="block text-2xl font-extrabold text-yellow-600"><?= $stats['izin'] ?></span>
                     <span class="text-[10px] font-bold text-yellow-700 uppercase tracking-wider">Izin</span>
                 </div>
-                <div class="bg-red-50 p-4 rounded-2xl border border-red-100 text-center">
+                <div class="bg-red-50 p-5 rounded-2xl border border-red-100 text-center">
                     <span class="block text-2xl font-extrabold text-red-600"><?= $stats['alpa'] ?></span>
                     <span class="text-[10px] font-bold text-red-700 uppercase tracking-wider">Tidak Hadir</span>
                 </div>
@@ -139,7 +158,7 @@
                     <i class="fas fa-envelope-open-text text-blue-500"></i> Pengajuan Sakit / Izin
                 </h3>
                 
-                <form action="<?= BASE_URL ?>/user/submit_leave" method="POST" enctype="multipart/form-data" class="space-y-5">
+                <form id="leaveForm" action="<?= BASE_URL ?>/user/submit_leave" method="POST" enctype="multipart/form-data" class="space-y-5">
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
@@ -212,7 +231,7 @@
                         </div>
                     </div>
                     
-                    <div>
+                    <!-- <div>
                         <label class="flex items-center gap-3 transition cursor-pointer group select-none">
                             <div class="relative flex items-center">
                                 <input type="checkbox" required class="peer w-5 h-5 cursor-pointer appearance-none rounded border border-gray-300 shadow-sm checked:bg-blue-600 checked:border-blue-600 transition-all focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:border-gray-200" <?= $is_working ? 'disabled' : '' ?>>
@@ -222,7 +241,7 @@
                                 Apakah data rentang tanggal dan bukti sudah benar?
                             </span>
                         </label>
-                    </div>
+                    </div> -->
                 </form>
             </div>
 
@@ -279,6 +298,21 @@
                 <?php endforeach; endif; ?>
             </div>
             <?php endforeach; ?>
+        </div>
+    </div>
+
+    <div id="customAlertModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center px-4">
+        <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="alertBackdrop"></div>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative z-10 overflow-hidden transform scale-90 opacity-0 transition-all duration-300 flex flex-col items-center p-6 text-center" id="alertContent">
+            
+            <div id="alertIconBg" class="w-20 h-20 rounded-full flex items-center justify-center mb-4 transition-colors">
+                <i id="alertIcon" class="fas text-4xl"></i>
+            </div>
+            
+            <h3 id="alertTitle" class="text-2xl font-extrabold text-gray-800 mb-2"></h3>
+            <p id="alertMessage" class="text-sm text-gray-500 mb-6 px-2 leading-relaxed"></p>
+            
+            <button onclick="closeCustomAlert()" class="w-full py-3.5 rounded-xl font-bold text-white shadow-lg transition transform hover:scale-[1.02] active:scale-95" id="alertBtn">OK</button>
         </div>
     </div>
 </div>
@@ -362,6 +396,101 @@
                 plugins: { legend: { display: currentType === 'pie' } }
             }
         });
+    }
+
+    let shouldReload = false;
+
+    // 1. EVENT LISTENER FORM
+    document.getElementById('leaveForm').addEventListener('submit', function(e) {
+        e.preventDefault(); // Mencegah reload halaman bawaan
+        
+        const form = this;
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        
+        // Ubah tombol jadi loading
+        const originalBtnText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Mengirim...';
+        submitBtn.disabled = true;
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Kembalikan tombol
+            submitBtn.innerHTML = originalBtnText;
+            submitBtn.disabled = false;
+
+            if (data.status === 'success') {
+                showCustomAlert('success', data.title, data.message, true); // True = Reload halaman saat tutup
+                form.reset();
+            } else {
+                showCustomAlert('error', 'Gagal', data.message, false);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            submitBtn.innerHTML = originalBtnText;
+            submitBtn.disabled = false;
+            showCustomAlert('error', 'Error', 'Terjadi kesalahan koneksi server.', false);
+        });
+    });
+
+    // 2. FUNGSI MENAMPILKAN MODAL
+    function showCustomAlert(type, title, message, reloadOnClose = false) {
+        shouldReload = reloadOnClose;
+        
+        const modal = document.getElementById('customAlertModal');
+        const content = document.getElementById('alertContent');
+        const backdrop = document.getElementById('alertBackdrop');
+        const iconBg = document.getElementById('alertIconBg');
+        const icon = document.getElementById('alertIcon');
+        const btn = document.getElementById('alertBtn');
+
+        // Set Content
+        document.getElementById('alertTitle').innerText = title;
+        document.getElementById('alertMessage').innerText = message;
+
+        // Styling berdasarkan Tipe
+        if (type === 'success') {
+            iconBg.className = 'w-20 h-20 rounded-full flex items-center justify-center mb-4 bg-green-100 text-green-500';
+            icon.className = 'fas fa-check';
+            btn.className = 'w-full py-3.5 rounded-xl font-bold text-white shadow-lg bg-green-600 hover:bg-green-700 shadow-green-500/30 transition';
+        } else {
+            iconBg.className = 'w-20 h-20 rounded-full flex items-center justify-center mb-4 bg-red-100 text-red-500';
+            icon.className = 'fas fa-times';
+            btn.className = 'w-full py-3.5 rounded-xl font-bold text-white shadow-lg bg-red-600 hover:bg-red-700 shadow-red-500/30 transition';
+        }
+
+        // Tampilkan dengan Animasi
+        modal.classList.remove('hidden');
+        // Sedikit delay agar transisi CSS berjalan
+        setTimeout(() => {
+            backdrop.classList.remove('opacity-0');
+            content.classList.remove('scale-90', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    // 3. FUNGSI MENUTUP MODAL
+    function closeCustomAlert() {
+        const modal = document.getElementById('customAlertModal');
+        const content = document.getElementById('alertContent');
+        const backdrop = document.getElementById('alertBackdrop');
+
+        // Animasi Keluar
+        backdrop.classList.add('opacity-0');
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-90', 'opacity-0');
+
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            if (shouldReload) {
+                window.location.reload(); // Reload halaman hanya jika sukses
+            }
+        }, 300);
     }
 
     // Fungsi Helper Global

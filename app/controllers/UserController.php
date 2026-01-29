@@ -134,69 +134,56 @@ class UserController extends Controller {
             $role = $_SESSION['role'];
             $userModel = $this->model('UserModel');
             
-            // Ambil data user saat ini untuk cek status & foto lama
+            // Ambil data user saat ini
             $currentUser = $userModel->getUserById($_SESSION['user_id']);
 
-            // 1. CEK KUNCI PROFIL (Kecuali Admin)
-            // Jika bukan Admin DAN profil sudah completed (1), tolak akses.
+            // 1. CEK KUNCI PROFIL
             if ($role != 'Admin' && isset($currentUser['is_completed']) && $currentUser['is_completed'] == 1) {
-                echo "<script>
-                    alert('Profil Anda sudah terkunci. Hubungi Admin untuk perubahan data.'); 
-                    window.location.href='" . BASE_URL . "/user/profile';
-                </script>";
+                echo "<script>alert('Profil terkunci.'); window.location.href='" . BASE_URL . "/user/profile';</script>";
                 exit;
             }
 
             // 2. VALIDASI DATA WAJIB
+            // Tambahkan validasi kelas jika role adalah User
             if (empty($_POST['name']) || empty($_POST['nim']) || empty($_POST['position']) || empty($_POST['phone']) || empty($_POST['address'])) {
                 echo "<script>alert('Semua data bertanda (*) wajib diisi!'); window.history.back();</script>";
                 exit;
             }
 
-            // 3. LOGIKA UPLOAD FOTO (Prioritas: Hasil Crop Base64)
-            $photoName = $currentUser['photo_profile']; // Default gunakan foto lama
+            if ($role == 'User' && empty($_POST['class'])) {
+                echo "<script>alert('Data Kelas wajib diisi untuk Asisten!'); window.history.back();</script>";
+                exit;
+            }
+
+            // 3. LOGIKA UPLOAD FOTO (Sama seperti sebelumnya...)
+            $photoName = $currentUser['photo_profile']; 
             $targetDir = "../public/uploads/profile/";
             
-            // A. Cek apakah ada data gambar hasil crop (Base64)
             if (!empty($_POST['cropped_image'])) {
-                $data = $_POST['cropped_image'];
-                
-                // Parsing data URI scheme: "data:image/jpeg;base64,..."
-                if (preg_match('/^data:image\/(\w+);base64,/', $data, $type)) {
-                    $data = substr($data, strpos($data, ',') + 1);
-                    $type = strtolower($type[1]); // jpg, png, dll
-                    $decodedData = base64_decode($data);
-
+                // ... (Logika crop image tetap sama) ...
+                $dataImg = $_POST['cropped_image'];
+                if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
+                    $dataImg = substr($dataImg, strpos($dataImg, ',') + 1);
+                    $type = strtolower($type[1]);
+                    $decodedData = base64_decode($dataImg);
                     if ($decodedData !== false) {
-                        // Pastikan folder ada
                         if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-                        
-                        // Generate nama file unik
                         $fileName = time() . '_' . uniqid() . '.' . $type;
-                        $filePath = $targetDir . $fileName;
-                        
-                        // Simpan file ke server
-                        if (file_put_contents($filePath, $decodedData)) {
+                        if (file_put_contents($targetDir . $fileName, $decodedData)) {
                             $photoName = $fileName;
-                            $_SESSION['photo'] = $fileName; // Update session foto
-                            
-                            // Hapus foto lama jika ada (dan bukan default avatar)
+                            $_SESSION['photo'] = $fileName;
                             if ($currentUser['photo_profile'] && file_exists($targetDir . $currentUser['photo_profile'])) {
                                 unlink($targetDir . $currentUser['photo_profile']); 
                             }
                         }
                     }
                 }
-            } 
-            // B. Fallback: Cek Upload File Biasa (Jika JS Cropper gagal)
-            elseif (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
+            } elseif (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
+                // ... (Logika upload biasa tetap sama) ...
                 if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-                
                 $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
                 $targetFilePath = $targetDir . $fileName;
                 $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
-                
-                // Validasi tipe file
                 if (in_array(strtolower($fileType), ['jpg', 'jpeg', 'png'])) {
                     if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
                         $photoName = $fileName;
@@ -205,13 +192,16 @@ class UserController extends Controller {
                 }
             }
 
-            // 4. PERSIAPAN DATA UNTUK MODEL
+            // 4. PERSIAPAN DATA (Update kolom kelas)
             $data = [
                 'id'       => $_SESSION['user_id'],
-                'role'     => $role,
+                'role'     => 'User',
                 'name'     => $_POST['name'],
-                'nim'      => $_POST['nim'],           // Data baru (NIM)
-                'position' => $_POST['position'],      // Data baru (Jabatan)
+                'nim'      => $_POST['nim'],
+                'position' => $_POST['position'], 
+                'class'    => $_POST['class'] ?? null, 
+                'prodi'    => $_POST['prodi'] ?? null,
+                'lab_id'   => $_POST['lab_id'] ?? null, 
                 'phone'    => $_POST['phone'],
                 'address'  => $_POST['address'],
                 'gender'   => $_POST['gender'],
@@ -219,17 +209,27 @@ class UserController extends Controller {
                 'photo'    => ($photoName != $currentUser['photo_profile']) ? $photoName : null
             ];
 
-            // 5. EKSEKUSI UPDATE KE DATABASE
+            // 5. EKSEKUSI UPDATE
             if ($userModel->updateSelfProfile($data)) {
-                // Update Session agar perubahan langsung tampil di Sidebar/Header
+                // Update Session Data
                 $_SESSION['name'] = $_POST['name'];
-                $_SESSION['jabatan'] = $_POST['position']; 
-                
-                $msg = 'Profil berhasil dilengkapi dan kini DATA DIKUNCI.';
-                echo "<script>alert('$msg'); window.location.href='" . BASE_URL . "/user/profile';</script>";
+                $_SESSION['jabatan'] = $_POST['position'];
+
+                // Return JSON Sukses dengan URL Redirect
+                echo json_encode([
+                    'status' => 'success',
+                    'title'  => 'Profil Terkunci',
+                    'message'=> 'Profil berhasil dilengkapi. Data Anda kini DIKUNCI dan tidak dapat diubah kembali.',
+                    'redirect' => BASE_URL . '/user/profile'
+                ]);
             } else {
-                echo "<script>alert('Gagal memperbarui profil. Silakan coba lagi.'); window.history.back();</script>";
+                echo json_encode([
+                    'status' => 'error',
+                    'title'  => 'Gagal Update',
+                    'message'=> 'Terjadi kesalahan saat menyimpan data ke database.'
+                ]);
             }
+            exit;
         }
     }
 
@@ -474,6 +474,79 @@ class UserController extends Controller {
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Gagal menyimpan data database.']);
             }
+        }
+    }
+
+    public function submit_leave() {
+        // Pastikan hanya User yang bisa akses
+        if ($_SESSION['role'] != 'User') {
+            echo json_encode(['status' => 'error', 'message' => 'Akses ditolak']);
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $userModel = $this->model('UserModel');
+            $currentUser = $userModel->getUserById($_SESSION['user_id']);
+            $pId = $currentUser['id_profil'];
+
+            $type = $_POST['type'];
+            $reason = $_POST['reason'];
+            $startDate = $_POST['start_date'];
+            $endDate = $_POST['end_date'];
+
+            // 1. Validasi Tanggal
+            if ($endDate < $startDate) {
+                echo json_encode(['status' => 'error', 'message' => 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.']);
+                exit;
+            }
+
+            // 2. Handle Upload Bukti
+            $fileName = null;
+            if (isset($_FILES['attachment']['name']) && $_FILES['attachment']['name'] != "") {
+                $targetDir = "../public/uploads/leaves/"; 
+                if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+                
+                $fileExt = strtolower(pathinfo($_FILES["attachment"]["name"], PATHINFO_EXTENSION));
+                $allowed = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'];
+                
+                if (in_array($fileExt, $allowed)) {
+                    $fileName = strtolower($type) . '_' . $_SESSION['user_id'] . '_' . time() . '.' . $fileExt;
+                    if (!move_uploaded_file($_FILES["attachment"]["tmp_name"], $targetDir . $fileName)) {
+                        echo json_encode(['status' => 'error', 'message' => 'Gagal mengunggah file bukti.']);
+                        exit;
+                    }
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => 'Format file tidak didukung (Gunakan JPG, PNG, PDF, DOC).']);
+                    exit;
+                }
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Wajib menyertakan file bukti.']);
+                exit;
+            }
+
+            // 3. Simpan ke Database
+            $data = [
+                'id_profil'  => $pId,
+                'type'       => $type,
+                'reason'     => $reason,
+                'start_date' => $startDate,
+                'end_date'   => $endDate,
+                'file_bukti' => $fileName
+            ];
+
+            // Panggil Model
+            if ($this->model('AttendanceModel')->createLeaveRequest($data)) {
+                // SUKSES: Return JSON Success
+                echo json_encode([
+                    'status' => 'success', 
+                    'title' => 'Berhasil', 
+                    'message' => 'Data Izin/Sakit berhasil dicatat. Status kehadiran otomatis diperbarui.'
+                ]);
+            } else {
+                // GAGAL: Return JSON Error
+                echo json_encode(['status' => 'error', 'message' => 'Terjadi kesalahan database.']);
+            }
+            exit; // Penting: Hentikan script agar tidak me-load view
         }
     }
 }

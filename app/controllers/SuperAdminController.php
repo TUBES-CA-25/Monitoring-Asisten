@@ -7,7 +7,7 @@ class SuperAdminController extends Controller {
         if (!isset($_SESSION['role']) || $_SESSION['role'] != 'Super Admin') {
             header("Location: " . BASE_URL . "/auth/login"); exit;
         }
-        
+
         $data['judul'] = 'Dashboard Pengawas';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
@@ -32,45 +32,50 @@ class SuperAdminController extends Controller {
             'total_late'    => $totalLate
         ];
 
-        // List Asisten
-        $allUsers = $this->model('UserModel')->getAllUsers();
-        $assistants = array_filter($allUsers, fn($u) => $u['role'] == 'User');
-        $today = date('Y-m-d'); // Tanggal Hari Ini
+        $stmtAst = $conn->query("SELECT u.id_user, u.email, 
+                                        p.id_profil, p.nama, p.photo_profile, p.jabatan, 
+                                        p.nim, p.no_telp, p.alamat, p.prodi, p.kelas 
+                                 FROM user u 
+                                 JOIN profile p ON u.id_user = p.id_user 
+                                 WHERE u.role = 'User' 
+                                 ORDER BY p.nama ASC");
+        $assistants = $stmtAst->fetchAll(PDO::FETCH_ASSOC);
 
-        foreach ($assistants as &$asisten) {
-            $pId = $asisten['id_profil'];
-            
-            // --- [FIX LOGIKA STATUS REAL-TIME] ---
-            // Default: Merah (Belum Hadir)
-            $asisten['status_today'] = 'red';
+        foreach ($assistants as &$ast) {
+            $pid = $ast['id_profil'];
 
-            // 1. Cek Presensi Hari Ini
-            $stmtP = $conn->prepare("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :d");
-            $stmtP->execute([':pid' => $pId, ':d' => $today]);
-            if ($stmtP->fetch()) {
-                $asisten['status_today'] = 'green'; // Hadir
+            // A. Cek Status Visual Hari Ini
+            $stmtP = $conn->prepare("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
+            $stmtP->execute([':pid' => $pid]);
+            $presensi = $stmtP->fetch(PDO::FETCH_ASSOC);
+
+            $stmtI = $conn->prepare("SELECT tipe FROM izin WHERE id_profil = :pid AND status_approval = 'Approved' AND CURDATE() BETWEEN start_date AND end_date");
+            $stmtI->execute([':pid' => $pid]);
+            $izin = $stmtI->fetch(PDO::FETCH_ASSOC);
+
+            if ($presensi) {
+                // Jika sudah pulang -> Merah (Offline), jika belum -> Hijau (Online)
+                $ast['visual_status'] = ($presensi['waktu_pulang'] != null) ? 'offline_pulang' : 'online';
+            } elseif ($izin) {
+                $ast['visual_status'] = 'izin';
             } else {
-                // 2. Jika belum hadir, Cek Izin Hari Ini
-                $stmtIz = $conn->prepare("SELECT id_izin FROM izin WHERE id_profil = :pid AND :d BETWEEN start_date AND end_date AND status_approval = 'Approved'");
-                $stmtIz->execute([':pid' => $pId, ':d' => $today]);
-                if ($stmtIz->fetch()) {
-                    $asisten['status_today'] = 'yellow'; // Izin/Sakit
-                }
+                $ast['visual_status'] = 'alpha';
             }
-            // -------------------------------------
-            
-            // Hitung statistik ringkas untuk card dashboard
-            $stmtH = $conn->prepare("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
-            $stmtH->execute([':pid' => $pId]);
-            $hadir = $stmtH->fetch()['total'];
 
-            $stmtI = $conn->prepare("SELECT COUNT(*) as total FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
-            $stmtI->execute([':pid' => $pId]);
-            $izin = $stmtI->fetch()['total'];
+            // B. Hitung Statistik Individu (Total Hadir/Izin/Alpa)
+            $stmtH = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
+            $stmtH->execute([':pid' => $pid]);
+            $ast['total_hadir'] = $stmtH->fetchColumn();
 
-            $asisten['stats'] = ['hadir' => $hadir, 'izin' => $izin, 'alpa' => 0];
+            $stmtIz = $conn->prepare("SELECT COUNT(*) FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
+            $stmtIz->execute([':pid' => $pid]);
+            $ast['total_izin'] = $stmtIz->fetchColumn();
+
+            $stmtA = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Alpha'");
+            $stmtA->execute([':pid' => $pid]);
+            $ast['total_alpa'] = $stmtA->fetchColumn();
         }
-        
+
         $data['assistants'] = $assistants;
         $data['chart_data'] = $attModel->getChartData();
 
@@ -84,7 +89,10 @@ class SuperAdminController extends Controller {
         if ($_SESSION['role'] != 'Super Admin') exit;
         $data['judul'] = 'Daftar Pengguna';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
-        $data['users_list'] = $this->model('UserModel')->getAllUsers();
+        $allUsers = $this->model('UserModel')->getAllUsers();
+        $data['users_list'] = array_filter($allUsers, function($u) {
+            return $u['id'] != $_SESSION['user_id'];
+        });
         
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -108,53 +116,81 @@ class SuperAdminController extends Controller {
 
     public function monitorAttendance() {
         if ($_SESSION['role'] != 'Super Admin') exit;
+        
         $data['judul'] = 'Rekap Presensi';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
-        
-        $date = $_GET['date'] ?? date('Y-m-d');
-        $data['filter_date'] = $date;
-        $data['attendance_list'] = $this->model('AttendanceModel')->getAllAttendanceByDate($date);
+        $attModel = $this->model('AttendanceModel');
+
+        // 1. Data Dropdown
+        $data['assistants_list'] = $attModel->getAllAssistantsList();
+
+        // 2. Filter Logic
+        $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
+        $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
+        $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
+
+        $data['start_date'] = $startDate;
+        $data['end_date'] = $endDate;
+        $data['selected_assistant'] = $assistantId;
+
+        // 3. Get Data
+        $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
+        // Pastikan view mengarah ke folder yang sesuai atau gunakan view admin jika dishare
         $this->view('superadmin/attendance', $data); 
         $this->view('layout/footer');
     }
 
     public function exportCsv() {
         if ($_SESSION['role'] != 'Super Admin') exit;
-        $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
-        $data = $this->model('AttendanceModel')->getAllAttendanceByDate($date);
+        
+        $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
+        $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
+        $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
 
+        $data = $this->model('AttendanceModel')->getAttendanceRecap($startDate, $endDate, $assistantId);
+        $filename = "Rekap_Presensi_" . date('d-m-Y', strtotime($startDate)) . ".csv";
+        
         header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="Laporan_Presensi_' . $date . '.csv"');
+        header('Content-Disposition: attachment; filename="'.$filename.'"');
 
         $output = fopen('php://output', 'w');
-        fputcsv($output, ['No', 'Nama Asisten', 'NIM', 'Jabatan', 'Jam Masuk', 'Jam Pulang', 'Status']);
+        fputcsv($output, ['No', 'Tanggal', 'Nama Asisten', 'NIM', 'Jabatan', 'Jam Masuk', 'Jam Pulang', 'Status']);
 
         $no = 1;
         foreach ($data as $row) {
             fputcsv($output, [
-                $no++,
-                $row['name'],
-                $row['nim'] ?? '-',
-                $row['position'] ?? 'Anggota',
-                $row['check_in_time'] ? date('H:i:s', strtotime($row['check_in_time'])) : '-',
-                $row['check_out_time'] ? date('H:i:s', strtotime($row['check_out_time'])) : '-',
-                $row['status']
+                $no++, $row['tanggal'], $row['name'], $row['nim'] ?? '-', $row['position'] ?? 'Anggota',
+                $row['waktu_presensi'] ? date('H:i', strtotime($row['waktu_presensi'])) : '-',
+                $row['waktu_pulang'] ? date('H:i', strtotime($row['waktu_pulang'])) : '-', $row['status']
             ]);
         }
-        fclose($output);
-        exit;
+        fclose($output); exit;
     }
 
     public function exportPdf() {
         if ($_SESSION['role'] != 'Super Admin') exit;
-        $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
-        $data['attendance_list'] = $this->model('AttendanceModel')->getAllAttendanceByDate($date);
-        $data['date'] = $date;
+        
+        $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
+        $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
+        $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
+        
+        $attModel = $this->model('AttendanceModel');
+        $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+        
+        $data['start_date'] = $startDate;
+        $data['end_date'] = $endDate;
+        
+        $data['assistant_name'] = 'Semua Asisten';
+        if($assistantId) {
+            $user = $this->model('UserModel')->getUserById($assistantId);
+            $data['assistant_name'] = $user['name'] ?? 'Asisten';
+        }
 
-        $this->view('admin/pdf_attendance', $data); 
+        // Menggunakan view PDF yang sama dengan Admin (Shared View)
+        $this->view('admin/pdf_attendance', $data);
     }
 
     public function logbook() {
@@ -189,18 +225,34 @@ class SuperAdminController extends Controller {
         $db = new Database(); 
         $conn = $db->getConnection();
         
+        // 1. Total Asisten
         $stmt = $conn->query("SELECT COUNT(*) as total FROM user WHERE role='User'");
         $data['total_managed_users'] = $stmt->fetch()['total'];
 
+        // 2. Chart Kehadiran
         $attModel = $this->model('AttendanceModel');
         $data['chart_data'] = $attModel->getChartData(); 
 
         $userModel = $this->model('UserModel');
-        $scheduleModel = $this->model('ScheduleModel');
 
+        // 3. Demografi
         $data['demographics'] = $userModel->getDemographics();
-        $data['upcoming_schedules'] = $scheduleModel->getUpcomingSchedules();
+
+        $stmtSch = $conn->query("SELECT * FROM jadwal_lab 
+                                 WHERE tanggal >= CURDATE() 
+                                 ORDER BY tanggal ASC, jam_mulai ASC 
+                                 LIMIT 5");
+        $rawSchedules = $stmtSch->fetchAll(PDO::FETCH_ASSOC);
         
+        // Format Tanggal & Mapping
+        foreach ($rawSchedules as &$sch) {
+            $sch['display_date'] = date('d M Y', strtotime($sch['tanggal']));
+            // Inject type agar dibaca 'UMUM' oleh view
+            $sch['type'] = 'umum';
+        }
+        $data['upcoming_schedules'] = $rawSchedules;
+        
+        // 5. Peringkat Asisten
         $data['rankings'] = [
             'online' => $userModel->getAssistantRankings('online'),
             'rajin' => $userModel->getAssistantRankings('rajin'),
@@ -287,20 +339,29 @@ class SuperAdminController extends Controller {
                 'role'     => 'Super Admin',
                 'name'     => $_POST['name'],
                 'nim'      => $_POST['nim'] ?? null,
-                'position' => $_POST['position'] ?? 'Pengawas Lab',
+                'position' => $_POST['position'] ?? 'Kepala Lab',
+                'prodi'    => null,
                 'phone'    => $_POST['phone'],
                 'address'  => $_POST['address'],
                 'gender'   => $_POST['gender'],
                 'interest' => null,
-                'photo'    => ($photoName != $currentUser['photo_profile']) ? $photoName : null
+                'photo'    => ($photoName != $currentUser['photo_profile']) ? $photoName : null,
+                // 'is_completed' => $isCompleted
             ];
 
             if ($userModel->updateSelfProfile($data)) {
                 $_SESSION['name'] = $_POST['name'];
                 $_SESSION['jabatan'] = $_POST['position'];
-                echo json_encode(['status' => 'success', 'message' => 'Profil berhasil diperbarui.']);
+                
+                // [PERBAIKAN UTAMA: Masalah Undefined & Redirect]
+                echo json_encode([
+                    'status'   => 'success', 
+                    'title'    => 'Berhasil',
+                    'message'  => 'Profil berhasil diperbarui.',
+                    'redirect' => BASE_URL . '/superadmin/profile'
+                ]);
             } else {
-                echo json_encode(['status' => 'error', 'message' => 'Gagal memperbarui profil.']);
+                echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal memperbarui profil.']);
             }
             exit;
         }

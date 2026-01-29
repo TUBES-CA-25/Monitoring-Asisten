@@ -17,7 +17,7 @@
         <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0 text-center md:text-left">
                 <h1 class="text-3xl font-extrabold">Daftar Pengguna</h1>
-                <p class="text-blue-100 mt-2 text-sm">Monitoring detail akun Asisten, Admin, dan Super Admin.</p>
+                <p class="text-blue-100 mt-2 text-sm">Monitoring detail akun Asisten dan Admin (Mode Lihat).</p>
             </div>
             <div class="text-center md:text-right bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
                 <p class="text-[10px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
@@ -35,7 +35,7 @@
             
             <div class="relative w-full sm:w-72">
                 <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 text-xs"></i>
-                <input type="text" id="searchUser" onkeyup="searchTable()" placeholder="Cari nama atau email..." class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                <input type="text" id="searchUser" onkeyup="searchTable()" placeholder="Cari nama, email, atau NIM..." class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
             </div>
         </div>
 
@@ -43,59 +43,108 @@
             <table class="w-full text-left" id="userTable">
                 <thead class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
                     <tr>
-                        <th class="p-6">Profil</th>
-                        <th class="p-6">Jabatan & Role</th>
-                        <th class="p-6">Kontak</th>
+                        <th class="p-6 w-1/3">Profil Pengguna</th>
+                        <th class="p-6 w-1/4">Jabatan & Role</th>
+                        <th class="p-6 w-1/3">Informasi Kontak</th>
                         <th class="p-6 text-center">Detail</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
-                    <?php foreach($users_list as $u): ?>
+                    <?php if(empty($users_list)): ?>
+                        <tr>
+                            <td colspan="4" class="p-8 text-center text-gray-400 italic">
+                                Tidak ada data pengguna yang ditemukan.
+                            </td>
+                        </tr>
+                    <?php else: foreach($users_list as $u): 
+                        // Logic Status Akun
+                        $isVerified = isset($u['is_completed']) && $u['is_completed'] == 1;
+                        $statusBadge = $isVerified 
+                            ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200"><i class="fas fa-check-circle"></i> Terverifikasi</span>'
+                            : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-200"><i class="fas fa-clock"></i> Pending</span>';
+                        
+                        // Badge Role Color
+                        $roleColor = match($u['role']) {
+                            'Super Admin' => 'bg-red-50 text-red-600 border-red-100',
+                            'Admin'       => 'bg-purple-50 text-purple-600 border-purple-100',
+                            default       => 'bg-blue-50 text-blue-600 border-blue-100'
+                        };
+                    ?>
                     <tr class="group hover:bg-blue-50/30 transition duration-200 user-row">
                         <td class="p-6">
                             <div class="flex items-center gap-4">
                                 <?php 
                                     $photoName = $u['photo_profile'] ?? '';
-                                    $photoPath = 'uploads/profile/' . $photoName;
-                                    $avatarUrl = (!empty($photoName) && file_exists($photoPath)) 
-                                        ? BASE_URL . '/' . $photoPath 
-                                        : "https://ui-avatars.com/api/?name=" . urlencode($u['name']) . "&background=random&bold=true";
+                                    $avatarUrl = "https://ui-avatars.com/api/?name=" . urlencode($u['name']) . "&background=random&bold=true";
+                                    if (!empty($photoName) && file_exists('uploads/profile/' . $photoName)) {
+                                        $avatarUrl = BASE_URL . '/uploads/profile/' . $photoName;
+                                    }
                                 ?>
-                                <img src="<?= $avatarUrl ?>" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover bg-gray-100">
-                                <div>
-                                    <div class="font-bold text-gray-800 text-sm user-name"><?= $u['name'] ?></div>
-                                    <?php if ($u['role'] == 'User'): ?>
-                                        <div class="text-[10px] text-gray-400 font-mono mt-0.5 bg-gray-100 px-2 py-0.5 rounded inline-block">NIM: <?= $u['nim'] ?? '-' ?></div>
+                                <div class="relative shrink-0">
+                                    <img src="<?= $avatarUrl ?>" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover bg-gray-100">
+                                    <?php if($u['role'] == 'User'): ?>
+                                        <div class="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
+                                            <div class="w-3 h-3 rounded-full <?= ($u['is_online'] ?? 0) ? 'bg-green-500' : 'bg-gray-300' ?>" title="Status Online"></div>
+                                        </div>
                                     <?php endif; ?>
+                                </div>
+                                
+                                <div>
+                                    <div class="font-bold text-gray-800 text-sm user-name leading-tight mb-1">
+                                        <?= $u['name'] ?>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 items-center">
+                                        <?= $statusBadge ?>
+                                        <?php if ($u['role'] == 'User'): ?>
+                                            <span class="text-[10px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 user-nim">
+                                                <?= $u['nim'] ?? '-' ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </div>
                         </td>
+
                         <td class="p-6">
-                            <div class="text-sm font-bold text-gray-700 mb-1"><?= $u['position'] ?? 'Anggota' ?></div>
-                            <span class="inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border
-                                <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Super Admin'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
-                                <?= $u['role'] ?>
-                            </span>
-                        </td>
-                        <td class="p-6">
-                            <div class="flex items-center gap-2 text-sm text-gray-600 mb-1 user-email">
-                                <i class="fas fa-envelope text-gray-300 text-xs"></i> <?= $u['email'] ?>
+                            <div class="mb-1.5">
+                                <span class="inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border <?= $roleColor ?>">
+                                    <?= $u['role'] ?>
+                                </span>
                             </div>
-                            <div class="flex items-center gap-2 text-xs text-gray-500">
-                                <i class="fas fa-phone text-gray-300 text-[10px]"></i> <?= $u['no_telp'] ?? '-' ?>
+                            <div class="text-sm font-medium text-gray-700">
+                                <?= $u['position'] ?? 'Anggota' ?>
                             </div>
-                        </td>
-                        <td class="p-6 text-center">
-                            <?php if($u['id'] != $user['id']): ?>
-                                <button onclick='openDetailModal(<?= json_encode($u) ?>)' class="w-9 h-9 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 hover:shadow-md transition flex items-center justify-center mx-auto" title="Lihat Detail Lengkap">
-                                    <i class="fas fa-eye text-xs"></i>
-                                </button>
-                            <?php else: ?>
-                                <span class="text-[10px] font-bold text-gray-400 italic bg-gray-100 px-2 py-1 rounded">Anda</span>
+                            
+                            <?php if ($u['role'] == 'User' && !empty($u['kelas'])): ?>
+                                <div class="mt-2 flex items-center gap-1.5">
+                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas:</span>
+                                    <span class="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-mono">
+                                        <?= $u['kelas'] ?>
+                                    </span>
+                                </div>
                             <?php endif; ?>
                         </td>
+
+                        <td class="p-6">
+                            <div class="space-y-1.5">
+                                <div class="flex items-center gap-2 text-sm text-gray-600 user-email">
+                                    <div class="w-6 flex justify-center"><i class="fas fa-envelope text-gray-300 text-xs"></i></div>
+                                    <span class="truncate max-w-[200px]" title="<?= $u['email'] ?>"><?= $u['email'] ?></span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-500">
+                                    <div class="w-6 flex justify-center"><i class="fas fa-phone text-gray-300 text-[10px]"></i></div>
+                                    <span class="font-mono"><?= $u['no_telp'] ?? '-' ?></span>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="p-6 text-center">
+                            <button onclick='openDetailModal(<?= json_encode($u) ?>)' class="w-9 h-9 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 hover:shadow-md transition flex items-center justify-center mx-auto" title="Lihat Detail Lengkap">
+                                <i class="fas fa-eye text-xs"></i>
+                            </button>
+                        </td>
                     </tr>
-                    <?php endforeach; ?>
+                    <?php endforeach; endif; ?>
                 </tbody>
             </table>
         </div>
@@ -109,7 +158,7 @@
         <div class="bg-white p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
             <div>
                 <h3 class="font-bold text-xl text-gray-800">Detail Pengguna</h3>
-                <p class="text-xs text-gray-500">Informasi lengkap akun</p>
+                <p class="text-xs text-gray-500">Informasi lengkap akun (Mode Lihat).</p>
             </div>
             <button onclick="closeDetailModal()" class="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-red-500 transition"><i class="fas fa-times"></i></button>
         </div>
@@ -150,20 +199,28 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">NIM / ID</label>
-                    <div id="detailNim" class="input-readonly w-full px-4 py-2.5 rounded-xl border text-sm"></div>
+                    <div id="detailNim" class="input-readonly w-full px-4 py-2.5 rounded-xl border text-sm font-mono"></div>
                 </div>
+                
+                <div id="modalClassContainer" class="hidden">
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Kelas</label>
+                    <div id="detailClass" class="input-readonly w-full px-4 py-2.5 rounded-xl border text-sm font-mono"></div>
+                </div>
+
                 <div>
                     <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">No. Telepon</label>
-                    <div id="detailPhone" class="input-readonly w-full px-4 py-2.5 rounded-xl border text-sm"></div>
+                    <div id="detailPhone" class="input-readonly w-full px-4 py-2.5 rounded-xl border text-sm font-mono"></div>
                 </div>
                 <div>
                     <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Laboratorium</label>
                     <div id="detailLab" class="input-readonly w-full px-4 py-2.5 rounded-xl border text-sm"></div>
                 </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status Profil</label>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status Verifikasi Akun</label>
                     <div id="detailStatus" class="w-full px-4 py-2.5 rounded-xl border text-xs font-bold text-center uppercase"></div>
                 </div>
+
                 <div class="md:col-span-2">
                     <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Alamat Domisili</label>
                     <div id="detailAddress" class="input-readonly w-full px-4 py-2.5 rounded-xl border text-sm min-h-[60px]"></div>
@@ -179,7 +236,7 @@
 </div>
 
 <script>
-    // --- CLOCK ---
+    // --- 1. CLOCK ---
     function updateClock() {
         const now = new Date();
         document.getElementById('liveDate').innerText = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -187,16 +244,22 @@
     }
     setInterval(updateClock, 1000); updateClock();
 
-    // --- SEARCH ---
+    // --- 2. SEARCH ---
     function searchTable() {
         const input = document.getElementById('searchUser');
         const filter = input.value.toLowerCase();
         const rows = document.getElementsByClassName('user-row');
 
         for (let i = 0; i < rows.length; i++) {
-            const name = rows[i].querySelector('.user-name').innerText.toLowerCase();
-            const email = rows[i].querySelector('.user-email').innerText.toLowerCase();
-            if (name.includes(filter) || email.includes(filter)) {
+            const nameEl = rows[i].querySelector('.user-name');
+            const emailEl = rows[i].querySelector('.user-email');
+            const nimEl = rows[i].querySelector('.user-nim'); 
+
+            const name = nameEl ? nameEl.innerText.toLowerCase() : '';
+            const email = emailEl ? emailEl.innerText.toLowerCase() : '';
+            const nim = nimEl ? nimEl.innerText.toLowerCase() : '';
+
+            if (name.includes(filter) || email.includes(filter) || nim.includes(filter)) {
                 rows[i].style.display = "";
             } else {
                 rows[i].style.display = "none";
@@ -204,12 +267,12 @@
         }
     }
 
-    // --- MODAL LOGIC (READ ONLY) ---
+    // --- 3. MODAL LOGIC (READ ONLY) ---
     function openDetailModal(userData) {
         const modal = document.getElementById('modalDetail');
         const content = document.getElementById('modalContent');
         
-        // Populate Data
+        // Populate Data Dasar
         document.getElementById('detailName').innerText = userData.name;
         document.getElementById('detailEmail').innerText = userData.email;
         document.getElementById('detailRole').innerText = userData.role;
@@ -219,14 +282,23 @@
         document.getElementById('detailAddress').innerText = userData.alamat || '-';
         document.getElementById('detailLab').innerText = userData.lab_name || 'Umum';
 
-        // Status Profil (Completed or Not)
+        // [LOGIC PENTING] Handle Visibility Kelas
+        const classContainer = document.getElementById('modalClassContainer');
+        if (userData.role === 'User') {
+            classContainer.classList.remove('hidden');
+            document.getElementById('detailClass').innerText = userData.kelas || '-';
+        } else {
+            classContainer.classList.add('hidden');
+        }
+
+        // Status Profil
         const statusDiv = document.getElementById('detailStatus');
         if (userData.is_completed == 1) {
             statusDiv.className = "w-full px-4 py-2.5 rounded-xl border border-green-200 bg-green-50 text-green-700 text-xs font-bold text-center uppercase";
-            statusDiv.innerText = "Lengkap / Terverifikasi";
+            statusDiv.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Lengkap / Terverifikasi';
         } else {
             statusDiv.className = "w-full px-4 py-2.5 rounded-xl border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs font-bold text-center uppercase";
-            statusDiv.innerText = "Belum Lengkap";
+            statusDiv.innerHTML = '<i class="fas fa-clock mr-1"></i> Belum Lengkap';
         }
 
         // Handle Photo

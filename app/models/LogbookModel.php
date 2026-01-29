@@ -10,7 +10,7 @@ class LogbookModel {
     public function getAllWithUserInfo() {
         $sql = "SELECT l.id_logbook as id, l.detail_aktivitas as activity_detail, 
                        pr.tanggal as date, pr.waktu_presensi, pr.waktu_pulang,
-                       pr.foto_presensi as foto_bukti, -- [BARU] Ambil Foto
+                       pr.foto_presensi as foto_bukti,
                        p.nama as user_name, p.id_user, l.id_presensi
                 FROM logbook l 
                 JOIN profile p ON l.id_profil = p.id_profil 
@@ -38,8 +38,8 @@ class LogbookModel {
                     pr.tanggal as date, 
                     pr.waktu_presensi as check_in_time, 
                     pr.waktu_pulang as check_out_time, 
-                    pr.foto_presensi as foto_bukti,  -- [BARU] Foto Masuk
-                    pr.foto_pulang as foto_pulang,   -- [BARU] Foto Pulang
+                    pr.foto_presensi as foto_bukti,
+                    pr.foto_pulang as foto_pulang,
                     l.detail_aktivitas as activity_detail,
                     l.id_logbook as log_id
                 FROM presensi pr
@@ -68,7 +68,7 @@ class LogbookModel {
         $this->db->bind(':date', $data['date']);
         $presensi = $this->db->single();
 
-        if (!$presensi) return false; // Tidak bisa isi logbook jika belum presensi
+        if (!$presensi) return false; 
         $idPresensi = $presensi['id_presensi'];
 
         // C. Cek Logbook Existing (Update jika ada, Insert jika baru)
@@ -187,7 +187,6 @@ class LogbookModel {
         }
     }
 
-    // 6. Admin Delete Logbook
     public function deleteLogAdmin($idLogbook) {
         $this->db->query("DELETE FROM logbook WHERE id_logbook = :id");
         $this->db->bind(':id', $idLogbook);
@@ -201,7 +200,7 @@ class LogbookModel {
         if(!$res) return [];
         $pId = $res['id_profil'];
 
-        // Ambil Data Presensi & Logbook (JOIN)
+        // Ambil Data Presensi & Logbook
         $sqlPresensi = "SELECT 
                             pr.id_presensi, pr.tanggal, pr.waktu_presensi, pr.waktu_pulang, 
                             pr.foto_presensi, pr.foto_pulang, pr.status as status_db,
@@ -220,7 +219,7 @@ class LogbookModel {
         $this->db->bind(':pid', $pId);
         $rawIzin = $this->db->resultSet();
 
-        // RESTRUKTURISASI DATA BERDASARKAN TANGGAL (30 HARI TERAKHIR)
+        // RESTRUKTURISASI DATA
         $unifiedData = [];
         $today = new DateTime();
         
@@ -228,20 +227,20 @@ class LogbookModel {
             $checkDate = (clone $today)->modify("-$i days")->format('Y-m-d');
             $entry = [
                 'date' => $checkDate,
-                'status' => 'Alpha', // Default
-                'color' => 'red',    // Default Merah
+                'status' => 'Alpha', 
+                'color' => 'red',    
                 'time_in' => '-',
                 'time_out' => '-',
-                'proof_in' => null,  // File/Foto Datang
-                'proof_out' => null, // File/Foto Pulang
+                'proof_in' => null,  
+                'proof_out' => null, 
                 'activity' => 'Tidak Hadir',
-                'is_locked' => true, // Default terkunci (untuk Alpha/Izin)
-                'log_id' => null,    // ID Logbook fisik
-                'id_ref' => null,    // ID Presensi atau ID Izin
-                'can_reset' => false // User permission
+                'is_locked' => true, 
+                'log_id' => null,    
+                'id_ref' => null,    
+                'can_reset' => false 
             ];
 
-            // 1. CEK PRESENSI (Prioritas Utama)
+            // 1. CEK PRESENSI
             $foundP = array_filter($rawPresensi, fn($row) => $row['tanggal'] == $checkDate);
             if (!empty($foundP)) {
                 $p = reset($foundP);
@@ -255,36 +254,39 @@ class LogbookModel {
                 $entry['log_id'] = $p['id_logbook'];
                 $entry['id_ref'] = $p['id_presensi'];
                 
-                // Logic Kunci: User hanya bisa edit jika HADIR dan Logbook belum diverifikasi admin (opsional)
-                // Di sini kita set User bisa edit aktivitas jika Hadir
                 $entry['is_locked'] = false; 
-                $entry['can_reset'] = true; // User bisa reset tulisan logbooknya sendiri
+                $entry['can_reset'] = true; 
             } 
             // 2. JIKA TIDAK HADIR, CEK IZIN (Rentang Tanggal)
             else {
                 foreach ($rawIzin as $iz) {
                     if ($checkDate >= $iz['start_date'] && $checkDate <= $iz['end_date']) {
-                        $entry['status'] = $iz['type']; // Sakit / Izin
+                        // [FIXED] Menggunakan nama kolom DB yang benar
+                        $entry['status'] = $iz['tipe']; // DB: tipe
                         $entry['color'] = 'yellow';
-                        // Ambil waktu dari 'created_at' izin sebagai jam pengajuan
-                        $entry['time_in'] = date('H:i', strtotime($iz['created_at'])); 
-                        $entry['proof_in'] = $iz['file_bukti']; // File Bukti Izin
-                        $entry['activity'] = $iz['reason'] . " (Pengajuan Izin)";
+                        
+                        // [FIXED] Tabel izin tidak punya created_at, gunakan '-'
+                        $entry['time_in'] = '-'; 
+                        
+                        $entry['proof_in'] = $iz['file_bukti']; 
+                        
+                        // [FIXED] DB: deskripsi
+                        $entry['activity'] = ($iz['deskripsi'] ?? '') . " (Pengajuan Izin)";
+                        
                         $entry['id_ref'] = $iz['id_izin'];
-                        $entry['is_locked'] = true; // User tidak bisa edit logbook izin
+                        $entry['is_locked'] = true; 
                         $entry['can_reset'] = false;
                         break;
                     }
                 }
             }
 
-            // 3. JIKA MASIH ALPHA (Otomatis set jam 06:00 PM)
+            // 3. JIKA MASIH ALPHA
             if ($entry['status'] == 'Alpha') {
-                // Jangan tampilkan Alpha untuk Hari Ini jika belum jam 18:00 (Mungkin belum absen)
                 if ($checkDate == date('Y-m-d') && date('H:i') < '18:00') {
-                    continue; // Skip hari ini jika belum sore
+                    continue; 
                 }
-                $entry['time_out'] = '18:00'; // Otomatis set jam pulang sistem
+                $entry['time_out'] = '18:00'; 
                 $entry['activity'] = 'Tidak Hadir (Alpha)';
             }
 
@@ -295,7 +297,6 @@ class LogbookModel {
     }
 
     public function resetLogUser($logId, $userId) {
-        // Validasi kepemilikan
         $sql = "UPDATE logbook l
                 JOIN profile p ON l.id_profil = p.id_profil
                 SET l.detail_aktivitas = NULL
@@ -308,21 +309,15 @@ class LogbookModel {
     }
 
     public function resetLogAdmin($idRef, $type, $mode) {
-        // $idRef = id_presensi atau id_izin
-        // $type = 'Hadir' (Presensi) atau 'Izin'
-        // $mode = 'partial' (Keterangan saja) atau 'full' (Hapus Data)
-
         try {
             $this->db->getConnection()->beginTransaction();
 
             if ($type == 'Hadir') {
                 if ($mode == 'partial') {
-                    // Hanya kosongkan logbook
                     $this->db->query("UPDATE logbook SET detail_aktivitas = NULL WHERE id_presensi = :id");
                     $this->db->bind(':id', $idRef);
                     $this->db->execute();
                 } elseif ($mode == 'full') {
-                    // Hapus Presensi (Logbook kena Cascade Delete biasanya, atau hapus manual)
                     $this->db->query("DELETE FROM logbook WHERE id_presensi = :id");
                     $this->db->bind(':id', $idRef);
                     $this->db->execute();
@@ -332,7 +327,6 @@ class LogbookModel {
                     $this->db->execute();
                 }
             } 
-            // Implementasi reset Izin jika diperlukan (biasanya admin jarang reset izin lewat logbook, tapi lewat menu izin)
             
             $this->db->getConnection()->commit();
             return true;
