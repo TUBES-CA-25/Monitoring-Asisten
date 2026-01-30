@@ -401,23 +401,60 @@ class UserController extends Controller {
         }
     }
 
-    public function deleteSchedule() {
-        // if ($_SESSION['role'] != 'User') exit;
-        $this->checkAccess(['User']);
-        if (isset($_GET['id']) && isset($_GET['type'])) {
-            // Validasi: User hanya boleh hapus tipe kuliah
-            if ($_GET['type'] !== 'kuliah') {
-                $_SESSION['flash'] = ['type' => 'error', 'title' => 'Ditolak', 'message' => 'Hanya jadwal kuliah yang bisa dihapus.'];
-                header("Location: " . BASE_URL . "/user/schedule"); exit;
-            }
+    // public function deleteSchedule() {
+    //     // if ($_SESSION['role'] != 'User') exit;
+    //     $this->checkAccess(['User']);
 
-            if ($this->model('ScheduleModel')->deleteSchedule($_GET['id'], 'kuliah')) {
-                $_SESSION['flash'] = ['type' => 'success', 'title' => 'Terhapus', 'message' => 'Jadwal dihapus.'];
-            } else {
-                $_SESSION['flash'] = ['type' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menghapus.'];
-            }
-            header("Location: " . BASE_URL . "/user/schedule"); exit;
+    //     if (isset($_GET['id']) && isset($_GET['type'])) { 
+    //         require_once '../app/controllers/ErrorController.php';
+    //             (new ErrorController)->badRequest();
+    //             exit;
+    //     }
+    //         // Validasi: User hanya boleh hapus tipe kuliah
+    //         if ($_GET['type'] !== 'kuliah') {
+    //             $_SESSION['flash'] = ['type' => 'error', 'title' => 'Ditolak', 'message' => 'Hanya jadwal kuliah yang bisa dihapus.'];
+    //             header("Location: " . BASE_URL . "/user/schedule"); exit;
+    //         }
+
+    //         if ($this->model('ScheduleModel')->deleteSchedule($_GET['id'], 'kuliah')) {
+    //             $_SESSION['flash'] = ['type' => 'success', 'title' => 'Terhapus', 'message' => 'Jadwal dihapus.'];
+    //         } else {
+    //             $_SESSION['flash'] = ['type' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menghapus.'];
+    //         }
+    //         header("Location: " . BASE_URL . "/user/schedule"); exit;
+    //     }
+    
+    public function deleteSchedule() {
+        // 1. Cek Login
+        $this->checkAccess(['User']);
+
+        // 2. VALIDASI DATA KOSONG (LOGIKA YANG BENAR)
+        // Gunakan tanda seru (!) yang artinya "TIDAK ADA"
+        // Gunakan || yang artinya "ATAU"
+        if (!isset($_GET['id']) || !isset($_GET['type'])) { 
+            require_once '../app/controllers/ErrorController.php';
+            (new ErrorController)->badRequest(); // Tampilkan Layar Kuning
+            exit; // Stop script di sini
         }
+
+        // --- KODE DI BAWAH INI HANYA JALAN JIKA ID & TIPE LENGKAP ---
+
+        // 3. Validasi Tipe (User hanya boleh hapus tipe kuliah)
+        if ($_GET['type'] !== 'kuliah') {
+            $_SESSION['flash'] = ['type' => 'error', 'title' => 'Ditolak', 'message' => 'Hanya jadwal kuliah yang bisa dihapus.'];
+            header("Location: " . BASE_URL . "/user/schedule"); 
+            exit;
+        }
+
+        // 4. Eksekusi Hapus ke Database
+        if ($this->model('ScheduleModel')->deleteSchedule($_GET['id'], 'kuliah')) {
+            $_SESSION['flash'] = ['type' => 'success', 'title' => 'Terhapus', 'message' => 'Jadwal dihapus.'];
+        } else {
+            $_SESSION['flash'] = ['type' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menghapus.'];
+        }
+        
+        header("Location: " . BASE_URL . "/user/schedule"); 
+        exit;
     }
 
     public function scan() {

@@ -23,4 +23,11 @@ class ErrorController extends Controller {
         $data['judul'] = '404 - Tidak Ditemukan';
         $this->view('errors/404', $data);
     }
+
+    // Error 400 (Bad Request)
+    public function badRequest() {
+        http_response_code(400);
+        $data['judul'] = '400 - Permintaan Tidak Valid';
+        $this->view('errors/400', $data);
+    }
 }
