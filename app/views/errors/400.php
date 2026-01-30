@@ -21,7 +21,7 @@
 
         <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Permintaan Tidak Valid</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
-            Maaf, sistem tidak dapat memproses permintaan Anda (400).<br>
+            Sistem tidak dapat memproses permintaan Anda<br>
         </p>
 
         <div class="flex flex-col gap-3">
@@ -33,4 +33,9 @@
             </a>
         </div>
         
-        <div class="mt-8 text-[10px] text-gray-400
+        <div class="mt-8 text-[10px] text-black-400 font-mono font-bold">
+         Error Code: 405 Method Not Allowed
+        </div>
+    </div>
+
+        

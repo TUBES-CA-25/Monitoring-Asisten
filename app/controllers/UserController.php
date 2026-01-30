@@ -475,7 +475,7 @@ class UserController extends Controller {
     require_once '../app/controllers/ErrorController.php';
         (new ErrorController)->badGateway();
         exit;
-        
+
         $this->checkAccess(['User']);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -693,5 +693,6 @@ class UserController extends Controller {
     //         exit; // Matikan script agar halaman admin tidak bocor
     //     }
     // }
+    
 }
 ?>
