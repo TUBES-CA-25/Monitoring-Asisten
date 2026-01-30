@@ -21,8 +21,7 @@
 
         <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Halaman Tidak Ditemukan</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
-            Ups! Kami tidak dapat menemukan halaman yang Anda cari (404).<br>
-            Mungkin URL salah ketik atau halaman sudah dipindahkan.
+            Ups! Kami tidak dapat menemukan halaman yang Anda cari.<br>
         </p>
 
         <div class="flex flex-col gap-3">
@@ -34,7 +33,7 @@
             </a>
         </div>
         
-        <div class="mt-8 text-[10px] text-gray-400 font-mono">
+        <div class="mt-8 text-[10px] text-black-400 font-mono font-bold">
             Error Code: 404 Not Found
         </div>
     </div>
