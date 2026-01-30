@@ -44,4 +44,11 @@ class ErrorController extends Controller {
         $data['judul'] = '405 - Metode Salah';
         $this->view('errors/405', $data);
     }
+
+    // Error 502 (Bad Gateway)
+    public function badGateway() {
+        http_response_code(502);
+        $data['judul'] = '502 - Bad Gateway';
+        $this->view('errors/502', $data);
+    }
 }

@@ -471,21 +471,59 @@ class UserController extends Controller {
     }
 
     public function check_qr_type() {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $rawToken = $_POST['token'] ?? '';
-            $token = trim($rawToken);
-            $decoded = json_decode($rawToken, true);
-            if (json_last_error() === JSON_ERROR_NONE && isset($decoded['token'])) {
-                $token = $decoded['token'];
-            }
+
+    require_once '../app/controllers/ErrorController.php';
+        (new ErrorController)->badGateway();
+        exit;
+        
+        $this->checkAccess(['User']);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            require_once '../app/controllers/ErrorController.php';
+            (new ErrorController)->methodNotAllowed();
+            exit;
+        }
+        $rawToken = $_POST['token'] ?? '';
             
-            $tokenInfo = $this->model('QrModel')->getTokenData($token);
-            
-            if (!$tokenInfo) {
-                echo json_encode(['status' => 'error', 'message' => 'QR Code tidak valid atau sudah kadaluwarsa.']);
-            } else {
-                echo json_encode(['status' => 'success', 'type' => $tokenInfo['tipe']]);
+            json_decode($rawToken); 
+            if (strpos($rawToken, '{') === 0 && json_last_error() !== JSON_ERROR_NONE) {
+                require_once '../app/controllers/ErrorController.php';
+                (new ErrorController)->badGateway(); 
+                exit;
             }
+
+        // $rawToken = $_POST['token'] ?? '';
+        // $token = trim($rawToken);
+
+        // if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+           
+        //     $decoded = json_decode($rawToken, true);
+        //     if (json_last_error() === JSON_ERROR_NONE && isset($decoded['token'])) {
+        //         $token = $decoded['token'];
+        //     }
+            
+        //     $tokenInfo = $this->model('QrModel')->getTokenData($token);
+            
+        //     if (!$tokenInfo) {
+        //         echo json_encode(['status' => 'error', 'message' => 'QR Code tidak valid atau sudah kadaluwarsa.']);
+        //     } else {
+        //         echo json_encode(['status' => 'success', 'type' => $tokenInfo['tipe']]);
+        //     }
+        // }
+
+        $token = trim($rawToken);
+        $decoded = json_decode($rawToken, true);
+        
+        if (json_last_error() === JSON_ERROR_NONE && isset($decoded['token'])) {
+            $token = $decoded['token'];
+        }
+
+        $tokenInfo = $this->model('QrModel')->getTokenData($token);
+        
+        if (!$tokenInfo) {
+            echo json_encode(['status' => 'error', 'message' => 'QR Code tidak valid atau sudah kadaluwarsa.']);
+        } else {
+            echo json_encode(['status' => 'success', 'type' => $tokenInfo['tipe']]);
         }
     }
 

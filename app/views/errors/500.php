@@ -19,10 +19,10 @@
             </div>
         </div>
 
-        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Terjadi Kesalahan!</h1>
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">500</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
-            Maaf, server sedang mengalami gangguan teknis (500).<br>
-            Tim kami telah mencatat masalah ini. Silakan coba muat ulang halaman.
+            Terjadi Kesalahan!<br>
+           Maaf, server sedang mengalami gangguan tekni.
         </p>
 
         <div class="flex flex-col gap-3">
