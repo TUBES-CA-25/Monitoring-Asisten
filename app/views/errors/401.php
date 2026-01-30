@@ -22,8 +22,7 @@
 
         <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Akses Ditolak!</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
-            Maaf, Anda tidak memiliki izin untuk mengakses halaman ini. <br>
-            Silakan login sebagai <b>Admin</b>.
+            Maaf, Anda tidak memiliki izin untuk mengakses halaman ini<br>
         </p>
 
         <div class="flex flex-col gap-3">
@@ -35,7 +34,7 @@
             </a>
         </div>
         
-        <div class="mt-8 text-[10px] text-gray-400 font-mono">
+        <div class="mt-8 text-[10px] tex-black-400 font-mono font-bold">
             Error Code: 401 Unauthorized
         </div>
     </div>
