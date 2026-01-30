@@ -19,10 +19,9 @@
             </div>
         </div>
 
-        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">500</h1>
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Terjadi Kesalahan!</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
-            Terjadi Kesalahan!<br>
-           Maaf, server sedang mengalami gangguan tekni.
+           Maaf, server sedang mengalami gangguan teknis
         </p>
 
         <div class="flex flex-col gap-3">
@@ -34,7 +33,7 @@
             </a>
         </div>
         
-        <div class="mt-8 text-[10px] text-gray-400 font-mono">
+        <div class="mt-8 text-[10px] text-black-400 font-mono font-bold">
             Error Code: 500 Internal Server Error
         </div>
     </div>
