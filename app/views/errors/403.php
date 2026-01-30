@@ -21,8 +21,7 @@
 
         <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Akses Dilarang!</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
-            Maaf, Anda tidak memiliki izin untuk masuk ke area ini (403).<br>
-            Halaman ini khusus untuk jabatan tertentu.
+            Maaf, Anda tidak memiliki izin<br>
         </p>
 
         <div class="flex flex-col gap-3">
@@ -34,7 +33,7 @@
             </a>
         </div>
         
-        <div class="mt-8 text-[10px] text-gray-400 font-mono">
+        <div class="mt-8 text-[10px] text-black-400 font-mono font-bold">
             Error Code: 403 Forbidden
         </div>
     </div>

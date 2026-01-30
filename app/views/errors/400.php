@@ -22,7 +22,6 @@
         <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Permintaan Tidak Valid</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
             Maaf, sistem tidak dapat memproses permintaan Anda (400).<br>
-            Data yang dikirim mungkin rusak atau tidak lengkap.
         </p>
 
         <div class="flex flex-col gap-3">
@@ -34,10 +33,4 @@
             </a>
         </div>
         
-        <div class="mt-8 text-[10px] text-gray-400 font-mono">
-            Error Code: 400 Bad Request
-        </div>
-    </div>
-
-</body>
-</html>
+        <div class="mt-8 text-[10px] text-gray-400
