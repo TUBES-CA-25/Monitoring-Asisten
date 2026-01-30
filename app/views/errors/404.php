@@ -21,7 +21,7 @@
 
         <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Halaman Tidak Ditemukan</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
-            Ups! Kami tidak dapat menemukan halaman yang Anda cari.<br>
+            Ups! Kami tidak dapat menemukan halaman yang Anda cari<br>
         </p>
 
         <div class="flex flex-col gap-3">
