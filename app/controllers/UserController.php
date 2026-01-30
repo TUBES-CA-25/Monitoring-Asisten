@@ -471,60 +471,64 @@ class UserController extends Controller {
     }
 
     public function check_qr_type() {
+        // [PENTING] Header ini wajib agar Scanner tahu ini data JSON
+        header('Content-Type: application/json');
 
-    require_once '../app/controllers/ErrorController.php';
-        (new ErrorController)->badGateway();
-        exit;
-
-        $this->checkAccess(['User']);
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            require_once '../app/controllers/ErrorController.php';
-            (new ErrorController)->methodNotAllowed();
+        // 1. Cek Login Manual (Return JSON jika gagal)
+        // Kita tidak pakai $this->checkAccess() karena fungsi itu return HTML
+        if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'User') {
+            http_response_code(401);
+            echo json_encode(['status' => 'error', 'message' => 'Sesi habis. Silakan login kembali.']);
             exit;
         }
+
+        // 2. Cek Metode (Harus POST)
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method Not Allowed']);
+            exit;
+        }
+
+        // 3. Ambil Data Token
         $rawToken = $_POST['token'] ?? '';
-            
-            json_decode($rawToken); 
-            if (strpos($rawToken, '{') === 0 && json_last_error() !== JSON_ERROR_NONE) {
-                require_once '../app/controllers/ErrorController.php';
-                (new ErrorController)->badGateway(); 
-                exit;
-            }
-
-        // $rawToken = $_POST['token'] ?? '';
-        // $token = trim($rawToken);
-
-        // if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-           
-        //     $decoded = json_decode($rawToken, true);
-        //     if (json_last_error() === JSON_ERROR_NONE && isset($decoded['token'])) {
-        //         $token = $decoded['token'];
-        //     }
-            
-        //     $tokenInfo = $this->model('QrModel')->getTokenData($token);
-            
-        //     if (!$tokenInfo) {
-        //         echo json_encode(['status' => 'error', 'message' => 'QR Code tidak valid atau sudah kadaluwarsa.']);
-        //     } else {
-        //         echo json_encode(['status' => 'success', 'type' => $tokenInfo['tipe']]);
-        //     }
-        // }
-
-        $token = trim($rawToken);
-        $decoded = json_decode($rawToken, true);
         
+        // Cek apakah data kosong
+        if (empty($rawToken)) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Token kosong.']);
+            exit;
+        }
+
+        // 4. Logika Decode JSON (Cek Bad Gateway / Data Rusak)
+        $decoded = json_decode($rawToken, true);
+
+        // Jika user mengirim format JSON ('{...}') tapi gagal didecode -> Data Rusak (502)
+        if (strpos(trim($rawToken), '{') === 0 && json_last_error() !== JSON_ERROR_NONE) {
+            http_response_code(502);
+            echo json_encode(['status' => 'error', 'message' => 'Format data QR rusak (Bad Gateway).']);
+            exit;
+        }
+
+        // Ambil token bersih
+        $token = trim($rawToken);
         if (json_last_error() === JSON_ERROR_NONE && isset($decoded['token'])) {
             $token = $decoded['token'];
         }
 
+        // 5. Cek ke Database (Model)
         $tokenInfo = $this->model('QrModel')->getTokenData($token);
         
         if (!$tokenInfo) {
+            // Token tidak valid/tidak ditemukan
             echo json_encode(['status' => 'error', 'message' => 'QR Code tidak valid atau sudah kadaluwarsa.']);
         } else {
-            echo json_encode(['status' => 'success', 'type' => $tokenInfo['tipe']]);
+            // SUKSES: Kirim tipe QR (Presensi/Pulang) ke Scanner
+            echo json_encode([
+                'status' => 'success', 
+                'type' => $tokenInfo['tipe']
+            ]);
         }
+        exit;
     }
 
     public function submit_attendance() {
