@@ -10,10 +10,10 @@ class ErrorController extends Controller {
         $this->view('errors/401', $data);
     }
 
-    // Bisa ditambahkan method lain nanti (notFound, forbidden, dll)
-    public function notFound() {
-        http_response_code(404);
-        $data['judul'] = '404 - Tidak Ditemukan';
-        $this->view('errors/404', $data);
+   // Error 500 (Internal Server Error)
+    public function serverError() {
+        http_response_code(500);
+        $data['judul'] = '500 - Server Error';
+        $this->view('errors/500', $data);
     }
 }
