@@ -19,11 +19,9 @@
             </div>
         </div>
 
-        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Metode Salah!</h1>
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Request ditolak</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
-            Request ditolak (405).<br>
-            Halaman ini tidak bisa diakses langsung via URL (GET).<br>
-            Harap gunakan tombol atau formulir yang tersedia.
+            Halaman ini tidak bisa diakses.<br>
         </p>
 
         <div class="flex flex-col gap-3">
@@ -35,7 +33,7 @@
             </a>
         </div>
         
-        <div class="mt-8 text-[10px] text-gray-400 font-mono">
+        <div class="mt-8 text-[10px] text-black-400 font-mono font-bold">
             Error Code: 405 Method Not Allowed
         </div>
     </div>
