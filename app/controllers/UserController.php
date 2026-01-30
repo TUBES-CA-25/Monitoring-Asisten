@@ -170,12 +170,18 @@ class UserController extends Controller {
     public function updateProfile() {
         $this->checkAccess(['User']);
         // Hanya proses jika request POST
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        require_once '../app/controllers/ErrorController.php';
+                (new ErrorController)->methodNotAllowed();
+                exit; 
+            }
             $role = $_SESSION['role'];
             $userModel = $this->model('UserModel');
             
             // Ambil data user saat ini
             $currentUser = $userModel->getUserById($_SESSION['user_id']);
+
+            
 
             // 1. CEK KUNCI PROFIL
             if ($role != 'Admin' && isset($currentUser['is_completed']) && $currentUser['is_completed'] == 1) {
@@ -270,7 +276,6 @@ class UserController extends Controller {
                 ]);
             }
             exit;
-        }
     }
 
     public function logbook() {

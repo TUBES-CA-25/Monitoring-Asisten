@@ -37,4 +37,11 @@ class ErrorController extends Controller {
         $data['judul'] = '403 - Akses Dilarang';
         $this->view('errors/403', $data);
     }
+
+    // Error 405 (Method Not Allowed)
+    public function methodNotAllowed() {
+        http_response_code(405);
+        $data['judul'] = '405 - Metode Salah';
+        $this->view('errors/405', $data);
+    }
 }
