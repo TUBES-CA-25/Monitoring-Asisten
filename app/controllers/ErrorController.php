@@ -30,4 +30,11 @@ class ErrorController extends Controller {
         $data['judul'] = '400 - Permintaan Tidak Valid';
         $this->view('errors/400', $data);
     }
+
+    // Error 403 (Forbidden)
+    public function forbidden() {
+        http_response_code(403);
+        $data['judul'] = '403 - Akses Dilarang';
+        $this->view('errors/403', $data);
+    }
 }

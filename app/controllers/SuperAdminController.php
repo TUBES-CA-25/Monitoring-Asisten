@@ -519,20 +519,20 @@ class SuperAdminController extends Controller {
         $this->view('layout/footer');
     }
      // --- FUNGSI BANTUAN UNTUK CEK AKSES & ERROR 401 ---
-    private function checkAccess($allowedRoles = ['Admin']) {
-        // 1. Cek Login
-        if (!isset($_SESSION['role'])) {
-            header("Location: " . BASE_URL . "/auth/login");
-            exit;
-        }
+    // private function checkAccess($allowedRoles = ['Admin']) {
+    //     // 1. Cek Login
+    //     if (!isset($_SESSION['role'])) {
+    //         header("Location: " . BASE_URL . "/auth/login");
+    //         exit;
+    //     }
 
-        // 2. Cek Role (Jika role user tidak ada dalam daftar yang diizinkan)
-        if (!in_array($_SESSION['role'], $allowedRoles)) {
-            require_once '../app/controllers/ErrorController.php';
-            $error = new ErrorController();
-            $error->unauthorized();
-            exit; // Matikan script agar halaman admin tidak bocor
-        }
-    }
+    //     // 2. Cek Role (Jika role user tidak ada dalam daftar yang diizinkan)
+    //     if (!in_array($_SESSION['role'], $allowedRoles)) {
+    //         require_once '../app/controllers/ErrorController.php';
+    //         $error = new ErrorController();
+    //         $error->unauthorized();
+    //         exit; // Matikan script agar halaman admin tidak bocor
+    //     }
+    // }
 }
 ?>
