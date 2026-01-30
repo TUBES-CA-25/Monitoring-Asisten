@@ -4,9 +4,10 @@ class UserController extends Controller {
     public function index() { $this->dashboard(); }
 
     public function dashboard() {
-        if (!isset($_SESSION['role']) || $_SESSION['role'] != 'User') {
-            header("Location: " . BASE_URL . "/auth/login"); exit;
-        }
+        // if (!isset($_SESSION['role']) || $_SESSION['role'] != 'User') {
+        //     header("Location: " . BASE_URL . "/auth/login"); exit;
+        // }
+        $this->checkAccess(['User']);
 
         $data['judul'] = 'Dashboard Asisten';
         // [UPDATE] Ambil User lengkap termasuk created_at dan is_completed
@@ -113,7 +114,8 @@ class UserController extends Controller {
     }
 
     public function profile() {
-        if ($_SESSION['role'] != 'User') exit;
+        // if ($_SESSION['role'] != 'User') exit;
+        $this->checkAccess(['User']);
 
         $data['judul'] = 'Profil Saya';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -142,8 +144,9 @@ class UserController extends Controller {
     }
 
     public function editProfile() {
-        $role = $_SESSION['role'];
-        if ($role != 'User' && $role != 'Super Admin') exit;
+        // $role = $_SESSION['role'];
+        // if ($role != 'User' && $role != 'Super Admin') exit;
+        $this->checkAccess(['User', 'Super Admin']);
 
         $user = $this->model('UserModel')->getUserById($_SESSION['user_id']);
 
@@ -165,6 +168,7 @@ class UserController extends Controller {
     }
 
     public function updateProfile() {
+        $this->checkAccess(['User']);
         // Hanya proses jika request POST
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $role = $_SESSION['role'];
@@ -270,7 +274,8 @@ class UserController extends Controller {
     }
 
     public function logbook() {
-        if ($_SESSION['role'] != 'User') exit;
+        // if ($_SESSION['role'] != 'User') exit;
+        $this->checkAccess(['User']);
         $data['judul'] = 'Logbook Kegiatan';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
 
@@ -337,7 +342,8 @@ class UserController extends Controller {
 }
 
     public function schedule() {
-        if ($_SESSION['role'] != 'User') exit;
+        // if ($_SESSION['role'] != 'User') exit;
+        $this->checkAccess(['User']);
         
         $data['judul'] = 'Jadwal Saya & Lab';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -352,7 +358,8 @@ class UserController extends Controller {
     }
 
     public function addSchedule() {
-        if ($_SESSION['role'] != 'User') exit;
+        // if ($_SESSION['role'] != 'User') exit;
+        $this->checkAccess(['User']);
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // User hanya bisa tambah tipe 'kuliah', tanpa SKS, wajib Dosen & Kelas
             $data = [
@@ -373,7 +380,9 @@ class UserController extends Controller {
     }
 
     public function editSchedule() {
-        if ($_SESSION['role'] != 'User') exit;
+        // if ($_SESSION['role'] != 'User') exit;
+        $this->checkAccess(['User']);
+
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $data = [
                 'id' => $_POST['id_schedule'], 'type' => 'kuliah', 'user_id' => $_SESSION['profil_id'],
@@ -393,7 +402,8 @@ class UserController extends Controller {
     }
 
     public function deleteSchedule() {
-        if ($_SESSION['role'] != 'User') exit;
+        // if ($_SESSION['role'] != 'User') exit;
+        $this->checkAccess(['User']);
         if (isset($_GET['id']) && isset($_GET['type'])) {
             // Validasi: User hanya boleh hapus tipe kuliah
             if ($_GET['type'] !== 'kuliah') {
@@ -411,7 +421,8 @@ class UserController extends Controller {
     }
 
     public function scan() {
-        if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'User') { header("Location: " . BASE_URL . "/auth/login"); exit; }
+        // if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'User') { header("Location: " . BASE_URL . "/auth/login"); exit; }
+        $this->checkAccess(['User']);
         $data['judul'] = 'Scan Presensi';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $this->view('user/scan', $data); 
@@ -583,6 +594,23 @@ class UserController extends Controller {
                 echo json_encode(['status' => 'error', 'message' => 'Terjadi kesalahan database.']);
             }
             exit; // Penting: Hentikan script agar tidak me-load view
+        }
+    }
+
+    // --- FUNGSI BANTUAN UNTUK CEK AKSES & ERROR 401 ---
+    private function checkAccess($allowedRoles = ['Admin']) {
+        // 1. Cek Login
+        if (!isset($_SESSION['role'])) {
+            header("Location: " . BASE_URL . "/auth/login");
+            exit;
+        }
+
+        // 2. Cek Role (Jika role user tidak ada dalam daftar yang diizinkan)
+        if (!in_array($_SESSION['role'], $allowedRoles)) {
+            require_once '../app/controllers/ErrorController.php';
+            $error = new ErrorController();
+            $error->unauthorized();
+            exit; // Matikan script agar halaman admin tidak bocor
         }
     }
 }

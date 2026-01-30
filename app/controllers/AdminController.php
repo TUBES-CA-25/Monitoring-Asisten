@@ -4,9 +4,10 @@ class AdminController extends Controller {
     public function index() { $this->dashboard(); }
 
     public function dashboard() {
-        if (!isset($_SESSION['role']) || ($_SESSION['role'] != 'Admin' && $_SESSION['role'] != 'Super Admin')) {
-            header("Location: " . BASE_URL . "/auth/login"); exit;
-        }
+        // if (!isset($_SESSION['role']) || ($_SESSION['role'] != 'Admin' && $_SESSION['role'] != 'Super Admin')) {
+        //     header("Location: " . BASE_URL . "/auth/login"); exit;
+        // }
+        $this->checkAccess(['Admin']);
 
         $data['judul'] = 'Dashboard Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -133,7 +134,8 @@ class AdminController extends Controller {
     }
 
     public function manageUsers() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $data['judul'] = 'Manajemen Pengguna';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $db = new Database();
@@ -165,7 +167,8 @@ class AdminController extends Controller {
     }
 
     public function addUser() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ob_clean(); 
@@ -230,7 +233,8 @@ class AdminController extends Controller {
     }
 
     public function editUser() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ob_clean();
@@ -298,7 +302,8 @@ class AdminController extends Controller {
     }
 
     public function deleteUser() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         if (isset($_GET['id'])) {
             ob_clean();
@@ -314,7 +319,8 @@ class AdminController extends Controller {
     }
 
     public function monitorAttendance() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);        
         
         $data['judul'] = 'Rekap Presensi';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -344,7 +350,8 @@ class AdminController extends Controller {
     }
 
     public function exportCsv() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
@@ -379,7 +386,8 @@ class AdminController extends Controller {
     }
 
     public function exportPdf() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
@@ -402,7 +410,8 @@ class AdminController extends Controller {
     }
 
     public function schedule() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $data['judul'] = 'Kelola Jadwal';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
@@ -418,7 +427,8 @@ class AdminController extends Controller {
     }
 
     public function addSchedule() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $type = $_POST['type']; 
             $userId = ($type == 'umum') ? NULL : ($_POST['user_id'] ?? null);
@@ -436,7 +446,8 @@ class AdminController extends Controller {
     }
 
     public function editSchedule() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $type = $_POST['type'];
             $userId = ($type == 'umum') ? NULL : ($_POST['user_id'] ?? null);
@@ -454,8 +465,8 @@ class AdminController extends Controller {
     }
 
     public function deleteSchedule() {
-        if ($_SESSION['role'] != 'Admin') exit;
-
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         if (isset($_GET['id']) && isset($_GET['type'])) {
             if ($this->model('ScheduleModel')->deleteSchedule($_GET['id'], $_GET['type'])) {
                 $_SESSION['flash'] = ['type' => 'success', 'title' => 'Terhapus', 'message' => 'Jadwal berhasil dihapus.'];
@@ -468,7 +479,8 @@ class AdminController extends Controller {
     }
 
     public function logbook() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $data['judul'] = 'Monitoring Logbook';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
@@ -484,7 +496,8 @@ class AdminController extends Controller {
     
     // [UPDATE] Mengambil Data Logbook (Unified Data)
     public function getLogsByUser() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $userId = $_POST['user_id'] ?? 0;
         
         // Panggil Model Cerdas (Unified) agar Admin melihat status Alpha/Izin/Hadir yang akurat
@@ -495,9 +508,10 @@ class AdminController extends Controller {
     
     // [BARU] Fitur Super Reset (Admin)
     public function reset_logbook() {
-        if ($_SESSION['role'] != 'Admin') { 
-            echo json_encode(['status'=>'error', 'message'=>'Unauthorized']); exit; 
-        }
+        // if ($_SESSION['role'] != 'Admin') { 
+        //     echo json_encode(['status'=>'error', 'message'=>'Unauthorized']); exit; 
+        // }
+        $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $idRef = $_POST['id_ref']; // ID Presensi atau ID Izin
@@ -513,7 +527,8 @@ class AdminController extends Controller {
     }
 
     public function saveLogbookAdmin() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         // Setup Upload Config
         $fileName = null;
@@ -549,13 +564,16 @@ class AdminController extends Controller {
     }
     
     public function deleteLogbook() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
+
         $id = $_POST['id'];
         if ($this->model('LogbookModel')->deleteLogAdmin($id)) echo json_encode(['status'=>'success']); else echo json_encode(['status'=>'error']);
     }
     
     public function profile() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);        
 
         $data['judul'] = 'Profil Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -615,14 +633,17 @@ class AdminController extends Controller {
     }
     
     public function editProfile() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
+
         $data['judul'] = 'Edit Profil Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $this->view('layout/header', $data); $this->view('layout/sidebar', $data); $this->view('common/edit_profile', $data); $this->view('layout/footer');
     }
     
     public function updateProfile() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $userModel = $this->model('UserModel');
@@ -703,8 +724,9 @@ class AdminController extends Controller {
     }
 
     public function getQrAjax() {
-        if ($_SESSION['role'] != 'Admin') exit;
-        
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);    
+
         $type = $_POST['type'] ?? 'check_in'; // 'check_in' atau 'check_out'
         $token = $this->model('QrModel')->getOrGenerateToken($type);
         
@@ -718,7 +740,8 @@ class AdminController extends Controller {
     }
 
     public function assistantSchedule($id) {
-        if ($_SESSION['role'] != 'Admin') exit;
+        // if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
 
         $assistant = $this->model('UserModel')->getUserById($id);
         if (!$assistant || $assistant['role'] != 'User') {
@@ -736,6 +759,23 @@ class AdminController extends Controller {
         $this->view('layout/sidebar', $data);
         $this->view('admin/assistant_schedule', $data); 
         $this->view('layout/footer');
+    }
+
+    // --- FUNGSI BANTUAN UNTUK CEK AKSES & ERROR 401 ---
+    private function checkAccess($allowedRoles = ['Admin']) {
+        // 1. Cek Login
+        if (!isset($_SESSION['role'])) {
+            header("Location: " . BASE_URL . "/auth/login");
+            exit;
+        }
+
+        // 2. Cek Role (Jika role user tidak ada dalam daftar yang diizinkan)
+        if (!in_array($_SESSION['role'], $allowedRoles)) {
+            require_once '../app/controllers/ErrorController.php';
+            $error = new ErrorController();
+            $error->unauthorized();
+            exit; // Matikan script agar halaman admin tidak bocor
+        }
     }
 }
 ?>

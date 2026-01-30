@@ -4,9 +4,10 @@ class SuperAdminController extends Controller {
     public function index() { $this->dashboard(); }
 
     public function dashboard() {
-        if (!isset($_SESSION['role']) || $_SESSION['role'] != 'Super Admin') {
-            header("Location: " . BASE_URL . "/auth/login"); exit;
-        }
+        // if (!isset($_SESSION['role']) || $_SESSION['role'] != 'Super Admin') {
+        //     header("Location: " . BASE_URL . "/auth/login"); exit;
+        // }
+        $this->checkAccess(['Super Admin']);
 
         $data['judul'] = 'Dashboard Pengawas';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -123,7 +124,10 @@ class SuperAdminController extends Controller {
     }
 
     public function manageUsers() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
+        $this->checkAccess(['Super Admin']);
         $data['judul'] = 'Daftar Pengguna';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
@@ -156,8 +160,10 @@ class SuperAdminController extends Controller {
     }
 
     public function schedule() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
         
+
         $data['judul'] = 'Monitoring Jadwal Lab';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $allUsers = $this->model('UserModel')->getAllUsers();
@@ -170,7 +176,10 @@ class SuperAdminController extends Controller {
     }
 
     public function monitorAttendance() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
+        $this->checkAccess(['Super Admin']);
         
         $data['judul'] = 'Rekap Presensi';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -199,8 +208,11 @@ class SuperAdminController extends Controller {
     }
 
     public function exportCsv() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
-        
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
+        $this->checkAccess(['Super Admin']);
+
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
         $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
@@ -226,7 +238,10 @@ class SuperAdminController extends Controller {
     }
 
     public function exportPdf() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
+        $this->checkAccess(['Super Admin']);
         
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
@@ -249,7 +264,9 @@ class SuperAdminController extends Controller {
     }
 
     public function logbook() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
         $data['judul'] = 'Monitoring Logbook';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
@@ -263,7 +280,9 @@ class SuperAdminController extends Controller {
     }
 
     public function getLogsByUser() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
         
         $userId = $_POST['user_id'] ?? 0;
         $logs = $this->model('LogbookModel')->getUnifiedLogbook($userId);
@@ -272,7 +291,9 @@ class SuperAdminController extends Controller {
     }
 
     public function profile() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
 
         $data['judul'] = 'Profil Super Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -332,7 +353,9 @@ class SuperAdminController extends Controller {
     }
 
     public function editProfile() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
         
         $data['judul'] = 'Edit Profil';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -344,7 +367,9 @@ class SuperAdminController extends Controller {
     }
 
     public function updateProfile() {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $userModel = $this->model('UserModel');
@@ -427,7 +452,9 @@ class SuperAdminController extends Controller {
     }
 
     public function assistantDetail($id) {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
 
         $userModel = $this->model('UserModel');
         $assistant = $userModel->getUserById($id);
@@ -470,7 +497,9 @@ class SuperAdminController extends Controller {
     }
 
     public function assistantSchedule($id) {
-        if ($_SESSION['role'] != 'Super Admin') exit;
+        // if ($_SESSION['role'] != 'Super Admin') exit;
+        $this->checkAccess(['Super Admin']);
+
 
         $assistant = $this->model('UserModel')->getUserById($id);
         if (!$assistant || $assistant['role'] != 'User') {
@@ -488,6 +517,22 @@ class SuperAdminController extends Controller {
         $this->view('layout/sidebar', $data);
         $this->view('superadmin/assistant_schedule', $data); 
         $this->view('layout/footer');
+    }
+     // --- FUNGSI BANTUAN UNTUK CEK AKSES & ERROR 401 ---
+    private function checkAccess($allowedRoles = ['Admin']) {
+        // 1. Cek Login
+        if (!isset($_SESSION['role'])) {
+            header("Location: " . BASE_URL . "/auth/login");
+            exit;
+        }
+
+        // 2. Cek Role (Jika role user tidak ada dalam daftar yang diizinkan)
+        if (!in_array($_SESSION['role'], $allowedRoles)) {
+            require_once '../app/controllers/ErrorController.php';
+            $error = new ErrorController();
+            $error->unauthorized();
+            exit; // Matikan script agar halaman admin tidak bocor
+        }
     }
 }
 ?>
