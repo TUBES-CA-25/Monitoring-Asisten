@@ -20,9 +20,7 @@
 
         <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Jalur Terputus!</h1>
         <p class="text-gray-500 mb-8 leading-relaxed text-sm">
-            Bad Gateway (502).<br>
-            Server menerima respons yang tidak valid dari sumber data.<br>
-            Silakan coba muat ulang halaman.
+            Server menerima respons yang tidak valid<br>
         </p>
 
         <div class="flex flex-col gap-3">
@@ -34,7 +32,7 @@
             </a>
         </div>
         
-        <div class="mt-8 text-[10px] text-gray-400 font-mono font-bold">
+        <div class="mt-8 text-[10px] text-black-400 font-mono font-bold">
             Error Code: 502 Bad Gateway
         </div>
     </div>
