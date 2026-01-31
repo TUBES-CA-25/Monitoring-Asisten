@@ -69,7 +69,7 @@
                         
                         // Badge Role Color
                         $roleColor = match($u['role']) {
-                            'Super Admin' => 'bg-red-50 text-red-600 border-red-100',
+                            'Kepala Lab' => 'bg-red-50 text-red-600 border-red-100',
                             'Admin'       => 'bg-purple-50 text-purple-600 border-purple-100',
                             default       => 'bg-blue-50 text-blue-600 border-blue-100'
                         };
@@ -107,7 +107,7 @@
 
                         <td class="p-6">
                             <div class="text-sm font-bold text-gray-700 mb-1"><?= $u['position'] ?? 'Anggota' ?></div>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Super Admin'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Kepala Lab'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
                                 <?= $u['role'] ?>
                             </span>
                             <?php if ($u['role'] == 'User' && !empty($u['class'])): ?>
