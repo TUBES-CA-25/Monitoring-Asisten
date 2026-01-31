@@ -184,10 +184,10 @@
                                 <label class="block text-xs font-bold text-gray-500 mb-1">NIM</label>
                                 <input type="text" name="nim" id="inputNim" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono">
                             </div>
-                            <div>
+                            <!-- <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Kelas</label>
                                 <input type="text" name="class" id="inputClass" placeholder="Contoh: TI-3A" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono uppercase">
-                            </div>
+                            </div> -->
 
                             
                             <div>
@@ -203,7 +203,7 @@
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            
+
                             <div>
 
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Laboratorium</label>
