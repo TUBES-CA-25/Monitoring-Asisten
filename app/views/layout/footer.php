@@ -3,11 +3,11 @@
             <p class="text-xs text-gray-400 font-medium">
                 &copy; <?= date('Y') ?> Integrated Computer Laboratory System FIKOM UMI. All rights reserved.
             </p>
-            <div class="flex gap-6 text-xs text-gray-400 font-medium">
+            <!-- <div class="flex gap-6 text-xs text-gray-400 font-medium">
                 <a href="#" class="hover:text-blue-600 transition">Bantuan</a>
                 <a href="#" class="hover:text-blue-600 transition">Privasi</a>
                 <a href="#" class="hover:text-blue-600 transition">Syarat & Ketentuan</a>
-            </div>
+            </div> -->
         </div>
     </footer>
 
