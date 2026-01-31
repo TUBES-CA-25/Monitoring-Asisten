@@ -102,15 +102,33 @@
 
                 <?php if($isUser): ?>
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Program Studi</label>
-                    <input type="text" name="prodi" value="<?= $user['prodi'] ?? '' ?>" placeholder="Contoh: Teknik Informatika" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Program Studi <span class="text-red-500">*</span></label>
+                    <select name="position" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                        <option value="" disabled <?= empty($user['position']) ? 'selected' : '' ?>>-- Prodi --</option>
+                        <?php 
+                            $positions = ['Sistem Informasi', 'Teknik Informatika'];
+                            foreach($positions as $pos): 
+                        ?>
+                            <option value="<?= $pos ?>" <?= ($user['position'] ?? '') == $pos ? 'selected' : '' ?>><?= $pos ?></option>
+                        <?php endforeach; ?>
+                    </select>
+
                 </div>
                 <?php endif; ?>
 
                 <?php if($isUser): ?>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Kelas <span class="text-red-500">*</span></label>
-                        <input type="text" name="class" value="<?= $user['kelas'] ?? '' ?>" required placeholder="Contoh: TI-3A" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono uppercase">
+                        <select name="position" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                        <option value="" disabled <?= empty($user['position']) ? 'selected' : '' ?>>-- Kelas --</option>
+                        <?php 
+                            $positions = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 
+                                          'B1', 'B2', 'B3', 'B4'];
+                            foreach($positions as $pos): 
+                        ?>
+                            <option value="<?= $pos ?>" <?= ($user['position'] ?? '') == $pos ? 'selected' : '' ?>><?= $pos ?></option>
+                        <?php endforeach; ?>
+                    </select>
                     </div>
 
                     <div class="md:col-span-2">
