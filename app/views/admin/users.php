@@ -188,12 +188,24 @@
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Kelas</label>
                                 <input type="text" name="class" id="inputClass" placeholder="Contoh: TI-3A" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono uppercase">
                             </div>
+
+                            
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 mb-1">Program Studi</label>
-                                <input type="text" name="prodi" id="inputProdi" placeholder="Contoh: Teknik Informatika" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Program Studi <span class="text-red-500">*</span></label>
+                                <select name="prodi" id="inputProdi" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                                    <option value="" disabled <?= empty($user['prodi']) ? 'selected' : '' ?>>-- Pilih Prodi --</option>
+                                    <?php 
+                                        $prodiList = ['Sistem Informasi', 'Teknik Informatika'];
+                                        foreach($prodiList as $p): ?>
+                                        <option value="<?= $p ?>" <?= ($user['prodi'] ?? '') == $p ? 'selected' : '' ?>>
+                                            <?= $p ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                             
                             <div>
+
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Laboratorium</label>
                                 <select name="lab_id" id="inputLab" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
                                     <option value="">-- Pilih Lab --</option>
