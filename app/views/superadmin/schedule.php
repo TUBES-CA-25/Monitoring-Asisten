@@ -351,7 +351,7 @@
             else if(type === 'umum') { badgeClass = 'bg-gray-800 text-white border-gray-700'; icon = 'fa-building'; }
             else if(type === 'class' || type === 'kuliah') { badgeClass = 'bg-green-50 text-green-600 border-green-100'; icon = 'fa-graduation-cap'; }
 
-            // [SUPER ADMIN: TOMBOL ACTIONS (EDIT/HAPUS) DIHILANGKAN]
+            // [Kepala Lab: TOMBOL ACTIONS (EDIT/HAPUS) DIHILANGKAN]
             
             let extraInfo = '';
             if (evt.dosen || evt.kelas) {
