@@ -172,7 +172,8 @@
 
                         $photoPath = !empty($asisten['photo_profile']) && file_exists('uploads/profile/' . $asisten['photo_profile'])
                             ? BASE_URL . '/uploads/profile/' . $asisten['photo_profile'] 
-                            : "https://ui-avatars.com/api/?name=" . urlencode($asisten['name']) . "&background=random&size=500";
+                            // : "https://ui-avatars.com/api/?name=" . urlencode($asisten['name']) . "&background=random&size=500";
+                            : "https://ui-avatars.com/api/?name=" . urlencode($asisten['name'] ?? 'Asisten') . "&background=random&size=500";
                         
                         $jsonUser = htmlspecialchars(json_encode($asisten), ENT_QUOTES, 'UTF-8');
                     ?>
