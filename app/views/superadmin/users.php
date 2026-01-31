@@ -35,7 +35,7 @@
 
     <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <h3 class="font-bold text-gray-700 uppercase tracking-wide text-sm">Database Akun</h3>
+            <h3 class="font-bold text-gray-700 uppercase tracking-wide text-sm">Daftar User</h3>
             
             <div class="relative w-full sm:w-72">
                 <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 text-xs"></i>
@@ -106,20 +106,15 @@
                         </td>
 
                         <td class="p-6">
-                            <div class="mb-1.5">
-                                <span class="inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border <?= $roleColor ?>">
-                                    <?= $u['role'] ?>
-                                </span>
-                            </div>
-                            <div class="text-sm font-medium text-gray-700">
-                                <?= $u['position'] ?? 'Anggota' ?>
-                            </div>
-                            
-                            <?php if ($u['role'] == 'User' && !empty($u['kelas'])): ?>
+                            <div class="text-sm font-bold text-gray-700 mb-1"><?= $u['position'] ?? 'Anggota' ?></div>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Super Admin'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
+                                <?= $u['role'] ?>
+                            </span>
+                            <?php if ($u['role'] == 'User' && !empty($u['class'])): ?>
                                 <div class="mt-2 flex items-center gap-1.5">
                                     <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas:</span>
                                     <span class="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-mono">
-                                        <?= $u['kelas'] ?>
+                                        <?= $u['class'] ?>
                                     </span>
                                 </div>
                             <?php endif; ?>

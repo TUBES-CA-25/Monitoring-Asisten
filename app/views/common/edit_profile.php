@@ -7,21 +7,6 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 </style>
 
-<?php
-    $role = $_SESSION['role'];
-    $isUser = ($role == 'User');
-    $isAdmin = ($role == 'Admin');
-
-    // Ambil Data Laboratorium untuk Dropdown (Hanya jika User)
-    $labs = [];
-    if ($isUser) {
-        $db = new Database();
-        // [FIX] Menggunakan tabel 'lab' sesuai database
-        $db->query("SELECT * FROM lab ORDER BY nama_lab ASC");
-        $labs = $db->resultSet();
-    }
-?>
-
 <div class="max-w-4xl mx-auto space-y-6 animate-enter pb-12">
     
     <div class="flex items-center gap-4 mb-2">
@@ -117,11 +102,19 @@
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Laboratorium <span class="text-red-500">*</span></label>
                         <select name="lab_id" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
                             <option value="" disabled <?= empty($user['id_lab']) ? 'selected' : '' ?>>-- Pilih Laboratorium --</option>
-                            <?php foreach($labs as $lab): ?>
+                            
+                            <?php 
+                            if(!empty($labs)): 
+                                foreach($labs as $lab): 
+                            ?>
                                 <option value="<?= $lab['id_lab'] ?>" <?= ($user['id_lab'] ?? '') == $lab['id_lab'] ? 'selected' : '' ?>>
                                     <?= $lab['nama_lab'] ?>
                                 </option>
-                            <?php endforeach; ?>
+                            <?php 
+                                endforeach;
+                            endif; 
+                            ?>
+                            
                         </select>
                     </div>
                 <?php endif; ?>
@@ -145,11 +138,11 @@
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Peminatan <span class="text-red-500">*</span></label>
                     <select name="interest" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
                         <option value="" disabled <?= empty($user['peminatan']) ? 'selected' : '' ?>>-- Pilih Peminatan --</option>
-                        <option value="RPL" <?= $user['peminatan'] == 'RPL' ? 'selected' : '' ?>>RPL</option>
-                        <option value="Jaringan" <?= $user['peminatan'] == 'Jaringan' ? 'selected' : '' ?>>Jaringan</option>
-                        <option value="IoT" <?= $user['peminatan'] == 'IoT' ? 'selected' : '' ?>>IoT</option>
+                        <option value="RPL" <?= $user['peminatan'] == 'RPL' ? 'selected' : '' ?>>Rekayasa Perangkat Lunak (RPL)</option>
+                        <option value="Jaringan" <?= $user['peminatan'] == 'Jaringan' ? 'selected' : '' ?>>Jaringan Komputer</option>
+                        <option value="IoT" <?= $user['peminatan'] == 'IoT' ? 'selected' : '' ?>>Internet of Things (IoT)</option>
                         <option value="Multimedia" <?= $user['peminatan'] == 'Multimedia' ? 'selected' : '' ?>>Multimedia</option>
-                        <option value="AI" <?= $user['peminatan'] == 'AI' ? 'selected' : '' ?>>AI</option>
+                        <option value="AI" <?= $user['peminatan'] == 'AI' ? 'selected' : '' ?>>Artificial Intelligence (AI)</option>
                     </select>
                 </div>
                 <?php endif; ?>

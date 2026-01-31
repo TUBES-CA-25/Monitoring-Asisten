@@ -303,12 +303,12 @@
                                 <p class="text-xs text-gray-400">Analisis sebaran asisten berdasarkan kategori.</p>
                                 <div class="flex gap-2">
                                     <div class="relative">
-                                        <select id="demographicFilter" onchange="updateDemographicChart()" class="bg-gray-50 border-none text-gray-600 text-xs font-bold rounded-lg py-1.5 pl-3 pr-8 focus:ring-2 focus:ring-blue-200 cursor-pointer outline-none">
+                                        <select id="demographicFilter" onchange="updateDemographicChart()" class="bg-gray-50 border-none text-gray-600 text-xs font-bold rounded-lg py-3.5 pl-3 pr-8 focus:ring-2 focus:ring-blue-200 cursor-pointer outline-none">
                                             <option value="gender">Gender</option>
                                             <option value="class">Kelas</option>
                                             <option value="interest">Minat</option>
                                         </select>
-                                        <i class="fas fa-chevron-down absolute right-3 top-2.5 text-gray-400 text-[10px] pointer-events-none"></i>
+                                        <i class="absolute right-3 top-2.5 text-gray-400 text-[10px] pointer-events-none"></i>
                                     </div>
                                     <div class="flex bg-gray-50 p-1 rounded-lg">
                                         <button onclick="setChartType('bar')" class="p-1.5 rounded hover:bg-white shadow-sm transition text-gray-500 hover:text-indigo-600"><i class="fas fa-chart-bar text-xs"></i></button>
@@ -504,8 +504,9 @@
                             if(filter.includes('logbook_singkat')) scoreLabel = 'Karakter';
                             if(filter === 'online') scoreLabel = 'Status';
 
-                            let photoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.nama)}&background=random&size=100`; 
-                            if(item.photo_profile) photoUrl = `<?= BASE_URL ?>/uploads/profile/${item.photo_profile}`;
+                            let photoUrl = (item.photo_profile && item.photo_profile !== "") 
+                            ? `<?= BASE_URL ?>/uploads/profile/${item.photo_profile}` 
+                            : `https://ui-avatars.com/api/?name=${encodeURIComponent(item.nama)}&background=random&size=100`;
                             
                             const html = `
                                 <div class="flex items-center justify-between p-4 border-b border-gray-50 hover:bg-indigo-50/30 transition">

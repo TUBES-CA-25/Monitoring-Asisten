@@ -28,9 +28,11 @@
 
     <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <h3 class="font-bold text-gray-700 uppercase tracking-wide text-sm">Daftar User</h3>
+            
             <div class="relative w-full sm:w-72">
                 <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 text-xs"></i>
-                <input type="text" id="searchUser" onkeyup="searchTable()" placeholder="Cari nama atau email..." class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition">
+                <input type="text" id="searchUser" onkeyup="searchTable()" placeholder="Cari nama, email, atau NIM..." class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
             </div>
         </div>
 
@@ -73,6 +75,14 @@
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Super Admin'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
                                 <?= $u['role'] ?>
                             </span>
+                            <?php if ($u['role'] == 'User' && !empty($u['class'])): ?>
+                                <div class="mt-2 flex items-center gap-1.5">
+                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas:</span>
+                                    <span class="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-mono">
+                                        <?= $u['class'] ?>
+                                    </span>
+                                </div>
+                            <?php endif; ?>
                         </td>
                         <td class="p-6">
                             <div class="text-sm text-gray-600 user-email"><i class="fas fa-envelope text-gray-300 mr-2"></i><?= $u['email'] ?></div>

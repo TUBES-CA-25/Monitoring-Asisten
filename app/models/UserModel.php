@@ -35,43 +35,37 @@ class UserModel {
     }
 
     public function calculateRealAlpha($id_profil, $accountCreatedAt, $isCompleted) {
-        // Jika akun belum lengkap/verifikasi, Alpha masih 0
         if ($isCompleted != 1) return 0;
 
-        // 1. Ambil semua tanggal hadir
         $this->db->query("SELECT tanggal FROM presensi WHERE id_profil = :pid AND status IN ('Hadir', 'Terlambat')");
         $this->db->bind(':pid', $id_profil);
         $presensiRaw = $this->db->resultSet();
         $presensiMap = [];
         foreach($presensiRaw as $p) $presensiMap[$p['tanggal']] = true;
 
-        // 2. Ambil semua rentang izin (Approved)
         $this->db->query("SELECT start_date, end_date FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
         $this->db->bind(':pid', $id_profil);
         $izinRanges = $this->db->resultSet();
 
-        // 3. Loop Tanggal (Dari Join Date sampai Kemarin)
-        // Alpha dihitung H-1, karena hari ini masih berjalan
-        $startDate = new DateTime($accountCreatedAt); 
-        $endDate = new DateTime(); // Hari ini
-        $endDate->modify('-1 day'); // Sampai kemarin
+        $startDate = new DateTime($accountCreatedAt);
+        $startDate->setTime(0, 0, 0);
 
-        if ($startDate > $endDate) return 0; // Baru gabung hari ini
+        $endDate = new DateTime();
+        $endDate->setTime(0, 0, 0);
+        $endDate->modify('-1 day'); 
+
+        if ($startDate > $endDate) return 0;
 
         $alphaCount = 0;
 
         while ($startDate <= $endDate) {
-            // Format Y-m-d
             $currDate = $startDate->format('Y-m-d');
+            $dayOfWeek = $startDate->format('N');
             
-            // Cek Hari Kerja (1=Senin ... 5=Jumat). Sabtu(6) & Minggu(7) Libur -> Tidak dihitung Alpha
-            // Ubah logika ini jika lab buka Sabtu/Minggu
-            if ($startDate->format('N') <= 7) {
-                
+            if ($dayOfWeek <= 7) { 
                 $isPresent = isset($presensiMap[$currDate]);
                 $isPermitted = false;
 
-                // Cek Izin jika tidak hadir
                 if (!$isPresent) {
                     foreach($izinRanges as $iz) {
                         if ($currDate >= $iz['start_date'] && $currDate <= $iz['end_date']) {
@@ -81,15 +75,12 @@ class UserModel {
                     }
                 }
 
-                // Jika Tidak Hadir DAN Tidak Izin => Alpha Bertambah
                 if (!$isPresent && !$isPermitted) {
                     $alphaCount++;
                 }
             }
-
             $startDate->modify('+1 day');
         }
-
         return $alphaCount;
     }
 
@@ -128,14 +119,12 @@ class UserModel {
                 ':uid' => $data['id']
             ];
 
-            // Update Foto jika ada
             if (!empty($data['photo'])) {
                 $queryFoto = "UPDATE profile SET photo_profile = :photo WHERE id_user = :uid";
                 $stmtFoto = $this->conn->prepare($queryFoto);
                 $stmtFoto->execute([':photo' => $data['photo'], ':uid' => $data['id']]);
             }
 
-            // Update Status Completed
             $queryStatus = "UPDATE profile SET is_completed = 1 WHERE id_user = :uid";
             $stmtStatus = $this->conn->prepare($queryStatus);
             $stmtStatus->execute([':uid' => $data['id']]);
@@ -151,10 +140,9 @@ class UserModel {
     }
 
     public function getAllUsers() {
-       $sql = "SELECT u.id_user as id, p.id_profil, u.role, u.email, 
-                       p.nama as name, p.nim, p.prodi, p.jabatan as position, p.photo_profile,
-                       p.no_telp, p.alamat, 
-                       l.nama_lab as lab_name, p.is_completed
+       $sql = "SELECT u.id_user as id, u.created_at, p.id_profil, u.role, u.email, 
+                       p.nama as name, p.nim, p.kelas, p.prodi, p.jabatan as position, p.photo_profile,
+                       p.no_telp, p.alamat, l.nama_lab as lab_name, p.is_completed
                 FROM user u 
                 JOIN profile p ON u.id_user = p.id_user 
                 LEFT JOIN lab l ON p.id_lab = l.id_lab 
@@ -184,19 +172,21 @@ class UserModel {
             $stmtUser->execute([':email'=>$data['email'], ':pass'=>password_hash($data['password'], PASSWORD_BCRYPT), ':role'=>$data['role']]);
             $newUserId = $this->conn->lastInsertId();
 
-            $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile) 
-                        VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo)";
+            $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile, is_completed, id_lab) 
+                        VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo, :completed, :lab)";
             $stmtProf = $this->conn->prepare($sqlProf);
             $stmtProf->execute([
                 ':uid'  => $newUserId, 
                 ':name' => $data['name'], 
-                ':nim'  => $data['nim'] ?? null,
+                ':nim'  => $data['nim'] ?? null, 
                 ':cls'  => $data['class'] ?? null, 
-                ':prodi'=> $data['prodi'] ?? null,
+                ':prodi'=> $data['prodi'] ?? null, 
                 ':pos'  => $data['position'] ?? 'Anggota',
-                ':hp'   => $data['no_telp'],
-                ':addr' => $data['alamat'],
-                ':photo'=> $data['photo']
+                ':hp'   => $data['no_telp'], 
+                ':addr' => $data['alamat'], 
+                ':photo'=> $data['photo'],
+                ':completed' => $data['is_completed'] ?? 0,
+                ':lab' => $data['lab_id'] ?? null
             ]);
             $this->conn->commit();
             return true;
@@ -206,7 +196,7 @@ class UserModel {
     public function updateUser($data) {
         try {
             $this->conn->beginTransaction();
-            $sqlProf = "UPDATE profile SET nama = :name, nim = :nim, kelas = :cls, prodi = :prodi, no_telp = :telp, alamat = :alamat, jabatan = :pos";
+            $sqlProf = "UPDATE profile SET nama = :name, nim = :nim, kelas = :cls, prodi = :prodi, no_telp = :telp, alamat = :alamat, jabatan = :pos, id_lab = :lab";
             if (!empty($data['photo'])) { $sqlProf .= ", photo_profile = :photo"; }
             $sqlProf .= " WHERE id_user = :uid";
             
@@ -214,7 +204,8 @@ class UserModel {
             $params = [
                 ':name' => $data['name'], ':nim' => $data['nim'], ':cls' => $data['class'] ?? null, 
                 ':prodi' => $data['prodi'] ?? null, ':telp' => $data['no_telp'], 
-                ':alamat' => $data['alamat'], ':pos' => $data['position'], ':uid' => $data['id']
+                ':alamat' => $data['alamat'], ':pos' => $data['position'], ':lab' => $data['lab_id'] ?? null, 
+                ':uid' => $data['id']
             ];
             if (!empty($data['photo'])) $params[':photo'] = $data['photo'];
             
@@ -340,7 +331,6 @@ class UserModel {
     }
 
     public function getAllAssistantsWithStatus() {
-        // 1. Ambil semua data asisten (User)
         $this->db->query("SELECT p.*, u.role 
                           FROM profile p 
                           JOIN users u ON p.id_user = u.id_user 
@@ -348,24 +338,19 @@ class UserModel {
                           ORDER BY p.nama ASC");
         $assistants = $this->db->resultSet();
 
-        // 2. Cek Status Kehadiran Hari Ini untuk setiap asisten
         $today = date('Y-m-d');
         
         foreach ($assistants as &$ast) {
-            // Default Status: Merah (Belum Hadir)
             $ast['status_today'] = 'red'; 
 
-            // A. Cek Tabel Presensi (Hadir)
-            // Pastikan kolom 'waktu_presensi' tidak kosong
             $this->db->query("SELECT id_presensi FROM presensi 
                               WHERE id_profil = :pid AND tanggal = :d AND waktu_presensi IS NOT NULL");
             $this->db->bind(':pid', $ast['id_profil']);
             $this->db->bind(':d', $today);
             
             if ($this->db->single()) {
-                $ast['status_today'] = 'green'; // Ubah jadi Hijau
+                $ast['status_today'] = 'green'; 
             } else {
-                // B. Cek Tabel Izin (Jika tidak hadir, cek apakah izin)
                 $this->db->query("SELECT id_izin FROM izin 
                                   WHERE id_profil = :pid 
                                   AND :d BETWEEN start_date AND end_date 
@@ -374,12 +359,45 @@ class UserModel {
                 $this->db->bind(':d', $today);
                 
                 if ($this->db->single()) {
-                    $ast['status_today'] = 'yellow'; // Ubah jadi Kuning
+                    $ast['status_today'] = 'yellow'; 
                 }
             }
         }
 
         return $assistants;
+    }
+
+    public function saveGoogleToken($userId, $token) {
+        try {
+            $refreshToken = $token['refresh_token'] ?? '';
+            $idToken = $token['id_token'] ?? ''; 
+
+            $sql = "INSERT INTO user_google_token (id_user, access_token, refresh_token, id_token, expires_in, created_at) 
+                    VALUES (:uid, :at, :rt, :it, :exp, NOW())
+                    ON DUPLICATE KEY UPDATE 
+                    access_token = :at, 
+                    refresh_token = IF(:rt != '', :rt, refresh_token), 
+                    id_token = IF(:it != '', :it, id_token), 
+                    expires_in = :exp, 
+                    created_at = NOW()";
+
+            $this->db->query($sql);
+            $this->db->bind(':uid', $userId);
+            $this->db->bind(':at', $token['access_token']);
+            $this->db->bind(':rt', $refreshToken);
+            $this->db->bind(':it', $idToken);
+            $this->db->bind(':exp', $token['expires_in']);
+            
+            return $this->db->execute();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function isGoogleConnected($userId) {
+        $stmt = $this->conn->prepare("SELECT id_token FROM user_google_token WHERE id_user = :uid");
+        $stmt->execute([':uid' => $userId]);
+        return $stmt->rowCount() > 0;
     }
 }
 ?>

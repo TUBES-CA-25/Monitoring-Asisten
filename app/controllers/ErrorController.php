@@ -1,0 +1,54 @@
+<?php
+class ErrorController extends Controller {
+    
+    // Error 401 (Unauthorized)
+    public function unauthorized() {
+        // Set Header HTTP agar browser tahu ini error
+        http_response_code(401);
+        
+        $data['judul'] = '401 - Akses Ditolak';
+        $this->view('errors/401', $data);
+    }
+
+   // Error 500 (Internal Server Error)
+    public function serverError() {
+        http_response_code(500);
+        $data['judul'] = '500 - Server Error';
+        $this->view('errors/500', $data);
+    }
+
+    // Error 404 (Not Found)
+    public function notFound() {
+        http_response_code(404);
+        $data['judul'] = '404 - Tidak Ditemukan';
+        $this->view('errors/404', $data);
+    }
+
+    // Error 400 (Bad Request)
+    public function badRequest() {
+        http_response_code(400);
+        $data['judul'] = '400 - Permintaan Tidak Valid';
+        $this->view('errors/400', $data);
+    }
+
+    // Error 403 (Forbidden)
+    public function forbidden() {
+        http_response_code(403);
+        $data['judul'] = '403 - Akses Dilarang';
+        $this->view('errors/403', $data);
+    }
+
+    // Error 405 (Method Not Allowed)
+    public function methodNotAllowed() {
+        http_response_code(405);
+        $data['judul'] = '405 - Metode Salah';
+        $this->view('errors/405', $data);
+    }
+
+    // Error 502 (Bad Gateway)
+    public function badGateway() {
+        http_response_code(502);
+        $data['judul'] = '502 - Bad Gateway';
+        $this->view('errors/502', $data);
+    }
+}
