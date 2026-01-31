@@ -9,27 +9,25 @@ class AttendanceModel {
     }
 
     public function getCurrentStatus($userId) {
-        // Ambil Profil ID
         $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
         $this->db->bind(':uid', $userId);
         $res = $this->db->single();
         if(!$res) return 'unknown';
         $pId = $res['id_profil'];
 
-        // Cek data presensi terakhir hari ini
         $this->db->query("SELECT * FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE() ORDER BY id_presensi DESC LIMIT 1");
         $this->db->bind(':pid', $pId);
         $lastLog = $this->db->single();
 
         if (!$lastLog) {
-            return 'not_present'; // Belum absen sama sekali hari ini
+            return 'not_present';
         }
 
         if ($lastLog['waktu_presensi'] && $lastLog['waktu_pulang'] == NULL) {
-            return 'checked_in'; // Sudah masuk, BELUM pulang (Sedang Kerja)
+            return 'checked_in';
         }
 
-        return 'checked_out'; // Sudah masuk DAN sudah pulang (Selesai Sesi)
+        return 'checked_out';
     }
 
     private function getProfilId($userId) {
@@ -43,7 +41,10 @@ class AttendanceModel {
         try {
             $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
             $this->db->bind(':uid', $userId);
-            $pId = $this->db->single()['id_profil'];
+            $res = $this->db->single();
+            
+            if (!$res || empty($res['id_profil'])) return false;
+            $pId = $res['id_profil'];
 
             $query = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, status, foto_presensi) 
                       VALUES (:pid, CURDATE(), CURTIME(), 'Hadir', :foto)";
@@ -61,9 +62,11 @@ class AttendanceModel {
         try {
             $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
             $this->db->bind(':uid', $userId);
-            $pId = $this->db->single()['id_profil'];
+            $res = $this->db->single();
 
-            // Update baris terakhir + simpan foto pulang
+            if (!$res || empty($res['id_profil'])) return false;
+            $pId = $res['id_profil'];
+
             $query = "UPDATE presensi 
                       SET waktu_pulang = CURTIME(), foto_pulang = :foto 
                       WHERE id_profil = :pid 
@@ -124,10 +127,9 @@ class AttendanceModel {
 
     public function getStatusColor($userId) {
         $status = $this->getCurrentStatus($userId);
-        if ($status == 'checked_in') return 'green'; // Sedang kerja
-        if ($status == 'checked_out') return 'yellow'; // Sudah pulang (Sesi selesai)
+        if ($status == 'checked_in') return 'green';
+        if ($status == 'checked_out') return 'yellow';
         
-        // Cek Izin jika not_present
         $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
         $this->db->bind(':uid', $userId);
         $pId = $this->db->single()['id_profil'] ?? 0;
@@ -156,17 +158,14 @@ class AttendanceModel {
         $today = date('Y-m-d');
         $stats = ['hadir' => 0, 'izin' => 0, 'alpa' => 0];
 
-        // Hitung Hadir
         $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE tanggal = :date");
         $this->db->bind(':date', $today);
         $stats['hadir'] = $this->db->single()['total'];
 
-        // Hitung Izin
         $this->db->query("SELECT COUNT(*) as total FROM izin WHERE :date BETWEEN start_date AND end_date AND status_approval = 'Approved'");
         $this->db->bind(':date', $today);
         $stats['izin'] = $this->db->single()['total'];
         
-        // Hitung Total Asisten
         $this->db->query("SELECT COUNT(*) as total FROM user WHERE role = 'User'");
         $totalAsisten = $this->db->single()['total'];
         
@@ -175,7 +174,6 @@ class AttendanceModel {
     }
 
     public function getChartData() {
-        // Mingguan (7 Hari Terakhir)
         $weeklyData = []; $weeklyLabels = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-$i days"));
@@ -188,7 +186,6 @@ class AttendanceModel {
             $weeklyLabels[] = date('D', strtotime($date));
         }
         
-        // Bulanan
         $this->db->query("SELECT MONTH(tanggal) as bulan, COUNT(*) as total FROM presensi WHERE YEAR(tanggal) = YEAR(CURDATE()) GROUP BY MONTH(tanggal)");
         $results = $this->db->resultSet();
         
@@ -197,15 +194,12 @@ class AttendanceModel {
             $monthlyData[$res['bulan'] - 1] = $res['total']; 
         }
 
-        // Harian (Distribusi Jam Masuk - Opsional/Sederhana)
-        // Menghitung berapa orang masuk di jam 07, 08, 09, dst.
         $this->db->query("SELECT HOUR(waktu_presensi) as jam, COUNT(*) as total FROM presensi WHERE tanggal = CURDATE() GROUP BY HOUR(waktu_presensi)");
         $dailyRes = $this->db->resultSet();
-        $dailyData = array_fill(0, 24, 0); // 00:00 - 23:00
+        $dailyData = array_fill(0, 24, 0);
         foreach($dailyRes as $d) {
             $dailyData[$d['jam']] = $d['total'];
         }
-        // Kita ambil jam kerja saja 07:00 - 17:00 untuk chart
         $dailyLabelsChart = ['07:00', '09:00', '11:00', '13:00', '15:00'];
         $dailyDataChart = [
             $dailyData[7]+$dailyData[8], 
@@ -228,7 +222,6 @@ class AttendanceModel {
     }
 
     public function getAttendanceRecap($startDate, $endDate, $userId = null) {
-        // 1. Ambil Data Presensi Raw dalam rentang
         $sqlP = "SELECT p.*, prof.nama, prof.nim, prof.jabatan, prof.id_user 
                  FROM presensi p 
                  JOIN profile prof ON p.id_profil = prof.id_profil 
@@ -241,7 +234,6 @@ class AttendanceModel {
         if ($userId) $this->db->bind(':uid', $userId);
         $rawPresensi = $this->db->resultSet();
 
-        // 2. Ambil Data Izin Raw (Approved) dalam rentang
         $sqlIz = "SELECT i.*, prof.id_user 
                   FROM izin i 
                   JOIN profile prof ON i.id_profil = prof.id_profil 
@@ -259,7 +251,6 @@ class AttendanceModel {
         if ($userId) $this->db->bind(':uid', $userId);
         $rawIzin = $this->db->resultSet();
 
-        // 3. Ambil Target User (Semua atau Satu)
         $sqlUser = "SELECT u.id_user, p.id_profil, p.nama, p.nim, p.jabatan, p.photo_profile 
                     FROM user u JOIN profile p ON u.id_user = p.id_user 
                     WHERE u.role = 'User'";
@@ -273,18 +264,16 @@ class AttendanceModel {
         }
         $targetUsers = $this->db->resultSet();
 
-        // 4. Generate Data Harian (Mapping)
         $finalData = [];
         $start = new DateTime($startDate);
         $end = new DateTime($endDate);
-        $end->modify('+1 day'); // Supaya inclusive
+        $end->modify('+1 day');
         $interval = DateInterval::createFromDateString('1 day');
         $period = new DatePeriod($start, $interval, $end);
 
         foreach ($period as $dt) {
             $currentDate = $dt->format("Y-m-d");
             
-            // Loop setiap user untuk setiap tanggal
             foreach ($targetUsers as $user) {
                 $row = [
                     'tanggal' => $currentDate,
@@ -294,10 +283,9 @@ class AttendanceModel {
                     'photo_profile' => $user['photo_profile'],
                     'waktu_presensi' => null,
                     'waktu_pulang' => null,
-                    'status' => 'Alpha' // Default Alpha
+                    'status' => 'Alpha'
                 ];
 
-                // Cek Presensi
                 foreach ($rawPresensi as $p) {
                     if ($p['id_user'] == $user['id_user'] && $p['tanggal'] == $currentDate) {
                         $row['waktu_presensi'] = $p['waktu_presensi'];
@@ -307,28 +295,23 @@ class AttendanceModel {
                     }
                 }
 
-                // Cek Izin (Jika belum hadir)
                 if ($row['status'] == 'Alpha') {
                     foreach ($rawIzin as $iz) {
                         if ($user['id_user'] == $iz['id_user'] && $currentDate >= $iz['start_date'] && $currentDate <= $iz['end_date']) {
-                            $row['status'] = $iz['tipe']; // Izin / Sakit
+                            $row['status'] = $iz['tipe'];
                             break;
                         }
                     }
                 }
 
-                // Logic Alpha Hari Ini: Jika hari ini & belum jam 18:00, jangan set Alpha, tapi kosong (-)
                 if ($row['status'] == 'Alpha' && $currentDate == date('Y-m-d') && date('H:i') < '18:00') {
-                    $row['status'] = '-'; // Belum waktunya dianggap Alpha
+                    $row['status'] = '-'; 
                 }
 
                 $finalData[] = $row;
             }
         }
 
-        // 5. Sorting Data
-        // Jika filter User ID aktif: Sort by Tanggal ASC
-        // Jika filter range tanggal (semua user): Sort by Tanggal ASC, lalu Nama ASC
         usort($finalData, function($a, $b) use ($userId) {
             if ($a['tanggal'] == $b['tanggal']) {
                 return strcmp($a['name'], $b['name']);
@@ -340,7 +323,6 @@ class AttendanceModel {
     }
 
     public function getAllAttendanceByDate($startDate, $endDate = null) {
-        // Jika endDate kosong, gunakan startDate (mode satu hari)
         if ($endDate === null) {
             $endDate = $startDate;
         }
@@ -363,7 +345,6 @@ class AttendanceModel {
 
     public function createLeaveRequest($data) {
         try {
-            // Perhatikan bagian 'Approved' di akhir VALUES
             $query = "INSERT INTO izin (id_profil, tipe, start_date, end_date, deskripsi, file_bukti, status_approval) 
                       VALUES (:pid, :tipe, :sdate, :edate, :desc, :file, 'Approved')";
             
@@ -381,6 +362,59 @@ class AttendanceModel {
         }
     }
 
+    public function getUserStats($profileId) {
+        $stats = ['hadir' => 0, 'izin' => 0];
+
+        $stmtH = $this->conn->prepare("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
+        $stmtH->execute([':pid' => $profileId]);
+        $stats['hadir'] = $stmtH->fetch()['total'];
+
+        $stmtI = $this->conn->prepare("SELECT COUNT(*) as total FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
+        $stmtI->execute([':pid' => $profileId]);
+        $stats['izin'] = $stmtI->fetch()['total'];
+
+        return $stats;
+    }
+
+    public function getTodayAttendanceDetail($profileId) {
+        $today = date('Y-m-d');
+        
+        $stmtP = $this->conn->prepare("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = :d");
+        $stmtP->execute([':pid' => $profileId, ':d' => $today]);
+        $presensi = $stmtP->fetch(PDO::FETCH_ASSOC);
+
+        $stmtI = $this->conn->prepare("SELECT id_izin FROM izin WHERE id_profil = :pid AND :d BETWEEN start_date AND end_date AND status_approval = 'Approved'");
+        $stmtI->execute([':pid' => $profileId, ':d' => $today]);
+        $izin = $stmtI->fetch(PDO::FETCH_ASSOC);
+
+        return ['presensi' => $presensi, 'izin' => $izin];
+    }
+    
+    public function validateLogbookEntry($profileId, $date) {
+        $stmt = $this->conn->prepare("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = :d");
+        $stmt->execute([':pid' => $profileId, ':d' => $date]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    public function getUserDailyChart($profileId) {
+        $dLabels = []; $dData = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-$i days"));
+            $dLabels[] = date('D', strtotime($date));
+            $stmt = $this->conn->prepare("SELECT count(*) as c FROM presensi WHERE id_profil=:pid AND tanggal=:d AND status='Hadir'");
+            $stmt->execute([':pid'=>$profileId, ':d'=>$date]);
+            $dData[] = $stmt->fetch()['c'] > 0 ? 1 : 0;
+        }
+        return ['labels' => $dLabels, 'data' => $dData];
+    }
+
+    public function countLateToday() {
+        $today = date('Y-m-d');
+        $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE tanggal = :d AND waktu_presensi > '08:00:00'");
+        $this->db->bind(':d', $today);
+        $result = $this->db->single();
+        return $result['total'] ?? 0;
+    }
     
 }
 ?>

@@ -57,7 +57,6 @@
         <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0 text-center md:text-left">
                 <?php
-                    // Logika Nama Panggilan
                     $fullName = $user['name'];
                     $parts = explode(',', $fullName);
                     $frontNameOnly = trim($parts[0]);
@@ -159,7 +158,7 @@
 
                         $photoPath = !empty($asisten['photo_profile']) && file_exists('uploads/profile/' . $asisten['photo_profile'])
                             ? BASE_URL . '/uploads/profile/' . $asisten['photo_profile'] 
-                            : "https://ui-avatars.com/api/?name=" . urlencode($asisten['nama']) . "&background=random&size=500";
+                            : "https://ui-avatars.com/api/?name=" . urlencode($asisten['name']) . "&background=random&size=500";
                         
                         $jsonUser = htmlspecialchars(json_encode($asisten), ENT_QUOTES, 'UTF-8');
                     ?>
@@ -170,7 +169,7 @@
                             <img src="<?= $photoPath ?>" class="w-full h-full object-cover transition-all duration-500 <?= $imgFilter ?>" alt="<?= $asisten['nama'] ?>">
                         </div>
                         <div class="text-center">
-                            <h3 class="font-bold text-gray-800 text-sm truncate px-1 leading-tight"><?= $asisten['nama'] ?></h3>
+                            <h3 class="font-bold text-gray-800 text-sm truncate px-1 leading-tight"><?= $asisten['name'] ?></h3>
                             <p class="text-[10px] text-gray-400 font-bold uppercase mt-1"><?= $asisten['jabatan'] ?? 'Asisten' ?></p>
                         </div>
                         <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
@@ -300,7 +299,7 @@
         const content = document.getElementById('detailContent');
         
         // Mapping Text
-        document.getElementById('m_name').innerText = user.nama;
+        document.getElementById('m_name').innerText = user.name;
         document.getElementById('m_position').innerText = user.jabatan || 'Asisten Lab';
         document.getElementById('m_nim').innerText = user.nim || '-';
         document.getElementById('m_class').innerText = user.kelas || '-';

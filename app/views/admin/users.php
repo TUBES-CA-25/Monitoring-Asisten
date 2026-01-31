@@ -75,11 +75,11 @@
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Super Admin'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
                                 <?= $u['role'] ?>
                             </span>
-                            <?php if ($u['role'] == 'User' && !empty($u['kelas'])): ?>
+                            <?php if ($u['role'] == 'User' && !empty($u['class'])): ?>
                                 <div class="mt-2 flex items-center gap-1.5">
                                     <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas:</span>
                                     <span class="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-mono">
-                                        <?= $u['kelas'] ?>
+                                        <?= $u['class'] ?>
                                     </span>
                                 </div>
                             <?php endif; ?>
@@ -184,40 +184,16 @@
                                 <label class="block text-xs font-bold text-gray-500 mb-1">NIM</label>
                                 <input type="text" name="nim" id="inputNim" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono">
                             </div>
-    
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Kelas <span class="text-red-500">*</span></label>
-                                <select name="kelas" id="kelas" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
-                                    <option value="" disabled <?= empty($user['kelas']) ? 'selected' : '' ?>>-- Pilih Kelas --</option>
-                                    <?php 
-                                        $kelasList = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 
-                                        'B1', 'B2', 'B3', 'B4'];
-                                        foreach($kelasList as $p): ?>
-                                        <option value="<?= $p ?>" <?= ($user['kelas'] ?? '') == $p ? 'selected' : '' ?>>
-                                            <?= $p ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <label class="block text-xs font-bold text-gray-500 mb-1">Kelas</label>
+                                <input type="text" name="class" id="inputClass" placeholder="Contoh: TI-3A" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono uppercase">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1">Program Studi</label>
+                                <input type="text" name="prodi" id="inputProdi" placeholder="Contoh: Teknik Informatika" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">
                             </div>
                             
-
-                            
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Program Studi <span class="text-red-500">*</span></label>
-                                <select name="prodi" id="inputProdi" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
-                                    <option value="" disabled <?= empty($user['prodi']) ? 'selected' : '' ?>>-- Pilih Prodi --</option>
-                                    <?php 
-                                        $prodiList = ['Sistem Informasi', 'Teknik Informatika'];
-                                        foreach($prodiList as $p): ?>
-                                        <option value="<?= $p ?>" <?= ($user['prodi'] ?? '') == $p ? 'selected' : '' ?>>
-                                            <?= $p ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-
-                            <div>
-
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Laboratorium</label>
                                 <select name="lab_id" id="inputLab" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
                                     <option value="">-- Pilih Lab --</option>

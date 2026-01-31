@@ -135,9 +135,9 @@
                 </div>
             </div>
 
-            <!-- <div class="flex justify-end">
+            <div class="flex justify-end">
                 <a href="#" class="text-xs text-slate-400 hover:text-cyan-400 transition-colors">Lupa Password?</a>
-            </div> -->
+            </div>
 
             <button type="submit" id="submitBtn" class="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-900/20 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 group">
                 <span id="btnText">Masuk Sekarang</span>

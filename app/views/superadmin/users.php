@@ -110,11 +110,11 @@
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Super Admin'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
                                 <?= $u['role'] ?>
                             </span>
-                            <?php if ($u['role'] == 'User' && !empty($u['kelas'])): ?>
+                            <?php if ($u['role'] == 'User' && !empty($u['class'])): ?>
                                 <div class="mt-2 flex items-center gap-1.5">
                                     <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas:</span>
                                     <span class="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-mono">
-                                        <?= $u['kelas'] ?>
+                                        <?= $u['class'] ?>
                                     </span>
                                 </div>
                             <?php endif; ?>

@@ -20,9 +20,7 @@ class Database {
         try {
             $this->dbh = new PDO($dsn, $this->user, $this->pass, $option);
         } catch(PDOException $e) {
-            // die("Koneksi Database Gagal: " . $e->getMessage());
-            header("Location: " . BASE_URL . "/error/serverError");
-                exit;
+            die("Koneksi Database Gagal: " . $e->getMessage());
         }
     }
 
