@@ -13,7 +13,7 @@
         <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0 text-center md:text-left">
                 <h1 class="text-3xl font-extrabold">Manajemen Pengguna</h1>
-                <p class="text-blue-100 mt-2 text-sm">Kelola akun Asisten, Admin, dan Super Admin.</p>
+                <p class="text-blue-100 mt-2 text-sm">Kelola akun Asisten, Admin, dan Kepala Lab.</p>
                 <button onclick="openUserModal('add')" class="mt-6 bg-white text-blue-600 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition transform hover:scale-105 flex items-center gap-2 mx-auto md:mx-0">
                     <i class="fas fa-plus-circle"></i> Tambah User Baru
                 </button>
@@ -72,7 +72,7 @@
                         </td>
                         <td class="p-6">
                             <div class="text-sm font-bold text-gray-700 mb-1"><?= $u['position'] ?? 'Anggota' ?></div>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Super Admin'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Kepala Lab'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
                                 <?= $u['role'] ?>
                             </span>
                             <?php if ($u['role'] == 'User' && !empty($u['class'])): ?>
@@ -143,7 +143,7 @@
                             <select name="role" id="inputRole" onchange="toggleRoleFields()" required class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
                                 <option value="User">User (Asisten)</option>
                                 <option value="Admin">Admin</option>
-                                <option value="Super Admin">Super Admin</option>
+                                <option value="Kepala Lab">Kepala Lab</option>
                             </select>
                         </div>
                         <div>
