@@ -333,7 +333,7 @@ class UserModel {
     public function getAllAssistantsWithStatus() {
         $this->db->query("SELECT p.*, u.role 
                           FROM profile p 
-                          JOIN users u ON p.id_user = u.id_user 
+                          JOIN user u ON p.id_user = u.id_user 
                           WHERE u.role = 'User' 
                           ORDER BY p.nama ASC");
         $assistants = $this->db->resultSet();
@@ -398,6 +398,20 @@ class UserModel {
         $stmt = $this->conn->prepare("SELECT id_token FROM user_google_token WHERE id_user = :uid");
         $stmt->execute([':uid' => $userId]);
         return $stmt->rowCount() > 0;
+    }
+
+    public function getAssistants() {
+        $sql = "SELECT u.id_user, u.email, u.role,
+                       p.nama as name, p.nim, p.photo_profile, 
+                       p.jabatan as position, p.kelas, p.is_completed 
+                FROM user u 
+                LEFT JOIN profile p ON u.id_user = p.id_user 
+                WHERE u.role = 'User' 
+                ORDER BY p.nama ASC";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 ?>
