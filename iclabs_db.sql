@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1
--- Generation Time: Jan 29, 2026 at 08:14 AM
--- Server version: 10.4.32-MariaDB
--- PHP Version: 8.4.7
+-- Host: localhost
+-- Waktu pembuatan: 31 Jan 2026 pada 16.05
+-- Versi server: 10.4.28-MariaDB
+-- Versi PHP: 8.2.4
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -24,7 +24,7 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Table structure for table `izin`
+-- Struktur dari tabel `izin`
 --
 
 CREATE TABLE `izin` (
@@ -39,7 +39,7 @@ CREATE TABLE `izin` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `izin`
+-- Dumping data untuk tabel `izin`
 --
 
 INSERT INTO `izin` (`id_izin`, `id_profil`, `tipe`, `start_date`, `end_date`, `deskripsi`, `file_bukti`, `status_approval`) VALUES
@@ -49,7 +49,7 @@ INSERT INTO `izin` (`id_izin`, `id_profil`, `tipe`, `start_date`, `end_date`, `d
 -- --------------------------------------------------------
 
 --
--- Table structure for table `jadwal_asisten`
+-- Struktur dari tabel `jadwal_asisten`
 --
 
 CREATE TABLE `jadwal_asisten` (
@@ -70,7 +70,7 @@ CREATE TABLE `jadwal_asisten` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `jadwal_asisten`
+-- Dumping data untuk tabel `jadwal_asisten`
 --
 
 INSERT INTO `jadwal_asisten` (`id_jadwal_asisten`, `id_profil`, `prodi`, `mata_kuliah`, `dosen`, `kelas_lab`, `frekuensi`, `ruangan_lab`, `hari`, `tanggal`, `tanggal_selesai`, `model_perulangan`, `start_time`, `end_time`) VALUES
@@ -79,7 +79,7 @@ INSERT INTO `jadwal_asisten` (`id_jadwal_asisten`, `id_profil`, `prodi`, `mata_k
 -- --------------------------------------------------------
 
 --
--- Table structure for table `jadwal_full`
+-- Struktur dari tabel `jadwal_full`
 --
 
 CREATE TABLE `jadwal_full` (
@@ -93,7 +93,7 @@ CREATE TABLE `jadwal_full` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `jadwal_full`
+-- Dumping data untuk tabel `jadwal_full`
 --
 
 INSERT INTO `jadwal_full` (`id_jadwal`, `id_jadwal_lab`, `id_jadwal_kuliah`, `id_jadwal_piket`, `id_jadwal_asisten`, `google_calendar_API`, `created_at`) VALUES
@@ -103,7 +103,7 @@ INSERT INTO `jadwal_full` (`id_jadwal`, `id_jadwal_lab`, `id_jadwal_kuliah`, `id
 -- --------------------------------------------------------
 
 --
--- Table structure for table `jadwal_kuliah`
+-- Struktur dari tabel `jadwal_kuliah`
 --
 
 CREATE TABLE `jadwal_kuliah` (
@@ -123,7 +123,7 @@ CREATE TABLE `jadwal_kuliah` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `jadwal_kuliah`
+-- Dumping data untuk tabel `jadwal_kuliah`
 --
 
 INSERT INTO `jadwal_kuliah` (`id_jadwal_kuliah`, `id_profil`, `matkul`, `tipe`, `dosen`, `kelas`, `ruangan`, `hari`, `tanggal`, `tanggal_selesai`, `model_perulangan`, `start_time`, `end_time`) VALUES
@@ -133,7 +133,7 @@ INSERT INTO `jadwal_kuliah` (`id_jadwal_kuliah`, `id_profil`, `matkul`, `tipe`, 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `jadwal_lab`
+-- Struktur dari tabel `jadwal_lab`
 --
 
 CREATE TABLE `jadwal_lab` (
@@ -150,7 +150,7 @@ CREATE TABLE `jadwal_lab` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `jadwal_lab`
+-- Dumping data untuk tabel `jadwal_lab`
 --
 
 INSERT INTO `jadwal_lab` (`id_jadwal_lab`, `nama_kegiatan`, `lokasi`, `tanggal`, `tanggal_selesai`, `hari`, `jam_mulai`, `jam_selesai`, `model_perulangan`, `created_at`) VALUES
@@ -160,7 +160,7 @@ INSERT INTO `jadwal_lab` (`id_jadwal_lab`, `nama_kegiatan`, `lokasi`, `tanggal`,
 -- --------------------------------------------------------
 
 --
--- Table structure for table `jadwal_piket`
+-- Struktur dari tabel `jadwal_piket`
 --
 
 CREATE TABLE `jadwal_piket` (
@@ -176,7 +176,7 @@ CREATE TABLE `jadwal_piket` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `jadwal_piket`
+-- Dumping data untuk tabel `jadwal_piket`
 --
 
 INSERT INTO `jadwal_piket` (`id_jadwal_piket`, `id_profil`, `subjek`, `hari`, `tanggal`, `tanggal_selesai`, `model_perulangan`, `jam_mulai`, `jam_selesai`) VALUES
@@ -185,7 +185,7 @@ INSERT INTO `jadwal_piket` (`id_jadwal_piket`, `id_profil`, `subjek`, `hari`, `t
 -- --------------------------------------------------------
 
 --
--- Table structure for table `lab`
+-- Struktur dari tabel `lab`
 --
 
 CREATE TABLE `lab` (
@@ -196,7 +196,7 @@ CREATE TABLE `lab` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `lab`
+-- Dumping data untuk tabel `lab`
 --
 
 INSERT INTO `lab` (`id_lab`, `nama_lab`, `deskripsi`, `lokasi`) VALUES
@@ -211,7 +211,7 @@ INSERT INTO `lab` (`id_lab`, `nama_lab`, `deskripsi`, `lokasi`) VALUES
 -- --------------------------------------------------------
 
 --
--- Table structure for table `logbook`
+-- Struktur dari tabel `logbook`
 --
 
 CREATE TABLE `logbook` (
@@ -224,7 +224,7 @@ CREATE TABLE `logbook` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `logbook`
+-- Dumping data untuk tabel `logbook`
 --
 
 INSERT INTO `logbook` (`id_logbook`, `id_profil`, `id_presensi`, `detail_aktivitas`, `keterangan`, `is_verified`) VALUES
@@ -233,7 +233,7 @@ INSERT INTO `logbook` (`id_logbook`, `id_profil`, `id_presensi`, `detail_aktivit
 -- --------------------------------------------------------
 
 --
--- Table structure for table `presensi`
+-- Struktur dari tabel `presensi`
 --
 
 CREATE TABLE `presensi` (
@@ -248,7 +248,7 @@ CREATE TABLE `presensi` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `presensi`
+-- Dumping data untuk tabel `presensi`
 --
 
 INSERT INTO `presensi` (`id_presensi`, `id_profil`, `tanggal`, `waktu_presensi`, `foto_presensi`, `waktu_pulang`, `foto_pulang`, `status`) VALUES
@@ -256,12 +256,15 @@ INSERT INTO `presensi` (`id_presensi`, `id_profil`, `tanggal`, `waktu_presensi`,
 (4, 3, '2026-01-24', '18:47:59', 'in_3_1769251679.jpg', '18:48:37', 'out_3_1769251717.jpg', 'Hadir'),
 (5, 4, '2026-01-27', '12:38:40', 'in_4_1769488720.jpg', '12:45:33', 'out_4_1769489133.jpg', 'Hadir'),
 (6, 3, '2026-01-22', '07:00:00', 'admin_edit_1769667528.png', '16:30:00', NULL, 'Hadir'),
-(7, 3, '2026-01-29', '14:32:11', 'in_3_1769668331.jpg', NULL, NULL, 'Hadir');
+(7, 3, '2026-01-29', '14:32:11', 'in_3_1769668331.jpg', NULL, NULL, 'Hadir'),
+(8, 4, '2026-01-30', '13:44:26', 'in_4_1769751866.jpg', '13:45:32', 'out_4_1769751932.jpg', 'Hadir'),
+(9, 8, '2026-01-30', '18:14:47', 'in_8_1769768087.jpg', '18:18:58', 'out_8_1769768338.jpg', 'Hadir'),
+(10, 4, '2026-01-31', '13:29:17', 'in_4_1769837357.jpg', '14:41:37', 'out_4_1769841697.jpg', 'Hadir');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `profile`
+-- Struktur dari tabel `profile`
 --
 
 CREATE TABLE `profile` (
@@ -282,19 +285,20 @@ CREATE TABLE `profile` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `profile`
+-- Dumping data untuk tabel `profile`
 --
 
 INSERT INTO `profile` (`id_profil`, `id_user`, `id_lab`, `nim`, `nama`, `kelas`, `prodi`, `alamat`, `no_telp`, `jenis_kelamin`, `jabatan`, `peminatan`, `photo_profile`, `is_completed`) VALUES
 (1, 1, NULL, NULL, ' Ir. Huzain Azis, S.Kom., M.Cs., MTA.', NULL, NULL, 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08114484875', 'L', 'Kepala Lab', NULL, '1769533666_6978f0e27cab8.jpeg', 1),
 (2, 2, NULL, NULL, 'Fatimah AR. Tuasamu, S.Kom., MTA, MCF', NULL, '', 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08534186497', 'P', 'Laboran', NULL, '1768721611_696c8ccb66f2c.jpeg', 1),
 (3, 3, 1, '13120230033', 'Nurfajri Mukmin Saputra', 'A1', 'Sistem Informasi', 'Kabupaten Bantaeng, Provinsi Sulawesi Selatan', '0853332084', 'L', 'Asisten 2', 'Multimedia', '1768722382_696c8fceac85d.jpeg', 1),
-(4, 4, NULL, '13020230241', 'Firly Anastasya Hafid', 'B4', 'Teknik Informatika', 'Kota Makassar, Provinsi Sulawesi Selatan', '085954464608', 'P', 'Asisten 2', 'RPL', '1769488030_69783e9e20d73.jpeg', 1);
+(4, 4, NULL, '13020230241', 'Firly Anastasya Hafid', 'B4', 'Teknik Informatika', 'Kota Makassar, Provinsi Sulawesi Selatan', '085954464608', 'P', 'Asisten 2', 'RPL', '1769488030_69783e9e20d73.jpeg', 1),
+(8, 8, NULL, NULL, 'Tasya', NULL, NULL, NULL, NULL, NULL, 'Asisten Pendamping', NULL, 'default.jpg', 0);
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `qr_code`
+-- Struktur dari tabel `qr_code`
 --
 
 CREATE TABLE `qr_code` (
@@ -306,41 +310,42 @@ CREATE TABLE `qr_code` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `qr_code`
+-- Dumping data untuk tabel `qr_code`
 --
 
 INSERT INTO `qr_code` (`id_qr`, `tipe`, `token_code`, `generated_at`, `valid_until`) VALUES
-(145, 'Presensi', '484df165132869b0c11c0c23e4410983', '2026-01-29 15:03:16', '2026-01-29 15:08:16'),
-(146, 'Pulang', '3ba552e241d9a5a9454d5ca80c3d132b', '2026-01-29 15:03:18', '2026-01-30 15:03:18');
+(155, 'Pulang', '8e863cdcc76b72fc81ea98c6fe80e89d', '2026-01-30 18:10:42', '2026-01-31 18:10:42'),
+(166, 'Presensi', '70d451c2c17529f2e11ce8daa4bc8c79', '2026-01-31 16:36:19', '2026-01-31 16:41:19');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `user`
+-- Struktur dari tabel `user`
 --
 
 CREATE TABLE `user` (
   `id_user` int(11) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
-  `role` enum('Super Admin','Admin','User') NOT NULL DEFAULT 'User',
+  `role` enum('Admin','User','Kepala Lab') NOT NULL DEFAULT 'User',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `user`
+-- Dumping data untuk tabel `user`
 --
 
 INSERT INTO `user` (`id_user`, `email`, `password`, `role`, `created_at`) VALUES
-(1, 'super@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Super Admin', '2026-01-03 05:23:53'),
+(1, 'super@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Kepala Lab', '2026-01-03 05:23:53'),
 (2, 'admin@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', '2026-01-03 05:23:53'),
 (3, 'user@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-01-03 05:23:53'),
-(4, 'firly@iclabs.com', '$2y$12$lFHuRuoExW9RSSBUZm4QgeZMom7v5iLKJfBAtJB68d7qPEOH1gRCm', 'User', '2026-01-27 03:37:51');
+(4, 'firly@iclabs.com', '$2y$12$lFHuRuoExW9RSSBUZm4QgeZMom7v5iLKJfBAtJB68d7qPEOH1gRCm', 'User', '2026-01-27 03:37:51'),
+(8, 'tasya@gmail.com', '$2y$10$FrIG2OhNk62WfTMDizJrmeF.BQU.YmZ19205mRlfqMtbCKEbIUr0u', 'User', '2026-01-30 10:12:55');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `user_google_token`
+-- Struktur dari tabel `user_google_token`
 --
 
 CREATE TABLE `user_google_token` (
@@ -357,21 +362,21 @@ CREATE TABLE `user_google_token` (
 --
 
 --
--- Indexes for table `izin`
+-- Indeks untuk tabel `izin`
 --
 ALTER TABLE `izin`
   ADD PRIMARY KEY (`id_izin`),
   ADD KEY `id_profil` (`id_profil`);
 
 --
--- Indexes for table `jadwal_asisten`
+-- Indeks untuk tabel `jadwal_asisten`
 --
 ALTER TABLE `jadwal_asisten`
   ADD PRIMARY KEY (`id_jadwal_asisten`),
   ADD KEY `id_profil` (`id_profil`);
 
 --
--- Indexes for table `jadwal_full`
+-- Indeks untuk tabel `jadwal_full`
 --
 ALTER TABLE `jadwal_full`
   ADD PRIMARY KEY (`id_jadwal`),
@@ -380,33 +385,33 @@ ALTER TABLE `jadwal_full`
   ADD KEY `id_jadwal_asisten` (`id_jadwal_asisten`);
 
 --
--- Indexes for table `jadwal_kuliah`
+-- Indeks untuk tabel `jadwal_kuliah`
 --
 ALTER TABLE `jadwal_kuliah`
   ADD PRIMARY KEY (`id_jadwal_kuliah`),
   ADD KEY `id_profil` (`id_profil`);
 
 --
--- Indexes for table `jadwal_lab`
+-- Indeks untuk tabel `jadwal_lab`
 --
 ALTER TABLE `jadwal_lab`
   ADD PRIMARY KEY (`id_jadwal_lab`);
 
 --
--- Indexes for table `jadwal_piket`
+-- Indeks untuk tabel `jadwal_piket`
 --
 ALTER TABLE `jadwal_piket`
   ADD PRIMARY KEY (`id_jadwal_piket`),
   ADD KEY `id_profil` (`id_profil`);
 
 --
--- Indexes for table `lab`
+-- Indeks untuk tabel `lab`
 --
 ALTER TABLE `lab`
   ADD PRIMARY KEY (`id_lab`);
 
 --
--- Indexes for table `logbook`
+-- Indeks untuk tabel `logbook`
 --
 ALTER TABLE `logbook`
   ADD PRIMARY KEY (`id_logbook`),
@@ -414,14 +419,14 @@ ALTER TABLE `logbook`
   ADD KEY `id_presensi` (`id_presensi`);
 
 --
--- Indexes for table `presensi`
+-- Indeks untuk tabel `presensi`
 --
 ALTER TABLE `presensi`
   ADD PRIMARY KEY (`id_presensi`),
   ADD KEY `id_profil` (`id_profil`);
 
 --
--- Indexes for table `profile`
+-- Indeks untuk tabel `profile`
 --
 ALTER TABLE `profile`
   ADD PRIMARY KEY (`id_profil`),
@@ -430,126 +435,126 @@ ALTER TABLE `profile`
   ADD KEY `id_lab` (`id_lab`);
 
 --
--- Indexes for table `qr_code`
+-- Indeks untuk tabel `qr_code`
 --
 ALTER TABLE `qr_code`
   ADD PRIMARY KEY (`id_qr`),
   ADD KEY `token_code` (`token_code`);
 
 --
--- Indexes for table `user`
+-- Indeks untuk tabel `user`
 --
 ALTER TABLE `user`
   ADD PRIMARY KEY (`id_user`),
   ADD UNIQUE KEY `email` (`email`);
 
 --
--- Indexes for table `user_google_token`
+-- Indeks untuk tabel `user_google_token`
 --
 ALTER TABLE `user_google_token`
   ADD PRIMARY KEY (`id_token`),
   ADD UNIQUE KEY `id_user` (`id_user`);
 
 --
--- AUTO_INCREMENT for dumped tables
+-- AUTO_INCREMENT untuk tabel yang dibuang
 --
 
 --
--- AUTO_INCREMENT for table `izin`
+-- AUTO_INCREMENT untuk tabel `izin`
 --
 ALTER TABLE `izin`
   MODIFY `id_izin` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT for table `jadwal_asisten`
+-- AUTO_INCREMENT untuk tabel `jadwal_asisten`
 --
 ALTER TABLE `jadwal_asisten`
   MODIFY `id_jadwal_asisten` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
--- AUTO_INCREMENT for table `jadwal_full`
+-- AUTO_INCREMENT untuk tabel `jadwal_full`
 --
 ALTER TABLE `jadwal_full`
   MODIFY `id_jadwal` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT for table `jadwal_kuliah`
+-- AUTO_INCREMENT untuk tabel `jadwal_kuliah`
 --
 ALTER TABLE `jadwal_kuliah`
   MODIFY `id_jadwal_kuliah` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT for table `jadwal_lab`
+-- AUTO_INCREMENT untuk tabel `jadwal_lab`
 --
 ALTER TABLE `jadwal_lab`
   MODIFY `id_jadwal_lab` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT for table `jadwal_piket`
+-- AUTO_INCREMENT untuk tabel `jadwal_piket`
 --
 ALTER TABLE `jadwal_piket`
   MODIFY `id_jadwal_piket` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
--- AUTO_INCREMENT for table `lab`
+-- AUTO_INCREMENT untuk tabel `lab`
 --
 ALTER TABLE `lab`
   MODIFY `id_lab` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT for table `logbook`
+-- AUTO_INCREMENT untuk tabel `logbook`
 --
 ALTER TABLE `logbook`
   MODIFY `id_logbook` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT for table `presensi`
+-- AUTO_INCREMENT untuk tabel `presensi`
 --
 ALTER TABLE `presensi`
-  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
--- AUTO_INCREMENT for table `profile`
+-- AUTO_INCREMENT untuk tabel `profile`
 --
 ALTER TABLE `profile`
-  MODIFY `id_profil` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id_profil` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
--- AUTO_INCREMENT for table `qr_code`
+-- AUTO_INCREMENT untuk tabel `qr_code`
 --
 ALTER TABLE `qr_code`
-  MODIFY `id_qr` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=147;
+  MODIFY `id_qr` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=167;
 
 --
--- AUTO_INCREMENT for table `user`
+-- AUTO_INCREMENT untuk tabel `user`
 --
 ALTER TABLE `user`
-  MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
--- AUTO_INCREMENT for table `user_google_token`
+-- AUTO_INCREMENT untuk tabel `user_google_token`
 --
 ALTER TABLE `user_google_token`
   MODIFY `id_token` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- Constraints for dumped tables
+-- Ketidakleluasaan untuk tabel pelimpahan (Dumped Tables)
 --
 
 --
--- Constraints for table `izin`
+-- Ketidakleluasaan untuk tabel `izin`
 --
 ALTER TABLE `izin`
   ADD CONSTRAINT `izin_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Constraints for table `jadwal_asisten`
+-- Ketidakleluasaan untuk tabel `jadwal_asisten`
 --
 ALTER TABLE `jadwal_asisten`
   ADD CONSTRAINT `jadwal_asisten_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Constraints for table `jadwal_full`
+-- Ketidakleluasaan untuk tabel `jadwal_full`
 --
 ALTER TABLE `jadwal_full`
   ADD CONSTRAINT `jadwal_full_ibfk_1` FOREIGN KEY (`id_jadwal_kuliah`) REFERENCES `jadwal_kuliah` (`id_jadwal_kuliah`) ON DELETE CASCADE,
@@ -557,39 +562,39 @@ ALTER TABLE `jadwal_full`
   ADD CONSTRAINT `jadwal_full_ibfk_3` FOREIGN KEY (`id_jadwal_asisten`) REFERENCES `jadwal_asisten` (`id_jadwal_asisten`) ON DELETE CASCADE;
 
 --
--- Constraints for table `jadwal_kuliah`
+-- Ketidakleluasaan untuk tabel `jadwal_kuliah`
 --
 ALTER TABLE `jadwal_kuliah`
   ADD CONSTRAINT `jadwal_kuliah_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Constraints for table `jadwal_piket`
+-- Ketidakleluasaan untuk tabel `jadwal_piket`
 --
 ALTER TABLE `jadwal_piket`
   ADD CONSTRAINT `jadwal_piket_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Constraints for table `logbook`
+-- Ketidakleluasaan untuk tabel `logbook`
 --
 ALTER TABLE `logbook`
   ADD CONSTRAINT `logbook_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE,
   ADD CONSTRAINT `logbook_ibfk_2` FOREIGN KEY (`id_presensi`) REFERENCES `presensi` (`id_presensi`) ON DELETE CASCADE;
 
 --
--- Constraints for table `presensi`
+-- Ketidakleluasaan untuk tabel `presensi`
 --
 ALTER TABLE `presensi`
   ADD CONSTRAINT `presensi_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Constraints for table `profile`
+-- Ketidakleluasaan untuk tabel `profile`
 --
 ALTER TABLE `profile`
   ADD CONSTRAINT `profile_ibfk_1` FOREIGN KEY (`id_user`) REFERENCES `user` (`id_user`) ON DELETE CASCADE,
   ADD CONSTRAINT `profile_ibfk_2` FOREIGN KEY (`id_lab`) REFERENCES `lab` (`id_lab`) ON DELETE SET NULL;
 
 --
--- Constraints for table `user_google_token`
+-- Ketidakleluasaan untuk tabel `user_google_token`
 --
 ALTER TABLE `user_google_token`
   ADD CONSTRAINT `user_google_token_ibfk_1` FOREIGN KEY (`id_user`) REFERENCES `user` (`id_user`) ON DELETE CASCADE;
