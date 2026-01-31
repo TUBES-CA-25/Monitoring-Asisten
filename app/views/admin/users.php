@@ -188,26 +188,28 @@
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Kelas</label>
                                 <input type="text" name="class" id="inputClass" placeholder="Contoh: TI-3A" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono uppercase">
                             </div> -->
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 mb-1">Kelas</label>
-                                <select name="class" id="inputClass" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer font-mono uppercase">
-                                    <option value="" disabled selected>-- Pilih Kelas --</option>
+                     <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Kelas <span class="text-red-500">*</span></label>
+                        
+                        <select name="class" id="inputClass" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                            
+                            <option value="" disabled selected>-- Pilih Kelas --</option>
 
-                                    <?php 
-                                        // 1. Tulis daftar kelas manual di sini (sesuai keinginan Anda)
-                                        $daftarKelas = [
-                                            'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10',
-                                            'B1', 'B2', 'B3', 'B4', 'B5'
-                                        ];
+                            <?php 
+                                $daftarKelas = [
+                                    'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10',
+                                    'B1', 'B2', 'B3', 'B4', 'B5'
+                                ];
 
-                                        // 2. Looping untuk membuat opsi otomatis
-                                        foreach($daftarKelas as $kelas): 
-                                    ?>
-                                        <option value="<?= $kelas ?>"><?= $kelas ?></option>
-                                    <?php endforeach; ?>
+                                foreach($daftarKelas as $k):
+                                    // Menggunakan operator '??' untuk mencegah error jika data kelas kosong
+                                    $cek = ($user['kelas'] ?? '') == $k ? 'selected' : '';
+                            ?>
+                                <option value="<?= $k ?>" <?= $cek ?>><?= $k ?></option>
+                            <?php endforeach; ?>
 
-                                </select>
-                            </div>
+                        </select>
+                    </div>
 
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Program Studi</label>
