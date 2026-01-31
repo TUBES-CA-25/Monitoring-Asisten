@@ -114,7 +114,7 @@
             </div>
         <?php endif; ?>
 
-        <?php if($_SESSION['role'] == 'Admin' || $_SESSION['role'] == 'Kepala Lab'): ?>
+        <?php if($_SESSION['role'] == 'Admin' || $_SESSION['role'] == ''): ?>
             <div class="mb-6">
                 <p class="px-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 ml-1 sidebar-header transition-opacity duration-200">Manajemen</p>
                 <?php renderMenuItem(BASE_URL . "/$role/manageUsers", 'fa-users-cog', 'Kelola User', 'manageUsers', $current_uri); ?>
