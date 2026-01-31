@@ -114,7 +114,24 @@
                 <?php if($isUser): ?>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Kelas <span class="text-red-500">*</span></label>
-                        <input type="text" name="class" value="<?= $user['kelas'] ?? '' ?>" required placeholder="Contoh: TI-3A" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono uppercase">
+                        
+                        <select name="class" id="inputClass" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                            
+                            <option value="" disabled selected>-- Pilih Kelas --</option>
+
+                            <?php 
+                                $daftarKelas = [
+                                    'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10',
+                                    'B1', 'B2', 'B3', 'B4', 'B5'
+                                ];
+
+                                foreach($daftarKelas as $k):
+                                    $cek = ($user['kelas'] ?? '') == $k ? 'selected' : '';
+                            ?>
+                                <option value="<?= $k ?>" <?= $cek ?>><?= $k ?></option>
+                            <?php endforeach; ?>
+
+                        </select>
                     </div>
 
                     <div class="md:col-span-2">
