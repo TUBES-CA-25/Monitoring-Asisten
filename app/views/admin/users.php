@@ -188,6 +188,21 @@
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Kelas</label>
                                 <input type="text" name="class" id="inputClass" placeholder="Contoh: TI-3A" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono uppercase">
                             </div> -->
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Kelas <span class="text-red-500">*</span></label>
+                                <select name="kelas" id="kelas" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                                    <option value="" disabled <?= empty($user['kelas']) ? 'selected' : '' ?>>-- Pilih Kelas --</option>
+                                    <?php 
+                                        $kelasList = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 
+                                          'B1', 'B2', 'B3', 'B4'];
+                                        foreach($kelasList as $p): ?>
+                                        <option value="<?= $p ?>" <?= ($user['kelas'] ?? '') == $p ? 'selected' : '' ?>>
+                                            <?= $p ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            
 
                             
                             <div>
