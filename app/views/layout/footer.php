@@ -1,4 +1,4 @@
-</main>
+</main> 
 
     <footer class="bg-white border-t border-gray-200 py-6 px-8 mt-auto shrink-0 z-10 relative">
         <div class="flex flex-col md:flex-row justify-between text-center items-center gap-4">
@@ -10,99 +10,114 @@
 
 </div> <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // 1. Definisi Elemen (Sesuai ID di sidebar.php)
+        // --- 1. DEFINISI ELEMEN ---
         const sidebar = document.getElementById('sidebar');
         const mainContent = document.getElementById('mainContent');
-        
-        // Tombol Desktop (Panah) & Icon-nya
-        const toggleBtn = document.getElementById('toggleSidebar'); 
+        const toggleBtn = document.getElementById('toggleSidebar'); // Tombol Panah (Desktop)
         const toggleIcon = document.getElementById('toggleIcon');
-        
-        // Tombol Mobile (Garis Tiga)
-        const mobileBtn = document.getElementById('mobileMenuBtn'); 
-        
-        // Header Logo (Bisa diklik untuk membesarkan)
+        const mobileBtn = document.getElementById('mobileMenuBtn'); // Tombol Garis Tiga (Mobile)
         const logoHeader = document.getElementById('logoHeader'); 
-
-        // Elemen yang perlu disembunyikan saat minimized
+        
+        // Elemen yang perlu disembunyikan/ditampilkan
         const textElements = document.querySelectorAll('.sidebar-text');
         const headers = document.querySelectorAll('.sidebar-header');
         const profileContainer = document.getElementById('profileContainer');
         const logoContainer = document.getElementById('logoContainer');
 
-        // 2. Cek Status Simpanan (LocalStorage)
+        // Cek status terakhir dari LocalStorage
         let isMinimized = localStorage.getItem('sidebarState') === 'minimized';
 
-        // 3. Fungsi Update Tampilan Sidebar (Otak Utamanya)
+        // --- 2. FUNGSI UPDATE TAMPILAN ---
         function updateSidebarState() {
-            // Jangan jalankan logika minimize jika di layar HP (Mobile)
-            if (window.innerWidth < 768) return; 
+            // [PERBAIKAN PENTING] 
+            // Jika layar di bawah 768px (Mobile), PAKSA sidebar jadi normal (w-64)
+            // Biarpun statusnya 'minimized', di HP harus tetap lebar agar menu terlihat saat dibuka
+            if (window.innerWidth < 768) {
+                sidebar.classList.remove('w-20');
+                sidebar.classList.add('w-64');
+                // Sembunyikan tombol panah desktop di HP
+                if(toggleBtn) toggleBtn.classList.add('hidden');
+                
+                // Pastikan elemen teks terlihat (untuk persiapan jika menu dibuka)
+                textElements.forEach(el => el.classList.remove('hidden', 'opacity-0'));
+                headers.forEach(el => el.classList.remove('hidden', 'opacity-0'));
+                
+                // Kembalikan layout logo & profil
+                if(profileContainer) profileContainer.classList.add('justify-start');
+                if(logoContainer) {
+                    const span = logoContainer.querySelector('span');
+                    if(span) span.classList.remove('hidden');
+                    logoContainer.classList.remove('justify-center', 'w-full');
+                }
+                return; // Keluar dari fungsi, jangan jalankan logika desktop
+            }
 
+            // --- LOGIKA DESKTOP (> 768px) ---
             if (isMinimized) {
-                // --- MODE MINIMIZED (KECIL) ---
+                // MODE: KECIL (MINIMIZED)
                 sidebar.classList.remove('w-64');
                 sidebar.classList.add('w-20');
                 
                 mainContent.classList.remove('md:ml-64');
                 mainContent.classList.add('md:ml-20');
                 
-                // Ubah Ikon Panah jadi ke Kanan
+                // Ubah Icon Panah
                 if(toggleIcon) {
                     toggleIcon.classList.remove('fa-chevron-left');
                     toggleIcon.classList.add('fa-chevron-right');
                 }
                 
-                // Sembunyikan Teks & Header Menu
+                // Sembunyikan Teks & Header
                 textElements.forEach(el => el.classList.add('hidden', 'opacity-0'));
                 headers.forEach(el => el.classList.add('hidden', 'opacity-0'));
                 
-                // Tengahkan Logo & Profil
+                // Tengahkan Icon
                 if(profileContainer) {
                     profileContainer.classList.remove('justify-start');
                     profileContainer.classList.add('justify-center');
                 }
                 if(logoContainer) {
-                    logoContainer.classList.add('justify-center');
                     const span = logoContainer.querySelector('span');
                     if(span) span.classList.add('hidden');
+                    logoContainer.classList.add('justify-center', 'w-full');
                 }
-
-                // Ubah kursor header jadi pointer (memberi tahu bisa diklik)
+                
+                // Cursor Pointer di Header
                 if(logoHeader) {
                     logoHeader.classList.add('cursor-pointer', 'hover:bg-blue-700/50');
                     logoHeader.title = "Klik untuk memperbesar";
                 }
 
             } else {
-                // --- MODE EXPANDED (BESAR) ---
+                // MODE: BESAR (EXPANDED)
                 sidebar.classList.add('w-64');
                 sidebar.classList.remove('w-20');
                 
                 mainContent.classList.add('md:ml-64');
                 mainContent.classList.remove('md:ml-20');
                 
-                // Kembalikan Ikon Panah ke Kiri
+                // Ubah Icon Panah
                 if(toggleIcon) {
                     toggleIcon.classList.add('fa-chevron-left');
                     toggleIcon.classList.remove('fa-chevron-right');
                 }
                 
-                // Tampilkan Teks kembali
+                // Tampilkan Teks & Header
                 textElements.forEach(el => el.classList.remove('hidden', 'opacity-0'));
                 headers.forEach(el => el.classList.remove('hidden', 'opacity-0'));
                 
-                // Kembalikan Layout ke Kiri
+                // Reset Layout Icon
                 if(profileContainer) {
                     profileContainer.classList.add('justify-start');
                     profileContainer.classList.remove('justify-center');
                 }
                 if(logoContainer) {
-                    logoContainer.classList.remove('justify-center');
                     const span = logoContainer.querySelector('span');
                     if(span) span.classList.remove('hidden');
+                    logoContainer.classList.remove('justify-center', 'w-full');
                 }
-
-                // Hapus kursor pointer di header
+                
+                // Hapus Cursor Pointer
                 if(logoHeader) {
                     logoHeader.classList.remove('cursor-pointer', 'hover:bg-blue-700/50');
                     logoHeader.removeAttribute('title');
@@ -110,29 +125,30 @@
             }
         }
 
-        // 4. Jalankan Update Pertama Kali (Saat halaman dimuat)
-        updateSidebarState();
+        // --- 3. EKSEKUSI ---
         
-        // 5. Hapus Class Preload (Agar transisi animasi aktif kembali)
-        // Delay sedikit 100ms agar browser selesai merender layout awal
+        // Jalankan saat pertama kali load
+        updateSidebarState();
+
+        // Hapus Class Preload (Delay sedikit agar render tuntas)
         setTimeout(() => {
             document.documentElement.classList.remove('preload-minimized');
         }, 100);
 
-        // 6. Event Listener: Klik Tombol Panah (Desktop)
+        // Event Listener: Toggle Desktop
         if(toggleBtn) {
             toggleBtn.addEventListener('click', function(e) {
-                e.stopPropagation(); // Biar tidak bentrok dengan klik header
-                isMinimized = !isMinimized; // Balik status (True jadi False, dst)
+                e.stopPropagation();
+                isMinimized = !isMinimized;
                 localStorage.setItem('sidebarState', isMinimized ? 'minimized' : 'expanded');
                 updateSidebarState();
             });
         }
 
-        // 7. Event Listener: Klik Header Logo (Desktop - Cara Cepat Membesarkan)
+        // Event Listener: Klik Header Logo (Expand Cepat)
         if(logoHeader) {
             logoHeader.addEventListener('click', function() {
-                if(isMinimized) {
+                if (isMinimized && window.innerWidth >= 768) {
                     isMinimized = false;
                     localStorage.setItem('sidebarState', 'expanded');
                     updateSidebarState();
@@ -140,20 +156,23 @@
             });
         }
 
-        // 8. Event Listener: Tombol Hamburger (Mobile)
-        if(mobileBtn) {
+        // Event Listener: Toggle Mobile (Hamburger)
+        if (mobileBtn) {
             mobileBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 sidebar.classList.toggle('-translate-x-full');
             });
         }
         
-        // 9. Event Listener: Klik di Luar Sidebar (Khusus Mobile)
-        // Jika user klik area konten saat menu terbuka di HP, menu akan tertutup otomatis
+        // [PERBAIKAN] Event Listener: Resize Window
+        // Agar layout menyesuaikan jika user memutar layar HP/Tablet
+        window.addEventListener('resize', updateSidebarState);
+
+        // Event Listener: Klik di Luar Sidebar (Tutup Mobile Menu)
         document.addEventListener('click', function(e) {
-            if(window.innerWidth < 768) {
-                // Jika klik bukan di sidebar DAN bukan di tombol menu
-                if(!sidebar.contains(e.target) && mobileBtn && !mobileBtn.contains(e.target)) {
+            if (window.innerWidth < 768) {
+                const isClickInside = sidebar.contains(e.target) || (mobileBtn && mobileBtn.contains(e.target));
+                if (!isClickInside && !sidebar.classList.contains('-translate-x-full')) {
                     sidebar.classList.add('-translate-x-full');
                 }
             }
