@@ -188,12 +188,19 @@
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Kelas</label>
                                 <input type="text" name="class" id="inputClass" placeholder="Contoh: TI-3A" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono uppercase">
                             </div>
+
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Program Studi</label>
-                                <input type="text" name="prodi" id="inputProdi" placeholder="Contoh: Teknik Informatika" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">
-                            </div>
+                                <select name="prodi" id="inputProdi" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
+                                <option value="" prodi>-- Pilih Prodi --</option>
+                                <option value="Sistem Informasi">Sistem Informasi</option>
+                                <option value="Teknik Informatika">Teknik Informatika</option>
+                                </select>
                             
+                            </div>
+
                             <div>
+
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Laboratorium</label>
                                 <select name="lab_id" id="inputLab" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
                                     <option value="">-- Pilih Lab --</option>
