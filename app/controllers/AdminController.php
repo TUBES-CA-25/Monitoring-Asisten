@@ -9,6 +9,8 @@ class AdminController extends Controller {
         // }
         $this->checkAccess(['Admin']);
 
+        $data['asisten'] = $this->model('UserModel')->getAssistants();
+
         $data['judul'] = 'Dashboard Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $attModel = $this->model('AttendanceModel');
@@ -34,7 +36,7 @@ class AdminController extends Controller {
         ];
 
         $stmtAst = $conn->query("SELECT u.id_user, u.email, u.created_at,
-                                        p.id_profil, p.nama, p.photo_profile, p.jabatan, 
+                                        p.id_profil, p.nama as name, p.photo_profile, p.jabatan, 
                                         p.nim, p.no_telp, p.alamat, p.prodi, p.kelas, p.is_completed 
                                  FROM user u 
                                  JOIN profile p ON u.id_user = p.id_user 
