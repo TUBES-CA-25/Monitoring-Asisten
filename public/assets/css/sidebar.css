@@ -1,0 +1,18 @@
+/* public/assets/css/sidebar.css */
+
+/* Tooltip Hover saat Sidebar Kecil */
+.w-20 .sidebar-tooltip {
+    visibility: visible !important;
+    opacity: 1 !important;
+    left: 70px !important;
+}
+
+.w-20 a:hover .sidebar-tooltip {
+    opacity: 1;
+}
+
+/* Scrollbar Halus */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
