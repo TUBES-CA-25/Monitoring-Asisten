@@ -85,12 +85,31 @@
                     <input type="tel" name="phone" value="<?= $user['no_telp'] ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
                 </div>
 
-                <?php if($isUser): ?>
+             <?php if($isUser): ?>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Program Studi</label>
-                    <input type="text" name="prodi" value="<?= $user['prodi'] ?? '' ?>" placeholder="Contoh: Teknik Informatika" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition">
+                    
+                    <select name="prodi" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                        <option value="" disabled <?= empty($user['prodi']) ? 'selected' : '' ?>>-- Pilih Prodi --</option>
+                        
+                        <?php 
+                            // Daftar Prodi (Samakan dengan yang ada di Admin)
+                            $daftarProdi = [
+                                'Sistem Informasi', 
+                                'Teknik Informatika'
+                            ];
+
+                            foreach($daftarProdi as $p): 
+                        ?>
+                            <option value="<?= $p ?>" <?= ($user['prodi'] ?? '') == $p ? 'selected' : '' ?>>
+                                <?= $p ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
-                <?php endif; ?>
+            <?php endif; ?>
+
+                
 
                 <?php if($isUser): ?>
                     <div>
