@@ -383,7 +383,7 @@
     let qrInterval = null;
     let currentMode = 'check_in';
 
-    const roleSegment = window.location.href.includes('superadmin') ? 'superadmin' : 'admin';
+    const roleSegment = window.location.href.includes('kepalalab') ? 'kepalalab' : 'admin';
     const qrFetchUrl = `<?= BASE_URL ?>/${roleSegment}/getQrAjax`;
 
     function openQRModal() {
@@ -534,7 +534,7 @@
 
         // 5. UPDATE BUTTON JADWAL LENGKAP
         const btnSchedule = document.getElementById('btnSchedule');
-        const currentRole = window.location.href.includes('superadmin') ? 'superadmin' : 'admin';
+        const currentRole = window.location.href.includes('kepalalab') ? 'kepalalab' : 'admin';
         if (btnSchedule) {
             btnSchedule.href = `<?= BASE_URL ?>/${currentRole}/assistantSchedule/${user.id_user}`;
         }
