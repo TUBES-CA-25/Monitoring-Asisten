@@ -167,7 +167,8 @@ class UserController extends Controller {
             exit; }
 
         $pId = $_SESSION['profil_id']; 
-        $today = date('Y-m-d');
+        // $today = date('Y-m-d');
+        $targetDate = $_POST['date'] ?? date('Y-m-d');
         $logId = $_POST['log_id'] ?? null;
         
         $att = $this->model('AttendanceModel')->validateLogbookEntry($pId, $today);

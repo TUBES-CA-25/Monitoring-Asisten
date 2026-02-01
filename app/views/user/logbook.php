@@ -224,11 +224,18 @@
     </div>
 </div>
 
+
+<form id="logForm" onsubmit="submitLogbook(event)" class="p-6 space-y-5">
+    <input type="hidden" id="modalDate" name="date"> 
+    <input type="hidden" id="modalLogId" name="log_id"> </form>
+
+<script>
+
 <script>
     let logIdToReset = null;
 
     // --- Modal Form ---
-    function openLogModal(dateStr, activity, timeIn) {
+    function openLogModal(dateStr, activity, timeIn, logId) {
         document.getElementById('modalDate').value = dateStr;
         document.getElementById('modalLogId').value = logId;
         // Decode HTML entities
