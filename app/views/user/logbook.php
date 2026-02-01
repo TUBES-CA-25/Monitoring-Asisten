@@ -137,7 +137,7 @@
                                     </div>
                                 <?php else: ?>
                                     <div class="flex justify-center items-center gap-2">
-                                        <button onclick="openLogModal('<?= $log['date'] ?>', '<?= addslashes($log['activity']) ?>', '<?= $log['time_in'] ?>')" 
+                                        <button onclick="openLogModal('<?= $log['date'] ?>', `<?= htmlspecialchars($log['activity']) ?>`, '<?= $log['time_in'] ?>', '<?= $log['log_id'] ?>')"
                                                 class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold shadow-sm transition hover:shadow-md active:scale-95 flex items-center gap-1">
                                             <i class="fas fa-pen"></i> <?= empty($log['activity']) ? 'Isi' : 'Edit' ?>
                                         </button>
