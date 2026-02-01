@@ -152,81 +152,81 @@ class AdminController extends Controller {
         $this->view('layout/footer');
     }
 
-    public function addUser() {
-        // 1. Cek Akses
-        $this->checkAccess(['Admin']);
+    // public function addUser() {
+    //     // 1. Cek Akses
+    //     $this->checkAccess(['Admin']);
 
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            ob_clean(); 
-            header('Content-Type: application/json');
+    //     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    //         ob_clean(); 
+    //         header('Content-Type: application/json');
 
-            // --- [PERBAIKAN] Validasi Jabatan Wajib ---
-            if (empty($_POST['position'])) {
-                echo json_encode([
-                    'status' => 'error', 
-                    'title' => 'Data Belum Lengkap', 
-                    'message' => 'Jabatan wajib dipilih agar data valid.'
-                ]);
-                exit;
-            }
+    //         // --- [PERBAIKAN] Validasi Jabatan Wajib ---
+    //         if (empty($_POST['position'])) {
+    //             echo json_encode([
+    //                 'status' => 'error', 
+    //                 'title' => 'Data Belum Lengkap', 
+    //                 'message' => 'Jabatan wajib dipilih agar data valid.'
+    //             ]);
+    //             exit;
+    //         }
 
-            $photoName = 'default.jpg'; 
+    //         $photoName = 'default.jpg'; 
             
-            // 2. Logika Upload Foto
-            if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
-                $targetDir = "../public/uploads/profile/";
-                if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+    //         // 2. Logika Upload Foto
+    //         if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
+    //             $targetDir = "../public/uploads/profile/";
+    //             if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
                 
-                $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
-                $targetFilePath = $targetDir . $fileName;
-                $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
+    //             $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
+    //             $targetFilePath = $targetDir . $fileName;
+    //             $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
                 
-                if (in_array(strtolower($fileType), ['jpg', 'jpeg', 'png', 'webp'])) {
-                    if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
-                        $photoName = $fileName;
-                    }
-                }
-            }
+    //             if (in_array(strtolower($fileType), ['jpg', 'jpeg', 'png', 'webp'])) {
+    //                 if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
+    //                     $photoName = $fileName;
+    //                 }
+    //             }
+    //         }
 
-            $role = $_POST['role'];
-            $isUser = ($role == 'User');
+    //         $role = $_POST['role'];
+    //         $isUser = ($role == 'User');
             
-            // Cek kelengkapan profil dasar
-            $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
+    //         // Cek kelengkapan profil dasar
+    //         $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
 
-            // 3. Susun Data (Jabatan sekarang langsung diambil karena sudah divalidasi)
-            $data = [
-                'email'    => $_POST['email'],
-                'password' => $_POST['password'], 
-                'role'     => $role,
-                'name'     => $_POST['name'],
+    //         // 3. Susun Data (Jabatan sekarang langsung diambil karena sudah divalidasi)
+    //         $data = [
+    //             'email'    => $_POST['email'],
+    //             'password' => $_POST['password'], 
+    //             'role'     => $role,
+    //             'name'     => $_POST['name'],
                 
-                // Gunakan String Kosong '' atau NULL sesuai DB (Model Anda sudah handle jadi NULL jika kosong)
-                'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : '',
-                'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : '',
-                'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : '',
-                'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : 0,
-                'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : '',
+    //             // Gunakan String Kosong '' atau NULL sesuai DB (Model Anda sudah handle jadi NULL jika kosong)
+    //             'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : '',
+    //             'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : '',
+    //             'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : '',
+    //             'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : 0,
+    //             'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : '',
                 
-                // [PENTING] Langsung ambil post position
-                'position' => $_POST['position'], 
+    //             // [PENTING] Langsung ambil post position
+    //             'position' => $_POST['position'], 
                 
-                'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
-                'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
-                'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
-                'photo'    => $photoName,
-                'is_completed' => $isCompleted
-            ];
+    //             'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
+    //             'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
+    //             'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
+    //             'photo'    => $photoName,
+    //             'is_completed' => $isCompleted
+    //         ];
 
-            // 4. Eksekusi ke Model
-            if ($this->model('UserModel')->createUser($data)) {
-                echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
-            } else {
-                echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user. Email mungkin sudah ada.']);
-            }
-            exit;
-        }
-    }
+    //         // 4. Eksekusi ke Model
+    //         if ($this->model('UserModel')->createUser($data)) {
+    //             echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
+    //         } else {
+    //             echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user. Email mungkin sudah ada.']);
+    //         }
+    //         exit;
+    //     }
+    // }
 
     public function editUser() {
         $this->checkAccess(['Admin']);
