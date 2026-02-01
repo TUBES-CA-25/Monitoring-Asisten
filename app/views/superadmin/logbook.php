@@ -149,8 +149,8 @@
         const fd = new FormData();
         fd.append('user_id', userId);
 
-        // Fetch Data Unified dari SuperAdminController
-        fetch('<?= BASE_URL ?>/superadmin/getLogsByUser', { method: 'POST', body: fd })
+        // Fetch Data Unified dari KepalaController
+        fetch('<?= BASE_URL ?>/kepalalab/getLogsByUser', { method: 'POST', body: fd })
         .then(res => res.json())
         .then(data => renderTable(data))
         .catch(err => console.error('Error fetching logs:', err));
