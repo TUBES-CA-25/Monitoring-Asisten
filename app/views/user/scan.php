@@ -277,6 +277,25 @@
         setTimeout(startSelfieCamera, 500); 
     });
 }
+        async function startSelfieCamera() {
+            try {
+                selfieStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1080 } }, 
+                    audio: false 
+                });
+                videoEl.srcObject = selfieStream;
+                console.log("Kamera selfie berhasil dimulai");
+            } catch (err) {
+                console.error("Gagal membuka kamera:", err);
+                try {
+                    // Fallback jika resolusi ideal tidak didukung perangkat
+                    selfieStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    videoEl.srcObject = selfieStream;
+                } catch (err2) {
+                    showModal('error', 'Kamera Error', 'Tidak dapat mengakses kamera: ' + err2.message);
+                }
+            }
+        }
 
         // 4. SNAPSHOT + WATERMARK ALAMAT
         function takeSnapshot() {
