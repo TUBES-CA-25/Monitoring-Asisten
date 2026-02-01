@@ -393,6 +393,10 @@
             document.getElementById('qrContent').classList.add('scale-100', 'opacity-100'); 
         }, 10);
         
+        if(currentMode === 'check_in' && qrDataIn) {
+        qrCodeObj.makeCode(qrDataIn);
+    }
+
         setQRMode(true); 
     }
 
