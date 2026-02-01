@@ -4,9 +4,6 @@ class AdminController extends Controller {
     public function index() { $this->dashboard(); }
 
     public function dashboard() {
-        // if (!isset($_SESSION['role']) || ($_SESSION['role'] != 'Admin' && $_SESSION['role'] != 'Super Admin')) {
-        //     header("Location: " . BASE_URL . "/auth/login"); exit;
-        // }
         $this->checkAccess(['Admin']);
 
         $data['asisten'] = $this->model('UserModel')->getAssistants();
@@ -47,7 +44,7 @@ class AdminController extends Controller {
         foreach ($assistants as &$ast) {
             $pid = $ast['id_profil'];
 
-            // 1. Cek Status Visual (Logic Lama Tetap Ada)
+            // 1. Cek Status Visual
             $stmtP = $conn->prepare("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
             $stmtP->execute([':pid' => $pid]);
             $presensi = $stmtP->fetch(PDO::FETCH_ASSOC);
@@ -64,65 +61,54 @@ class AdminController extends Controller {
                 $ast['visual_status'] = 'alpha';
             }
 
-            // 2. [BARU] HITUNG STATISTIK INDIVIDU (REAL DATA)
-            // Hitung Total Hadir
+            // 2. Hitung Statistik Individu
             $stmtH = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
             $stmtH->execute([':pid' => $pid]);
             $ast['total_hadir'] = $stmtH->fetchColumn();
 
-            // Hitung Total Izin/Sakit
             $stmtIz = $conn->prepare("SELECT COUNT(*) FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
             $stmtIz->execute([':pid' => $pid]);
             $ast['total_izin'] = $stmtIz->fetchColumn();
 
-            // Hitung Total Alpa (Berdasarkan data yang tersimpan di DB sebagai 'Alpha')
             $ast['total_alpa'] = $userModel->calculateRealAlpha($pid, $ast['created_at'], $ast['is_completed']);
-            // $stmtA = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Alpha'");
-            // $stmtA->execute([':pid' => $pid]);
-            // $ast['total_alpa'] = $stmtA->fetchColumn();
         }
 
         $data['assistants'] = $assistants;
         $chartData = [];
         
-        // A. Harian (7 Hari Terakhir)
+        // A. Harian
         $dLabels = []; $dData = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-$i days"));
             $dLabels[] = date('d M', strtotime($date));
-            // Hitung total kehadiran semua asisten pada tanggal tersebut
             $stmt = $conn->query("SELECT COUNT(*) FROM presensi WHERE tanggal = '$date' AND status = 'Hadir'");
             $dData[] = $stmt->fetchColumn();
         }
         $chartData['daily'] = ['labels' => $dLabels, 'data' => $dData];
 
-        // B. Mingguan (4 Minggu Terakhir)
+        // B. Mingguan
         $wLabels = []; $wData = [];
         for ($i = 3; $i >= 0; $i--) {
-            // Hitung start (Senin) dan end (Minggu) untuk minggu ke-$i yg lalu
             $wStart = date('Y-m-d', strtotime("-$i weeks Monday this week"));
             $wEnd   = date('Y-m-d', strtotime("-$i weeks Sunday this week"));
             $wLabels[] = "Minggu " . date('W', strtotime($wStart));
-            
             $stmt = $conn->query("SELECT COUNT(*) FROM presensi WHERE tanggal BETWEEN '$wStart' AND '$wEnd' AND status = 'Hadir'");
             $wData[] = $stmt->fetchColumn();
         }
         $chartData['weekly'] = ['labels' => $wLabels, 'data' => $wData];
 
-        // C. Bulanan (6 Bulan Terakhir)
+        // C. Bulanan
         $mLabels = []; $mData = [];
         for ($i = 5; $i >= 0; $i--) {
             $mStart = date('Y-m-01', strtotime("-$i months"));
             $mEnd   = date('Y-m-t', strtotime("-$i months"));
             $mLabels[] = date('F', strtotime($mStart));
-            
             $stmt = $conn->query("SELECT COUNT(*) FROM presensi WHERE tanggal BETWEEN '$mStart' AND '$mEnd' AND status = 'Hadir'");
             $mData[] = $stmt->fetchColumn();
         }
         $chartData['monthly'] = ['labels' => $mLabels, 'data' => $mData];
 
         $data['chart_data'] = $chartData;
-        // $data['chart_data'] = $attModel->getChartData();
 
         // QR Code
         $qrModel = $this->model('QrModel');
@@ -136,7 +122,6 @@ class AdminController extends Controller {
     }
 
     public function manageUsers() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         $data['judul'] = 'Manajemen Pengguna';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -156,7 +141,6 @@ class AdminController extends Controller {
         $stmt->execute();
         $allUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Dropdown Lab (Tetap Ada)
         $db->query("SELECT * FROM lab ORDER BY nama_lab ASC");
         $data['labs'] = $db->resultSet();
 
@@ -168,85 +152,27 @@ class AdminController extends Controller {
         $this->view('layout/footer');
     }
 
-    // public function addUser() {
-    //     // if ($_SESSION['role'] != 'Admin') exit;
-    //     $this->checkAccess(['Admin']);
-
-    //     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    //         ob_clean(); 
-    //         header('Content-Type: application/json');
-
-    //         $photoName = 'default.jpg'; // Default foto
-            
-    //         // Logika Upload Foto
-    //         if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
-    //             $targetDir = "../public/uploads/profile/";
-    //             if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-                
-    //             $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
-    //             $targetFilePath = $targetDir . $fileName;
-    //             $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
-                
-    //             if (in_array(strtolower($fileType), ['jpg', 'jpeg', 'png', 'webp'])) {
-    //                 if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
-    //                     $photoName = $fileName;
-    //                 }
-    //             }
-    //         }
-
-    //         $role = $_POST['role'];
-    //         $isUser = ($role == 'User');
-            
-    //         // Logic Completed: Hanya jika field opsional diisi
-    //         $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
-
-    //         // [PERBAIKAN PENTING] 
-    //         // Gunakan !empty() agar jika input kosong dikirim sebagai NULL ke database
-    //         // Ini mencegah error saat input data wajib saja.
-    //         $data = [
-    //             'email'    => $_POST['email'],
-    //             'password' => $_POST['password'], 
-    //             'role'     => $role,
-    //             'name'     => $_POST['name'],
-                
-    //             // Data Opsional (Ubah "" menjadi NULL)
-    //             'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : null,
-    //             'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : null,
-    //             'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : null,
-    //             'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : null,
-    //             'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : null,
-                
-    //             'position' => !empty($_POST['position']) ? $_POST['position'] : null,
-    //             'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : null,
-    //             'alamat'   => !empty($_POST['address']) ? $_POST['address'] : null,
-    //             'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : null,
-    //             'photo'    => $photoName,
-    //             'is_completed' => $isCompleted
-    //         ];
-
-    //         if ($this->model('UserModel')->createUser($data)) {
-    //             echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
-    //         } else {
-    //             // Pesan error lebih spesifik biasanya karena duplikat email
-    //             echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user (Email mungkin sudah ada).']);
-    //         }
-    //         exit;
-    //     }
-    // }
-
-
     public function addUser() {
         // 1. Cek Akses
         $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            // Bersihkan output buffer agar JSON bersih
             ob_clean(); 
             header('Content-Type: application/json');
 
+            // --- [PERBAIKAN] Validasi Jabatan Wajib ---
+            if (empty($_POST['position'])) {
+                echo json_encode([
+                    'status' => 'error', 
+                    'title' => 'Data Belum Lengkap', 
+                    'message' => 'Jabatan wajib dipilih agar data valid.'
+                ]);
+                exit;
+            }
+
             $photoName = 'default.jpg'; 
             
-            // 2. Logika Upload Foto (Tidak Ada Perubahan)
+            // 2. Logika Upload Foto
             if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 $targetDir = "../public/uploads/profile/";
                 if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
@@ -268,24 +194,23 @@ class AdminController extends Controller {
             // Cek kelengkapan profil dasar
             $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
 
-            // 3. [PERBAIKAN UTAMA ADA DI SINI]
-            // Mengubah 'null' menjadi '' (string kosong) agar Database tidak menolak data
+            // 3. Susun Data (Jabatan sekarang langsung diambil karena sudah divalidasi)
             $data = [
                 'email'    => $_POST['email'],
                 'password' => $_POST['password'], 
                 'role'     => $role,
                 'name'     => $_POST['name'],
                 
-                // Ganti null dengan '' (String Kosong)
+                // Gunakan String Kosong '' atau NULL sesuai DB (Model Anda sudah handle jadi NULL jika kosong)
                 'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : '',
                 'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : '',
                 'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : '',
-                
-                // Untuk ID/Angka, gunakan 0 jika kosong
                 'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : 0,
-                
                 'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : '',
-                'position' => !empty($_POST['position']) ? $_POST['position'] : '',
+                
+                // [PENTING] Langsung ambil post position
+                'position' => $_POST['position'], 
+                
                 'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
                 'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
                 'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
@@ -295,35 +220,30 @@ class AdminController extends Controller {
 
             // 4. Eksekusi ke Model
             if ($this->model('UserModel')->createUser($data)) {
-                echo json_encode([
-                    'status' => 'success', 
-                    'title' => 'Berhasil', 
-                    'message' => 'User baru berhasil ditambahkan.'
-                ]);
+                echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
             } else {
-                // Jika masih gagal, pesannya tetap ini, tapi kemungkinan besar sudah berhasil
-                echo json_encode([
-                    'status' => 'error', 
-                    'title' => 'Gagal', 
-                    'message' => 'Gagal menambah user. Email mungkin sudah ada atau data tidak valid.'
-                ]);
+                echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user. Email mungkin sudah ada.']);
             }
             exit;
         }
     }
 
     public function editUser() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ob_clean();
             header('Content-Type: application/json');
 
+            // --- [PERBAIKAN] Validasi Jabatan Wajib di Edit Juga ---
+            if (empty($_POST['position'])) {
+                echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Jabatan tidak boleh dikosongkan.']);
+                exit;
+            }
+
             $oldUser = $this->model('UserModel')->getUserById($_POST['id_user']);
             $photoName = $oldUser['photo_profile'];
 
-            // Logika Upload Foto
             if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 $targetDir = "../public/uploads/profile/";
                 $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
@@ -357,7 +277,9 @@ class AdminController extends Controller {
                 'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : null,
                 'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : null,
                 
-                'position' => !empty($_POST['position']) ? $_POST['position'] : null,
+                // [PENTING] Langsung ambil post position
+                'position' => $_POST['position'],
+                
                 'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : null,
                 'alamat'   => !empty($_POST['address']) ? $_POST['address'] : null,
                 'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : null,
@@ -365,11 +287,7 @@ class AdminController extends Controller {
                 'is_completed' => $isCompleted
             ];
 
-            if (!empty($_POST['password'])) {
-                $this->model('UserModel')->changePassword($data['id'], $_POST['password']);
-            }
-
-            // Panggil Model Update
+            // Update user via Model
             $updateResult = $this->model('UserModel')->updateUser($data);
 
             if ($updateResult) {
@@ -382,7 +300,6 @@ class AdminController extends Controller {
     }
 
     public function deleteUser() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         
         if (isset($_GET['id'])) {
@@ -399,28 +316,22 @@ class AdminController extends Controller {
     }
 
     public function monitorAttendance() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);        
         
         $data['judul'] = 'Rekap Presensi';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $attModel = $this->model('AttendanceModel');
 
-        // 1. Ambil Data untuk Dropdown Filter
         $data['assistants_list'] = $attModel->getAllAssistantsList();
 
-        // 2. Tangkap Input Filter
-        // Logika: Jika tanggal kosong, default ke Hari Ini
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
         $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
 
-        // Kirim parameter ke View agar input filter tetap terisi
         $data['start_date'] = $startDate;
         $data['end_date'] = $endDate;
         $data['selected_assistant'] = $assistantId;
 
-        // 3. Ambil Data Rekap (Model Pintar: Generate Alpha Otomatis)
         $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
 
         $this->view('layout/header', $data);
@@ -430,7 +341,6 @@ class AdminController extends Controller {
     }
 
     public function exportCsv() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
@@ -445,7 +355,6 @@ class AdminController extends Controller {
         header('Content-Disposition: attachment; filename="' . $filename . '"');
 
         $output = fopen('php://output', 'w');
-        // Header CSV
         fputcsv($output, ['No', 'Tanggal', 'Nama Asisten', 'NIM', 'Jabatan', 'Jam Masuk', 'Jam Pulang', 'Status']);
 
         $no = 1;
@@ -466,7 +375,6 @@ class AdminController extends Controller {
     }
 
     public function exportPdf() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
@@ -479,7 +387,6 @@ class AdminController extends Controller {
         $data['start_date'] = $startDate;
         $data['end_date'] = $endDate;
         
-        // Nama Filter untuk Judul PDF
         $data['assistant_name'] = 'Semua Asisten';
         if($assistantId) {
             $user = $this->model('UserModel')->getUserById($assistantId);
@@ -490,7 +397,6 @@ class AdminController extends Controller {
     }
 
     public function schedule() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         $data['judul'] = 'Kelola Jadwal';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -507,7 +413,6 @@ class AdminController extends Controller {
     }
 
     public function addSchedule() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $type = $_POST['type']; 
@@ -526,7 +431,6 @@ class AdminController extends Controller {
     }
 
     public function editSchedule() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $type = $_POST['type'];
@@ -545,7 +449,6 @@ class AdminController extends Controller {
     }
 
     public function deleteSchedule() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         if (isset($_GET['id']) && isset($_GET['type'])) {
             if ($this->model('ScheduleModel')->deleteSchedule($_GET['id'], $_GET['type'])) {
@@ -559,12 +462,10 @@ class AdminController extends Controller {
     }
 
     public function logbook() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         $data['judul'] = 'Monitoring Logbook';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
-        // Ambil daftar user aktif untuk sidebar
         $allUsers = $this->model('UserModel')->getAllUsers();
         $data['assistants'] = array_filter($allUsers, fn($u) => $u['role'] == 'User');
 
@@ -574,29 +475,20 @@ class AdminController extends Controller {
         $this->view('layout/footer');
     }
     
-    // [UPDATE] Mengambil Data Logbook (Unified Data)
     public function getLogsByUser() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         $userId = $_POST['user_id'] ?? 0;
-        
-        // Panggil Model Cerdas (Unified) agar Admin melihat status Alpha/Izin/Hadir yang akurat
         $logs = $this->model('LogbookModel')->getUnifiedLogbook($userId);
-        
         echo json_encode($logs);
     }
     
-    // [BARU] Fitur Super Reset (Admin)
     public function reset_logbook() {
-        // if ($_SESSION['role'] != 'Admin') { 
-        //     echo json_encode(['status'=>'error', 'message'=>'Unauthorized']); exit; 
-        // }
         $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $idRef = $_POST['id_ref']; // ID Presensi atau ID Izin
-            $type = $_POST['type'];    // 'Hadir' atau 'Izin'
-            $mode = $_POST['mode'];    // 'partial' (Hapus Ket) atau 'full' (Hapus Data)
+            $idRef = $_POST['id_ref']; 
+            $type = $_POST['type'];    
+            $mode = $_POST['mode'];    
 
             if ($this->model('LogbookModel')->resetLogAdmin($idRef, $type, $mode)) {
                 echo json_encode(['status' => 'success', 'message' => 'Logbook berhasil direset.']);
@@ -607,13 +499,10 @@ class AdminController extends Controller {
     }
 
     public function saveLogbookAdmin() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
         
-        // Setup Upload Config
         $fileName = null;
         if (isset($_FILES['proof_file']['name']) && $_FILES['proof_file']['name'] != "") {
-            // Tentukan folder berdasarkan status (Attendance / Leaves)
             $status = $_POST['status'];
             $folder = ($status == 'Hadir') ? 'attendance' : 'leaves';
             $targetDir = "../public/uploads/$folder/";
@@ -644,15 +533,12 @@ class AdminController extends Controller {
     }
     
     public function deleteLogbook() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
-
         $id = $_POST['id'];
         if ($this->model('LogbookModel')->deleteLogAdmin($id)) echo json_encode(['status'=>'success']); else echo json_encode(['status'=>'error']);
     }
     
     public function profile() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);        
 
         $data['judul'] = 'Profil Admin';
@@ -665,17 +551,13 @@ class AdminController extends Controller {
         $stmtG->execute([':uid' => $_SESSION['user_id']]);
         $data['is_google_connected'] = $stmtG->rowCount() > 0;
         
-        // 1. Total Asisten
         $stmt = $conn->query("SELECT COUNT(*) as total FROM user WHERE role='User'");
         $data['total_managed_users'] = $stmt->fetch()['total'];
 
-        // 2. Chart Kehadiran
         $attModel = $this->model('AttendanceModel');
         $data['chart_data'] = $attModel->getChartData(); 
 
         $userModel = $this->model('UserModel');
-
-        // 3. Demografi
         $data['demographics'] = $userModel->getDemographics();
 
         $stmtSch = $conn->query("SELECT * FROM jadwal_lab 
@@ -684,15 +566,12 @@ class AdminController extends Controller {
                                  LIMIT 5");
         $rawSchedules = $stmtSch->fetchAll(PDO::FETCH_ASSOC);
         
-        // Format Tanggal & Mapping Key untuk View
         foreach ($rawSchedules as &$sch) {
             $sch['display_date'] = date('d M Y', strtotime($sch['tanggal']));
-            // Menambahkan key 'type' manual agar sesuai dengan logika view
             $sch['type'] = 'umum'; 
         }
         $data['upcoming_schedules'] = $rawSchedules;
         
-        // 5. Peringkat Asisten
         $data['rankings'] = [
             'online' => $userModel->getAssistantRankings('online'),
             'rajin' => $userModel->getAssistantRankings('rajin'),
@@ -713,27 +592,22 @@ class AdminController extends Controller {
     }
     
     public function editProfile() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
-
         $data['judul'] = 'Edit Profil Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $this->view('layout/header', $data); $this->view('layout/sidebar', $data); $this->view('common/edit_profile', $data); $this->view('layout/footer');
     }
     
     public function updateProfile() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $userModel = $this->model('UserModel');
             $currentUser = $userModel->getUserById($_SESSION['user_id']);
 
-            // --- LOGIKA UPLOAD FOTO (Tetap Sama) ---
             $photoName = $currentUser['photo_profile'];
             $targetDir = "../public/uploads/profile/";
 
-            // Cek Base64 Cropper
             if (!empty($_POST['cropped_image'])) {
                 $dataImg = $_POST['cropped_image'];
                 if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
@@ -753,7 +627,6 @@ class AdminController extends Controller {
                     }
                 }
             } 
-            // Cek Upload Biasa
             elseif (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
                 $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
@@ -763,8 +636,6 @@ class AdminController extends Controller {
                 }
             }
 
-            // [LOGIC BARU] Cek Kelengkapan Profil Admin
-            // Jika Nama, HP, dan Alamat terisi -> Set Completed = 1
             $isCompleted = 0;
             if (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) {
                 $isCompleted = 1;
@@ -789,7 +660,6 @@ class AdminController extends Controller {
                 $_SESSION['name'] = $_POST['name'];
                 $_SESSION['jabatan'] = $_POST['position'];
                 
-                // [PERBAIKAN UTAMA: Masalah Undefined & Redirect]
                 echo json_encode([
                     'status'   => 'success', 
                     'title'    => 'Berhasil', 
@@ -804,13 +674,11 @@ class AdminController extends Controller {
     }
 
     public function getQrAjax() {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);    
 
-        $type = $_POST['type'] ?? 'check_in'; // 'check_in' atau 'check_out'
+        $type = $_POST['type'] ?? 'check_in'; 
         $token = $this->model('QrModel')->getOrGenerateToken($type);
         
-        // Format JSON agar bisa dibaca oleh QRCodeJS di frontend
         $qrString = json_encode([
             'type' => ($type == 'check_in') ? 'CHECK_IN' : 'CHECK_OUT', 
             'token' => $token
@@ -820,7 +688,6 @@ class AdminController extends Controller {
     }
 
     public function assistantSchedule($id) {
-        // if ($_SESSION['role'] != 'Admin') exit;
         $this->checkAccess(['Admin']);
 
         $assistant = $this->model('UserModel')->getUserById($id);
@@ -841,21 +708,26 @@ class AdminController extends Controller {
         $this->view('layout/footer');
     }
 
-    // // --- FUNGSI BANTUAN UNTUK CEK AKSES & ERROR 401 ---
-    // private function checkAccess($allowedRoles = ['Admin']) {
-    //     // 1. Cek Login
-    //     if (!isset($_SESSION['role'])) {
-    //         header("Location: " . BASE_URL . "/auth/login");
-    //         exit;
-    //     }
+    // --- FUNGSI BANTUAN UNTUK CEK AKSES (DIAKTIFKAN KEMBALI) ---
+    private function checkAccess($allowedRoles = ['Admin']) {
+        // 1. Cek Login
+        if (!isset($_SESSION['role'])) {
+            header("Location: " . BASE_URL . "/auth/login");
+            exit;
+        }
 
-    //     // 2. Cek Role (Jika role user tidak ada dalam daftar yang diizinkan)
-    //     if (!in_array($_SESSION['role'], $allowedRoles)) {
-    //         require_once '../app/controllers/ErrorController.php';
-    //         $error = new ErrorController();
-    //         $error->unauthorized();
-    //         exit; // Matikan script agar halaman admin tidak bocor
-    //     }
-    // }
+        // 2. Cek Role (Jika role user tidak ada dalam daftar yang diizinkan)
+        if (!in_array($_SESSION['role'], $allowedRoles)) {
+            // Pastikan file ErrorController ada, jika tidak, redirect ke login
+            if (file_exists('../app/controllers/ErrorController.php')) {
+                require_once '../app/controllers/ErrorController.php';
+                $error = new ErrorController();
+                $error->unauthorized();
+            } else {
+                header("Location: " . BASE_URL . "/auth/login");
+            }
+            exit; // Matikan script agar halaman admin tidak bocor
+        }
+    }
 }
 ?>
