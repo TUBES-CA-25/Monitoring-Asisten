@@ -292,7 +292,7 @@ class AdminController extends Controller {
                 'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
                 'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
                 'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
-                'photo' => $data['photo'],
+                'photo'    => $photoName,
                 'is_completed' => $isCompleted
             ];
 
