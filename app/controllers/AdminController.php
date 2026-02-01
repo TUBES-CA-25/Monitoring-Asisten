@@ -227,94 +227,76 @@ class AdminController extends Controller {
     //         exit;
     //     }
     // }
+    
     public function addUser() {
-        // 1. Cek Akses
-        $this->checkAccess(['Admin']);
+    $this->checkAccess(['Admin']);
 
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            ob_clean(); 
-            header('Content-Type: application/json');
+    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        ob_clean(); 
+        header('Content-Type: application/json');
 
-            // --- [VALIDASI] Jabatan Wajib ---
-            if (empty($_POST['position'])) {
-                echo json_encode([
-                    'status' => 'error', 
-                    'title' => 'Data Belum Lengkap', 
-                    'message' => 'Jabatan wajib dipilih agar data valid.'
-                ]);
-                exit;
-            }
-
-            $photoName = 'default.jpg'; 
-            
-            // 2. Logika Upload Foto (DIPERBAIKI)
-            if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-                // Menggunakan path absolut agar server lebih mudah menemukan folder
-                $targetDir = $_SERVER['DOCUMENT_ROOT'] . "/ICLABS/public/uploads/profile/";
-                
-                // Buat folder jika belum ada
-                if (!file_exists($targetDir)) {
-                    mkdir($targetDir, 0777, true);
-                }
-                
-                $fileExtension = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
-                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-                
-                // Validasi Tipe File
-                if (in_array($fileExtension, $allowedExtensions)) {
-                    // Cek Ukuran File (Maksimal 2MB)
-                    if ($_FILES["photo"]["size"] <= 2048000) {
-                        $newFileName = time() . '_' . uniqid() . '.' . $fileExtension;
-                        $targetFilePath = $targetDir . $newFileName;
-
-                        if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
-                            $photoName = $newFileName;
-                        } else {
-                            // Jika gagal pindah file, informasikan error folder
-                            echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal memindahkan file ke folder uploads. Cek izin folder server.']);
-                            exit;
-                        }
-                    } else {
-                        echo json_encode(['status' => 'error', 'title' => 'File Terlalu Besar', 'message' => 'Ukuran foto maksimal adalah 2MB.']);
-                        exit;
-                    }
-                }
-            }
-
-            $role = $_POST['role'];
-            $isUser = ($role == 'User');
-            
-            // Cek kelengkapan profil dasar
-            $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
-
-            // 3. Susun Data
-            $data = [
-                'email'    => $_POST['email'],
-                'password' => $_POST['password'], 
-                'role'     => $role,
-                'name'     => $_POST['name'],
-                'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : '',
-                'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : '',
-                'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : '',
-                'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : 0,
-                'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : '',
-                'position' => $_POST['position'], 
-                'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
-                'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
-                'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
-                'photo'    => $photoName, // Menggunakan variabel foto yang baru
-                'is_completed' => $isCompleted
-            ];
-
-            // 4. Eksekusi ke Model
-            if ($this->model('UserModel')->createUser($data)) {
-                echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
-            } else {
-                echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menyimpan data ke database. Cek apakah email sudah terdaftar.']);
-            }
+        if (empty($_POST['position'])) {
+            echo json_encode(['status' => 'error', 'title' => 'Data Belum Lengkap', 'message' => 'Jabatan wajib dipilih.']);
             exit;
         }
+
+        $photoName = 'default.jpg'; 
+        
+        // --- PERBAIKAN LOGIKA UPLOAD ---
+        if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+            // Gunakan Document Root agar folder PASTI ditemukan
+            $targetDir = $_SERVER['DOCUMENT_ROOT'] . "/ICLABS/public/uploads/profile/";
+            
+            if (!file_exists($targetDir)) {
+                mkdir($targetDir, 0777, true);
+            }
+            
+            $fileExtension = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
+            
+            // Validasi Tipe & Ukuran (Maks 2MB)
+            if (in_array($fileExtension, ['jpg', 'jpeg', 'png', 'webp']) && $_FILES["photo"]["size"] <= 2000000) {
+                $newFileName = time() . '_' . uniqid() . '.' . $fileExtension;
+                $targetFilePath = $targetDir . $newFileName;
+
+                if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
+                    $photoName = $newFileName;
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => 'Gagal memindahkan file ke folder uploads. Cek izin folder.']);
+                    exit;
+                }
+            }
+        }
+
+        $role = $_POST['role'];
+        $isUser = ($role == 'User');
+        $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
+
+        $data = [
+            'email'    => $_POST['email'],
+            'password' => $_POST['password'], 
+            'role'     => $role,
+            'name'     => $_POST['name'],
+            'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : '',
+            'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : '',
+            'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : '',
+            'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : 0,
+            'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : '',
+            'position' => $_POST['position'], 
+            'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
+            'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
+            'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
+            'photo'    => $photoName, // Variabel kunci untuk Model
+            'is_completed' => $isCompleted
+        ];
+
+        if ($this->model('UserModel')->createUser($data)) {
+            echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
+        } else {
+            echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user ke database.']);
+        }
+        exit;
     }
+}
 
     public function editUser() {
         $this->checkAccess(['Admin']);
