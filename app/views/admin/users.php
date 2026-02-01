@@ -342,7 +342,7 @@
         
         if (mode === 'add') {
             title.innerText = "Tambah Pengguna Baru";
-            document.getElementById('inputRole').value = 'User'; 
+            // document.getElementById('inputRole').value = 'User'; 
             document.getElementById('inputPass').required = true;
             document.getElementById('passReq').classList.remove('hidden');
             document.getElementById('passHint').innerText = "";
