@@ -168,17 +168,85 @@ class AdminController extends Controller {
         $this->view('layout/footer');
     }
 
+    // public function addUser() {
+    //     // if ($_SESSION['role'] != 'Admin') exit;
+    //     $this->checkAccess(['Admin']);
+
+    //     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    //         ob_clean(); 
+    //         header('Content-Type: application/json');
+
+    //         $photoName = 'default.jpg'; // Default foto
+            
+    //         // Logika Upload Foto
+    //         if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
+    //             $targetDir = "../public/uploads/profile/";
+    //             if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+                
+    //             $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
+    //             $targetFilePath = $targetDir . $fileName;
+    //             $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
+                
+    //             if (in_array(strtolower($fileType), ['jpg', 'jpeg', 'png', 'webp'])) {
+    //                 if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
+    //                     $photoName = $fileName;
+    //                 }
+    //             }
+    //         }
+
+    //         $role = $_POST['role'];
+    //         $isUser = ($role == 'User');
+            
+    //         // Logic Completed: Hanya jika field opsional diisi
+    //         $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
+
+    //         // [PERBAIKAN PENTING] 
+    //         // Gunakan !empty() agar jika input kosong dikirim sebagai NULL ke database
+    //         // Ini mencegah error saat input data wajib saja.
+    //         $data = [
+    //             'email'    => $_POST['email'],
+    //             'password' => $_POST['password'], 
+    //             'role'     => $role,
+    //             'name'     => $_POST['name'],
+                
+    //             // Data Opsional (Ubah "" menjadi NULL)
+    //             'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : null,
+    //             'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : null,
+    //             'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : null,
+    //             'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : null,
+    //             'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : null,
+                
+    //             'position' => !empty($_POST['position']) ? $_POST['position'] : null,
+    //             'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : null,
+    //             'alamat'   => !empty($_POST['address']) ? $_POST['address'] : null,
+    //             'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : null,
+    //             'photo'    => $photoName,
+    //             'is_completed' => $isCompleted
+    //         ];
+
+    //         if ($this->model('UserModel')->createUser($data)) {
+    //             echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
+    //         } else {
+    //             // Pesan error lebih spesifik biasanya karena duplikat email
+    //             echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user (Email mungkin sudah ada).']);
+    //         }
+    //         exit;
+    //     }
+    // }
+
+
     public function addUser() {
-        // if ($_SESSION['role'] != 'Admin') exit;
+        // 1. Cek Akses
         $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            // Bersihkan output buffer agar JSON bersih
             ob_clean(); 
             header('Content-Type: application/json');
 
-            $photoName = 'default.jpg'; // Default foto
+            $photoName = 'default.jpg'; 
             
-            // Logika Upload Foto
+            // 2. Logika Upload Foto (Tidak Ada Perubahan)
             if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 $targetDir = "../public/uploads/profile/";
                 if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
@@ -197,38 +265,48 @@ class AdminController extends Controller {
             $role = $_POST['role'];
             $isUser = ($role == 'User');
             
-            // Logic Completed: Hanya jika field opsional diisi
+            // Cek kelengkapan profil dasar
             $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
 
-            // [PERBAIKAN PENTING] 
-            // Gunakan !empty() agar jika input kosong dikirim sebagai NULL ke database
-            // Ini mencegah error saat input data wajib saja.
+            // 3. [PERBAIKAN UTAMA ADA DI SINI]
+            // Mengubah 'null' menjadi '' (string kosong) agar Database tidak menolak data
             $data = [
                 'email'    => $_POST['email'],
                 'password' => $_POST['password'], 
                 'role'     => $role,
                 'name'     => $_POST['name'],
                 
-                // Data Opsional (Ubah "" menjadi NULL)
-                'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : null,
-                'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : null,
-                'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : null,
-                'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : null,
-                'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : null,
+                // Ganti null dengan '' (String Kosong)
+                'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : '',
+                'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : '',
+                'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : '',
                 
-                'position' => !empty($_POST['position']) ? $_POST['position'] : null,
-                'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : null,
-                'alamat'   => !empty($_POST['address']) ? $_POST['address'] : null,
-                'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : null,
+                // Untuk ID/Angka, gunakan 0 jika kosong
+                'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : 0,
+                
+                'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : '',
+                'position' => !empty($_POST['position']) ? $_POST['position'] : '',
+                'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
+                'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
+                'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
                 'photo'    => $photoName,
                 'is_completed' => $isCompleted
             ];
 
+            // 4. Eksekusi ke Model
             if ($this->model('UserModel')->createUser($data)) {
-                echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
+                echo json_encode([
+                    'status' => 'success', 
+                    'title' => 'Berhasil', 
+                    'message' => 'User baru berhasil ditambahkan.'
+                ]);
             } else {
-                // Pesan error lebih spesifik biasanya karena duplikat email
-                echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user (Email mungkin sudah ada).']);
+                // Jika masih gagal, pesannya tetap ini, tapi kemungkinan besar sudah berhasil
+                echo json_encode([
+                    'status' => 'error', 
+                    'title' => 'Gagal', 
+                    'message' => 'Gagal menambah user. Email mungkin sudah ada atau data tidak valid.'
+                ]);
             }
             exit;
         }
