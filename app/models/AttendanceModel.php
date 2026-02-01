@@ -56,10 +56,13 @@ class AttendanceModel
         $data = $this->db->single();
 
         if (!$data) return false;
-        
+
         if ($data['waktu_pulang'] != null) {
             return false; 
         }
+
+        $query = "UPDATE presensi SET waktu_pulang = :time, foto_pulang = :img
+                  WHERE id_profil = :pid AND tanggal = :date";
         $this->db->query($query);
         $this->db->bind(':pid', $pId);
         $this->db->bind(':img', $img);
