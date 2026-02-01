@@ -168,8 +168,12 @@
             <button onclick="closeLogModal()" class="text-white/70 hover:text-white transition"><i class="fas fa-times"></i></button>
         </div>
         
-        <form id="logForm" onsubmit="submitLogbook(event)" class="p-6 space-y-5">
+        <!-- <form id="logForm" onsubmit="submitLogbook(event)" class="p-6 space-y-5">
+            <input type="hidden" id="modalDate" name="date">  -->
+
+            <form id="logForm" onsubmit="submitLogbook(event)" class="p-6 space-y-5">
             <input type="hidden" id="modalDate" name="date"> 
+            <input type="hidden" id="modalLogId" name="log_id">
             
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Jam Pencatatan</label>
