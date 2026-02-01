@@ -126,4 +126,44 @@ class AttendanceModel
             'daily'   => ['labels' => ['08:00', '10:00', '12:00', '14:00', '16:00'], 'data' => [0,0,0,0,0]]
         ];
     }
+
+    // Tambahkan ini di dalam class AttendanceModel
+    public function getUserStats($pId) {
+        $stats = [];
+        $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
+        $this->db->bind(':pid', $pId);
+        $stats['hadir'] = $this->db->single()['total'] ?? 0;
+
+        $this->db->query("SELECT COUNT(*) as total FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
+        $this->db->bind(':pid', $pId);
+        $stats['izin'] = $this->db->single()['total'] ?? 0;
+
+        return $stats;
+    }
+
+    public function getTodayAttendanceDetail($pId) {
+        $this->db->query("SELECT * FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
+        $this->db->bind(':pid', $pId);
+        $presensi = $this->db->single();
+
+        $this->db->query("SELECT * FROM izin WHERE id_profil = :pid AND CURDATE() BETWEEN start_date AND end_date AND status_approval = 'Approved'");
+        $this->db->bind(':pid', $pId);
+        $izin = $this->db->single();
+
+        return ['presensi' => $presensi, 'izin' => $izin];
+    }
+
+    public function getUserDailyChart($pId) {
+        $labels = []; $data = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-$i days"));
+            $labels[] = date('d M', strtotime($date));
+            
+            $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND tanggal = :d AND status = 'Hadir'");
+            $this->db->bind(':pid', $pId);
+            $this->db->bind(':d', $date);
+            $data[] = $this->db->single()['total'] ?? 0;
+        }
+        return ['labels' => $labels, 'data' => $data];
+    }
 }
