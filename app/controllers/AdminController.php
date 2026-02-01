@@ -709,7 +709,7 @@ class AdminController extends Controller {
     }
 
     // --- FUNGSI BANTUAN UNTUK CEK AKSES (DIAKTIFKAN KEMBALI) ---
-    private function checkAccess($allowedRoles = ['Admin']) {
+    protected function checkAccess($allowedRoles = ['Admin']) {
         // 1. Cek Login
         if (!isset($_SESSION['role'])) {
             header("Location: " . BASE_URL . "/auth/login");
