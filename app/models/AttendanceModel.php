@@ -31,11 +31,11 @@ class AttendanceModel
         if($this->db->single()) return false;
 
         $query = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, foto_presensi, status)
-                  VALUES (:pid, CURDATE(), CURTIME(), :img, 'Hadir')";
+                  VALUES (:pid, :date, :time, :img, 'Hadir')";
 
         $this->db->query($query);
         $this->db->bind(':pid', $pId);
-        $this->db->bind(':img', $img);
+        $this->db->bind(':date', $date);
         $this->db->bind(':time', $time);
         $this->db->bind(':img', $img);
         return $this->db->execute();
@@ -49,13 +49,18 @@ class AttendanceModel
         $date = date('Y-m-d');
         $time = date('H:i:s');
 
-        $query = "UPDATE presensi SET waktu_pulang = CURTIME(), foto_pulang = :img
-                  WHERE id_profil = :pid AND tanggal = CURDATE()";
+        $query = "UPDATE presensi SET waktu_pulang = :time, foto_pulang = :img
+                  WHERE id_profil = :pid AND tanggal = :date";
 
         $this->db->query($query);
         $this->db->bind(':pid', $pId);
         $this->db->bind(':img', $img);
-        return $this->db->execute();
+        $this->db->bind(':time', $time);
+        $this->db->bind(':date', $date);
+        f($this->db->execute()) {
+            return $this->db->rowCount() > 0;
+        }
+        return false;
     }
 
     public function getStatusColor($userId)
