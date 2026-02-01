@@ -176,9 +176,7 @@
                         </div> -->
 
                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1"> 
-                                Jabatan <span class="text-red-500">*</span>
-                            </label>
+                            <label class="block text-xs font-bold text-gray-500 mb-1"> Jabatan <span class="text-red-500">*</span></label>
                             <select name="position" id="inputPosition" onchange="toggleRoleFields()" required 
                                     class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
                                 <option value="" disabled selected>-- Pilih Jabatan --</option>
