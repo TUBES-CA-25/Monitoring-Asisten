@@ -322,7 +322,9 @@ class AdminController extends Controller {
             $photoName = $oldUser['photo_profile'];
 
             if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
-                $targetDir = "../public/uploads/profile/";
+                // Gunakan DOCUMENT_ROOT agar path mengarah ke folder fisik proyek Anda
+                $targetDir = $_SERVER['DOCUMENT_ROOT'] . "/ICLABS/public/uploads/profile/";
+
                 $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
                 $targetFilePath = $targetDir . $fileName;
                 $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
@@ -683,7 +685,8 @@ class AdminController extends Controller {
             $currentUser = $userModel->getUserById($_SESSION['user_id']);
 
             $photoName = $currentUser['photo_profile'];
-            $targetDir = "../public/uploads/profile/";
+            // Gunakan DOCUMENT_ROOT agar path mengarah ke folder fisik proyek Anda
+                $targetDir = $_SERVER['DOCUMENT_ROOT'] . "/ICLABS/public/uploads/profile/";
 
             if (!empty($_POST['cropped_image'])) {
                 $dataImg = $_POST['cropped_image'];
