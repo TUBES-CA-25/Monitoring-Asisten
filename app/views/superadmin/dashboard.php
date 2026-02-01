@@ -245,7 +245,7 @@
                         <div class="flex items-start gap-2"><i class="fas fa-map-marker-alt text-gray-300 w-4 mt-0.5"></i><span id="m_address" class="text-xs text-gray-600 leading-snug">-</span></div>
                     </div>
                     <div class="mt-6 w-full">
-                    <a id="btnSchedule" href="/superadmin/assistant_schedule" class="flex items-center justify-center w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 shadow-md transition-all transform hover:scale-[1.02]">
+                    <a id="btnSchedule" href="/kepalalab/assistant_schedule" class="flex items-center justify-center w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 shadow-md transition-all transform hover:scale-[1.02]">
                         <i class="fas fa-calendar-alt mr-2"></i> Jadwal Lengkap
                     </a>
                 </div>
@@ -372,7 +372,7 @@
         initModalChart(currentModalChartType);
 
         const btnSchedule = document.getElementById('btnSchedule');
-        const currentRole = window.location.href.includes('superadmin') ? 'superadmin' : 'admin';
+        const currentRole = window.location.href.includes('kepalalab') ? 'kepalalab' : 'admin';
         if (btnSchedule) {
             btnSchedule.href = `<?= BASE_URL ?>/${currentRole}/assistantSchedule/${user.id_user}`;
         }
