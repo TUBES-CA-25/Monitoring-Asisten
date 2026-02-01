@@ -85,7 +85,14 @@
         </div>
     </div>
 
+    <!-- <input type="hidden" id="scanned-token">
+    <input type="hidden" id="final-image-base64">
+    <input type="hidden" id="geo-lat" value="">
+    <input type="hidden" id="geo-lng" value="">
+    <input type="hidden" id="geo-address" value=""> -->
+
     <input type="hidden" id="scanned-token">
+    <input type="hidden" id="scanned-type"> 
     <input type="hidden" id="final-image-base64">
     <input type="hidden" id="geo-lat" value="">
     <input type="hidden" id="geo-lng" value="">
