@@ -1,5 +1,5 @@
 <?php
-class SuperAdminController extends Controller {
+class KepalaLabController extends Controller {
 
     public function index() { $this->dashboard(); }
 
