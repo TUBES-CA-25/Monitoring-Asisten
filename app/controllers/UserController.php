@@ -171,7 +171,8 @@ class UserController extends Controller {
         $targetDate = $_POST['date'] ?? date('Y-m-d');
         $logId = $_POST['log_id'] ?? null;
         
-        $att = $this->model('AttendanceModel')->validateLogbookEntry($pId, $today);
+        // $att = $this->model('AttendanceModel')->validateLogbookEntry($pId, $today);
+        $att = $this->model('AttendanceModel')->validateLogbookEntry($pId, $targetDate);
 
         if (!$att || !$att['waktu_presensi']) {
             echo json_encode(['status'=>'error', 'message'=>'Anda belum melakukan scan masuk!']); exit;
