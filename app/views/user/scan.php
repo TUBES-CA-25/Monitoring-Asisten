@@ -207,45 +207,76 @@
             html5QrcodeScanner.render(onScanSuccess, (err) => {});
         }
 
-        function onScanSuccess(decodedText) {
-            html5QrcodeScanner.clear().then(() => {
-                let cleanToken = decodedText;
-                try {
-                    const parsed = JSON.parse(decodedText);
-                    if (parsed.token) cleanToken = parsed.token;
-                } catch (e) {}
+        // function onScanSuccess(decodedText) {
+        //     html5QrcodeScanner.clear().then(() => {
+        //         let cleanToken = decodedText;
+        //         try {
+        //             const parsed = JSON.parse(decodedText);
+        //             if (parsed.token) cleanToken = parsed.token;
+        //         } catch (e) {}
 
-                document.getElementById('scanned-token').value = cleanToken;
+        //         document.getElementById('scanned-token').value = cleanToken;
                 
-                document.getElementById('step-scan').classList.add('hidden');
-                document.getElementById('step-selfie').classList.remove('hidden');
-                document.getElementById('controls-selfie').classList.remove('hidden');
-                document.getElementById('controls-selfie').classList.add('flex');
+        //         document.getElementById('step-scan').classList.add('hidden');
+        //         document.getElementById('step-selfie').classList.remove('hidden');
+        //         document.getElementById('controls-selfie').classList.remove('hidden');
+        //         document.getElementById('controls-selfie').classList.add('flex');
 
-                setTimeout(startSelfieCamera, 500); 
-            }).catch(err => {
-                console.error("Scanner Error", err);
-                location.reload();
-            });
+        //         setTimeout(startSelfieCamera, 500); 
+        //     }).catch(err => {
+        //         console.error("Scanner Error", err);
+        //         location.reload();
+        //     });
+        // }
+
+        // // 3. KAMERA
+        // async function startSelfieCamera() {
+        //     try {
+        //         selfieStream = await navigator.mediaDevices.getUserMedia({ 
+        //             video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1080 } }, 
+        //             audio: false 
+        //         });
+        //         videoEl.srcObject = selfieStream;
+        //     } catch (err) {
+        //         try {
+        //             selfieStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        //             videoEl.srcObject = selfieStream;
+        //         } catch (err2) {
+        //             showModal('error', 'Kamera Error', 'Gagal membuka kamera.');
+        //         }
+        //     }
+        // }
+
+        function onScanSuccess(decodedText) {
+    html5QrcodeScanner.clear().then(() => {
+        let cleanToken = decodedText;
+        let type = 'check_in'; // Default
+
+        try {
+            // Mengurai JSON dari QR Admin
+            const parsed = JSON.parse(decodedText);
+            if (parsed.token) cleanToken = parsed.token;
+            
+            // Konversi tipe: CHECK_IN -> check_in, CHECK_OUT -> check_out
+            if (parsed.type === 'CHECK_IN') type = 'check_in';
+            if (parsed.type === 'CHECK_OUT') type = 'check_out';
+        } catch (e) {
+            console.warn("Format QR bukan JSON, menggunakan token mentah.");
         }
 
-        // 3. KAMERA
-        async function startSelfieCamera() {
-            try {
-                selfieStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1080 } }, 
-                    audio: false 
-                });
-                videoEl.srcObject = selfieStream;
-            } catch (err) {
-                try {
-                    selfieStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    videoEl.srcObject = selfieStream;
-                } catch (err2) {
-                    showModal('error', 'Kamera Error', 'Gagal membuka kamera.');
-                }
-            }
-        }
+        // Mengisi input hidden yang baru Anda buat
+        document.getElementById('scanned-token').value = cleanToken;
+        document.getElementById('scanned-type').value = type; 
+        
+        // Pindah ke tahap selfie
+        document.getElementById('step-scan').classList.add('hidden');
+        document.getElementById('step-selfie').classList.remove('hidden');
+        document.getElementById('controls-selfie').classList.remove('hidden');
+        document.getElementById('controls-selfie').classList.add('flex');
+
+        setTimeout(startSelfieCamera, 500); 
+    });
+}
 
         // 4. SNAPSHOT + WATERMARK ALAMAT
         function takeSnapshot() {
