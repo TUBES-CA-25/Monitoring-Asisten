@@ -1,4 +1,4 @@
-<?php
+<!-- <?php
 class AdminController extends Controller {
 
     public function index() { $this->dashboard(); }
@@ -292,7 +292,7 @@ class AdminController extends Controller {
                 'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
                 'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
                 'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
-                'photo'    => $photoName, 
+                'photo' => $data['photo'],
                 'is_completed' => $isCompleted
             ];
 
@@ -807,4 +807,4 @@ class AdminController extends Controller {
         }
     }
 }
-?>
+?> -->
