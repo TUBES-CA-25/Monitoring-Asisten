@@ -230,6 +230,7 @@
     // --- Modal Form ---
     function openLogModal(dateStr, activity, timeIn) {
         document.getElementById('modalDate').value = dateStr;
+        document.getElementById('modalLogId').value = logId;
         // Decode HTML entities
         const textArea = document.createElement('textarea');
         textArea.innerHTML = activity;
