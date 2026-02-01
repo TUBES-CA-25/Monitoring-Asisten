@@ -166,4 +166,169 @@ class AttendanceModel
         }
         return ['labels' => $labels, 'data' => $data];
     }
+
+    public function getAllAssistantsList() {
+        $this->db->query("SELECT u.id_user, p.nama, p.nim 
+                          FROM user u 
+                          JOIN profile p ON u.id_user = p.id_user 
+                          WHERE u.role = 'User' 
+                          ORDER BY p.nama ASC");
+        return $this->db->resultSet();
+    }
+
+    public function getAttendanceRecap($startDate, $endDate, $userId = null) {
+        $sqlP = "SELECT p.*, prof.nama, prof.nim, prof.jabatan, prof.id_user 
+                 FROM presensi p 
+                 JOIN profile prof ON p.id_profil = prof.id_profil 
+                 WHERE p.tanggal BETWEEN :start AND :end";
+        if ($userId) $sqlP .= " AND prof.id_user = :uid";
+        
+        $this->db->query($sqlP);
+        $this->db->bind(':start', $startDate);
+        $this->db->bind(':end', $endDate);
+        if ($userId) $this->db->bind(':uid', $userId);
+        $rawPresensi = $this->db->resultSet();
+
+        $sqlIz = "SELECT i.*, prof.id_user 
+                  FROM izin i 
+                  JOIN profile prof ON i.id_profil = prof.id_profil 
+                  WHERE i.status_approval = 'Approved' 
+                  AND (
+                      (i.start_date BETWEEN :start AND :end) OR 
+                      (i.end_date BETWEEN :start AND :end) OR
+                      (:start BETWEEN i.start_date AND i.end_date)
+                  )";
+        if ($userId) $sqlIz .= " AND prof.id_user = :uid";
+
+        $this->db->query($sqlIz);
+        $this->db->bind(':start', $startDate);
+        $this->db->bind(':end', $endDate);
+        if ($userId) $this->db->bind(':uid', $userId);
+        $rawIzin = $this->db->resultSet();
+
+        $sqlUser = "SELECT u.id_user, p.id_profil, p.nama, p.nim, p.jabatan, p.photo_profile 
+                    FROM user u JOIN profile p ON u.id_user = p.id_user 
+                    WHERE u.role = 'User'";
+        if ($userId) {
+            $sqlUser .= " AND u.id_user = :uid";
+            $this->db->query($sqlUser);
+            $this->db->bind(':uid', $userId);
+        } else {
+            $sqlUser .= " ORDER BY p.nama ASC";
+            $this->db->query($sqlUser);
+        }
+        $targetUsers = $this->db->resultSet();
+
+        $finalData = [];
+        $start = new DateTime($startDate);
+        $end = new DateTime($endDate);
+        $end->modify('+1 day');
+        $interval = DateInterval::createFromDateString('1 day');
+        $period = new DatePeriod($start, $interval, $end);
+
+        foreach ($period as $dt) {
+            $currentDate = $dt->format("Y-m-d");
+            
+            foreach ($targetUsers as $user) {
+                $row = [
+                    'tanggal' => $currentDate,
+                    'name' => $user['nama'],
+                    'nim' => $user['nim'],
+                    'position' => $user['jabatan'],
+                    'photo_profile' => $user['photo_profile'],
+                    'waktu_presensi' => null,
+                    'waktu_pulang' => null,
+                    'status' => 'Alpha'
+                ];
+
+                foreach ($rawPresensi as $p) {
+                    if ($p['id_user'] == $user['id_user'] && $p['tanggal'] == $currentDate) {
+                        $row['waktu_presensi'] = $p['waktu_presensi'];
+                        $row['waktu_pulang'] = $p['waktu_pulang'];
+                        $row['status'] = 'Hadir';
+                        break;
+                    }
+                }
+
+                if ($row['status'] == 'Alpha') {
+                    foreach ($rawIzin as $iz) {
+                        if ($user['id_user'] == $iz['id_user'] && $currentDate >= $iz['start_date'] && $currentDate <= $iz['end_date']) {
+                            $row['status'] = $iz['tipe'];
+                            break;
+                        }
+                    }
+                }
+
+                if ($row['status'] == 'Alpha' && $currentDate == date('Y-m-d') && date('H:i') < '18:00') {
+                    $row['status'] = '-'; 
+                }
+
+                $finalData[] = $row;
+            }
+        }
+
+        usort($finalData, function($a, $b) use ($userId) {
+            if ($a['tanggal'] == $b['tanggal']) {
+                return strcmp($a['name'], $b['name']);
+            }
+            return strcmp($a['tanggal'], $b['tanggal']);
+        });
+
+        return $finalData;
+    }
+
+    public function getAllAttendanceByDate($startDate, $endDate = null) {
+        if ($endDate === null) {
+            $endDate = $startDate;
+        }
+
+        $query = "SELECT p.*, 
+                         prof.nama as name, 
+                         prof.nim, 
+                         prof.jabatan as position, 
+                         prof.photo_profile 
+                  FROM presensi p
+                  JOIN profile prof ON p.id_profil = prof.id_profil
+                  WHERE p.tanggal BETWEEN :start AND :end
+                  ORDER BY p.tanggal DESC, p.waktu_presensi ASC";
+        
+        $this->db->query($query);
+        $this->db->bind(':start', $startDate);
+        $this->db->bind(':end', $endDate);
+        return $this->db->resultSet();
+    }
+
+    public function createLeaveRequest($data) {
+        try {
+            $query = "INSERT INTO izin (id_profil, tipe, start_date, end_date, deskripsi, file_bukti, status_approval) 
+                      VALUES (:pid, :tipe, :sdate, :edate, :desc, :file, 'Approved')";
+            
+            $this->db->query($query);
+            $this->db->bind(':pid', $data['id_profil']);
+            $this->db->bind(':tipe', $data['type']);
+            $this->db->bind(':sdate', $data['start_date']);
+            $this->db->bind(':edate', $data['end_date']);
+            $this->db->bind(':desc', $data['reason']); 
+            $this->db->bind(':file', $data['file_bukti']);
+            
+            return $this->db->execute();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    public function validateLogbookEntry($profileId, $date) {
+        $this->db->query("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = :d");
+        $this->db->bind(':pid', $profileId);
+        $this->db->bind(':d', $date);
+        return $this->db->single();
+    }
+
+    public function countLateToday() {
+        $today = date('Y-m-d');
+        $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE tanggal = :d AND waktu_presensi > '08:00:00'");
+        $this->db->bind(':d', $today);
+        $result = $this->db->single();
+        return $result['total'] ?? 0;
+    }
 }

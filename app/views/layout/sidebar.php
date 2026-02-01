@@ -46,7 +46,7 @@
     
     <div id="logoHeader" class="h-20 flex items-center justify-between px-4 border-b border-gray-100 bg-gradient-to-r from-blue-700 to-cyan-600 shrink-0 relative transition-all duration-300">
         <div class="flex items-center gap-3 text-white overflow-hidden transition-all duration-300" id="logoContainer">
-            <img src="<?= BASE_URL ?>/assets/img/Logo_ICLABS_White.webp" alt="Logo" class="w-8 h-8 object-contain filter drop-shadow-md shrink-0">
+            <img src="<?= BASE_URL ?>/assets/img/Logo_ICLABS_White.webp" alt="Logo" class="w-8 h-8 object-contain animate-pulse filter drop-shadow-lg shadow-white-400 shrink-0">
             <span class="text-xl font-extrabold tracking-wider font-mono sidebar-text opacity-100 transition-opacity duration-200">ICLABS</span>
         </div>
         

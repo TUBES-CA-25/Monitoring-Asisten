@@ -1,4 +1,4 @@
-<!-- <?php
+<?php
 class AdminController extends Controller {
 
     public function index() { $this->dashboard(); }
@@ -810,4 +810,4 @@ class AdminController extends Controller {
         }
     }
 }
-?> -->
+?>
