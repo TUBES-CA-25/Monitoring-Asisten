@@ -274,7 +274,7 @@
         let url = '';
         if (role === 'User') url = '<?= BASE_URL ?>/user/updateProfile';
         else if (role === 'Admin') url = '<?= BASE_URL ?>/admin/updateProfile';
-        else url = '<?= BASE_URL ?>/superadmin/updateProfile';
+        else url = '<?= BASE_URL ?>/kepalalab/updateProfile';
 
         fetch(url, {
             method: 'POST',
