@@ -57,7 +57,7 @@ class AttendanceModel
         $this->db->bind(':img', $img);
         $this->db->bind(':time', $time);
         $this->db->bind(':date', $date);
-        f($this->db->execute()) {
+        if($this->db->execute()) {
             return $this->db->rowCount() > 0;
         }
         return false;
