@@ -362,7 +362,7 @@ class AdminController extends Controller {
                 'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : null,
                 'alamat'   => !empty($_POST['address']) ? $_POST['address'] : null,
                 'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : null,
-                'photo'    => ($photoName != $oldUser['photo_profile']) ? $photoName : null,
+                'photo' => $photoName,
                 'is_completed' => $isCompleted
             ];
 
@@ -732,7 +732,7 @@ class AdminController extends Controller {
                 'address'  => $_POST['address'],
                 'gender'   => $_POST['gender'],
                 'interest' => null,
-                'photo'    => ($photoName != $currentUser['photo_profile']) ? $photoName : null,
+                'photo' => $photoName,
                 'is_completed' => $isCompleted 
             ];
 
