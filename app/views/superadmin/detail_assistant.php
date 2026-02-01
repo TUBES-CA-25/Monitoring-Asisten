@@ -107,7 +107,7 @@
             </div>
 
             <div class="mt-auto w-full pt-6">
-                <a href="<?= BASE_URL ?>/superadmin/assistantSchedule/<?= $assistant['id'] ?>" class="block w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition text-sm uppercase tracking-wide text-center shadow-lg shadow-blue-500/30">
+                <a href="<?= BASE_URL ?>/kepalalab/assistantSchedule/<?= $assistant['id'] ?>" class="block w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition text-sm uppercase tracking-wide text-center shadow-lg shadow-blue-500/30">
                     Lihat Jadwal Lengkap
                 </a>
             </div>
