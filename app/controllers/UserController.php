@@ -184,7 +184,7 @@ class UserController extends Controller {
         $payload = [
             'log_id'   => $logId,
             'user_id'  => $_SESSION['user_id'],
-            'date'     => $today,
+            'date'     => $targetDate,
             'time'     => $_POST['time'] ?? date('H:i'),
             'activity' => $_POST['activity']
         ];
