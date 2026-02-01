@@ -12,7 +12,7 @@ class UserController extends Controller {
         $data['judul'] = 'Dashboard Asisten';
         
         $userModel = $this->model('UserModel');
-        $attModel = $this->model('AttendanceModel_fixed');
+        $attModel = $this->model('AttendanceModel');
         $schModel = $this->model('ScheduleModel');
 
         $user = $userModel->getUserById($_SESSION['user_id']);
@@ -66,7 +66,7 @@ class UserController extends Controller {
 
         $data['judul'] = 'Profil Saya';
         $userModel = $this->model('UserModel');
-        $attModel = $this->model('AttendanceModel_fixed');
+        $attModel = $this->model('AttendanceModel');
 
         $data['user'] = $userModel->getUserById($_SESSION['user_id']);
         $pId = $_SESSION['profil_id'];
@@ -167,7 +167,7 @@ class UserController extends Controller {
         $pId = $_SESSION['profil_id']; 
         $today = date('Y-m-d');
         
-        $att = $this->model('AttendanceModel_fixed')->validateLogbookEntry($pId, $today);
+        $att = $this->model('AttendanceModel')->validateLogbookEntry($pId, $today);
 
         if (!$att || !$att['waktu_presensi']) {
             echo json_encode(['status'=>'error', 'message'=>'Anda belum melakukan scan masuk!']); exit;
@@ -343,7 +343,7 @@ class UserController extends Controller {
             $fileName = $_SESSION['user_id'] . '_' . time() . '.png';
             file_put_contents($folderPath . $fileName, $image_base64);
 
-            $attModel = $this->model('AttendanceModel_fixed');
+            $attModel = $this->model('AttendanceModel');
             $userId = $_SESSION['user_id'];
             $success = false;
 
@@ -400,7 +400,7 @@ class UserController extends Controller {
                 'file_bukti' => $fileName
             ];
 
-            if ($this->model('AttendanceModel_fixed')->createLeaveRequest($data)) {
+            if ($this->model('AttendanceModel')->createLeaveRequest($data)) {
                 echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'Izin berhasil diajukan.']);
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Terjadi kesalahan database.']);
