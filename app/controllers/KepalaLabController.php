@@ -63,7 +63,7 @@ class KepalaLabController extends Controller {
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
-        $this->view('superadmin/dashboard', $data);
+        $this->view('kepalalab/dashboard', $data);
         $this->view('layout/footer');
     }
 
@@ -83,7 +83,7 @@ class KepalaLabController extends Controller {
         
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
-        $this->view('superadmin/users', $data); 
+        $this->view('kepalalab/users', $data); 
         $this->view('layout/footer');
     }
 
@@ -116,26 +116,26 @@ class KepalaLabController extends Controller {
         
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
-        $this->view('superadmin/schedule', $data); 
+        $this->view('kepalalab/schedule', $data); 
         $this->view('layout/footer');
     }
 
     public function addSchedule() {
         if ($_SESSION['role'] != 'Kepala Lab') exit;
         $_SESSION['flash'] = ['type' => 'error', 'title' => 'Akses Ditolak', 'message' => 'Kepala Lab hanya memiliki akses lihat (Read-Only).'];
-        header("Location: " . BASE_URL . "/superadmin/schedule");
+        header("Location: " . BASE_URL . "/kepalalab/schedule");
     }
 
     public function editSchedule() {
         if ($_SESSION['role'] != 'Kepala Lab') exit;
         $_SESSION['flash'] = ['type' => 'error', 'title' => 'Akses Ditolak', 'message' => 'Kepala Lab hanya memiliki akses lihat (Read-Only).'];
-        header("Location: " . BASE_URL . "/superadmin/schedule");
+        header("Location: " . BASE_URL . "/kepalalab/schedule");
     }
 
     public function deleteSchedule() {
         if ($_SESSION['role'] != 'Kepala Lab') exit;
         $_SESSION['flash'] = ['type' => 'error', 'title' => 'Akses Ditolak', 'message' => 'Kepala Lab hanya memiliki akses lihat (Read-Only).'];
-        header("Location: " . BASE_URL . "/superadmin/schedule");
+        header("Location: " . BASE_URL . "/kepalalab/schedule");
     }
 
     public function monitorAttendance() {
@@ -159,7 +159,7 @@ class KepalaLabController extends Controller {
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
-        $this->view('superadmin/attendance', $data); 
+        $this->view('kepalalab/attendance', $data); 
         $this->view('layout/footer');
     }
 
@@ -209,7 +209,7 @@ class KepalaLabController extends Controller {
             $data['assistant_name'] = $user['name'] ?? 'Asisten';
         }
 
-        $this->view('superadmin/pdf_attendance', $data);
+        $this->view('kepalalab/pdf_attendance', $data);
     }
 
     public function logbook() {
@@ -223,7 +223,7 @@ class KepalaLabController extends Controller {
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
-        $this->view('superadmin/logbook', $data); 
+        $this->view('kepalalab/logbook', $data); 
         $this->view('layout/footer');
     }
 
@@ -374,7 +374,7 @@ class KepalaLabController extends Controller {
                     'status'   => 'success', 
                     'title'    => 'Berhasil',
                     'message'  => 'Profil berhasil diperbarui.',
-                    'redirect' => BASE_URL . '/superadmin/profile'
+                    'redirect' => BASE_URL . '/kepalalab/profile'
                 ]);
             } else {
                 echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal memperbarui profil.']);
@@ -405,7 +405,7 @@ class KepalaLabController extends Controller {
         $assistant = $userModel->getUserById($id);
 
         if (!$assistant || $assistant['role'] != 'User') {
-            header("Location: " . BASE_URL . "/superadmin/dashboard");
+            header("Location: " . BASE_URL . "/kepalalab/dashboard");
             exit;
         }
 
@@ -428,7 +428,7 @@ class KepalaLabController extends Controller {
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
-        $this->view('superadmin/detail_assistant', $data);
+        $this->view('kepalalab/detail_assistant', $data);
         $this->view('layout/footer');
     }
 
@@ -437,7 +437,7 @@ class KepalaLabController extends Controller {
 
         $assistant = $this->model('UserModel')->getUserById($id);
         if (!$assistant || $assistant['role'] != 'User') {
-            header("Location: " . BASE_URL . "/superadmin/dashboard");
+            header("Location: " . BASE_URL . "/kepalalab/dashboard");
             exit;
         }
 
@@ -449,7 +449,7 @@ class KepalaLabController extends Controller {
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
-        $this->view('superadmin/assistant_schedule', $data); 
+        $this->view('kepalalab/assistant_schedule', $data); 
         $this->view('layout/footer');
     }
 }
