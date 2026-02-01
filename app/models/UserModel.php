@@ -34,13 +34,73 @@ class UserModel {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // --- FUNGSI CREATE USER (BAGIAN PALING KRUSIAL) ---
+    // // --- FUNGSI CREATE USER (BAGIAN PALING KRUSIAL) ---
+    // public function createUser($data) {
+    //     try {
+    //         // 1. Mulai Transaksi
+    //         $this->conn->beginTransaction();
+
+    //         // 2. Insert ke Tabel USER (Login Info)
+    //         $sqlUser = "INSERT INTO user (email, password, role, created_at) VALUES (:email, :pass, :role, NOW())";
+    //         $stmtUser = $this->conn->prepare($sqlUser);
+    //         $stmtUser->execute([
+    //             ':email' => $data['email'], 
+    //             ':pass'  => password_hash($data['password'], PASSWORD_BCRYPT), 
+    //             ':role'  => $data['role']
+    //         ]);
+            
+    //         // Ambil ID User baru
+    //         $newUserId = $this->conn->lastInsertId();
+
+    //         // 3. Insert ke Tabel PROFILE (Biodata)
+    //         $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile, is_completed, id_lab) 
+    //                     VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo, :completed, :lab)";
+            
+    //         $stmtProf = $this->conn->prepare($sqlProf);
+            
+    //         // [PERBAIKAN] Data Sanitization: Ubah String Kosong "" menjadi NULL
+    //         // Ini mencegah error "Incorrect integer value" pada kolom angka/enum
+    //         $stmtProf->execute([
+    //             ':uid'  => $newUserId, 
+    //             ':name' => $data['name'], 
+    //             ':nim'  => !empty($data['nim']) ? $data['nim'] : NULL, 
+    //             ':cls'  => !empty($data['class']) ? $data['class'] : NULL, 
+    //             ':prodi'=> !empty($data['prodi']) ? $data['prodi'] : NULL, 
+    //             ':pos'  => !empty($data['position']) ? $data['position'] : 'Anggota',
+    //             ':hp'   => !empty($data['no_telp']) ? $data['no_telp'] : NULL, 
+    //             ':addr' => !empty($data['alamat']) ? $data['alamat'] : NULL, 
+    //             ':photo'=> $data['photo'],
+    //             ':completed' => $data['is_completed'] ?? 0,
+    //             ':lab'  => !empty($data['lab_id']) ? $data['lab_id'] : NULL
+    //         ]);
+
+    //         // 4. Simpan Permanen
+    //         $this->conn->commit();
+    //         return true;
+
+    //     } catch (Exception $e) { 
+    //         // Jika Gagal: Batalkan Semua
+    //         $this->conn->rollBack(); 
+            
+    //         // [DEBUGGING MODE]
+    //         // Kode ini akan menampilkan pesan error asli MySQL ke layar/console
+    //         // Hapus bagian ini jika website sudah live/production
+    //         header('Content-Type: application/json');
+    //         echo json_encode([
+    //             'status' => 'error',
+    //             'title' => 'DATABASE ERROR',
+    //             'message' => 'Penyebab Gagal: ' . $e->getMessage()
+    //         ]);
+    //         exit; // Stop program agar pesan error terbaca
+    //     }
+    // }
+
     public function createUser($data) {
         try {
-            // 1. Mulai Transaksi
+            // 1. Mulai Transaksi agar data User & Profile masuk bersamaan
             $this->conn->beginTransaction();
 
-            // 2. Insert ke Tabel USER (Login Info)
+            // 2. Insert ke Tabel USER
             $sqlUser = "INSERT INTO user (email, password, role, created_at) VALUES (:email, :pass, :role, NOW())";
             $stmtUser = $this->conn->prepare($sqlUser);
             $stmtUser->execute([
@@ -48,30 +108,28 @@ class UserModel {
                 ':pass'  => password_hash($data['password'], PASSWORD_BCRYPT), 
                 ':role'  => $data['role']
             ]);
-            
-            // Ambil ID User baru
+    
             $newUserId = $this->conn->lastInsertId();
 
-            // 3. Insert ke Tabel PROFILE (Biodata)
+            // 3. Insert ke Tabel PROFILE
             $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile, is_completed, id_lab) 
                         VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo, :completed, :lab)";
             
             $stmtProf = $this->conn->prepare($sqlProf);
             
-            // [PERBAIKAN] Data Sanitization: Ubah String Kosong "" menjadi NULL
-            // Ini mencegah error "Incorrect integer value" pada kolom angka/enum
+            // Eksekusi dengan Sanitasi Data NULL
             $stmtProf->execute([
                 ':uid'  => $newUserId, 
                 ':name' => $data['name'], 
                 ':nim'  => !empty($data['nim']) ? $data['nim'] : NULL, 
                 ':cls'  => !empty($data['class']) ? $data['class'] : NULL, 
                 ':prodi'=> !empty($data['prodi']) ? $data['prodi'] : NULL, 
-                ':pos'  => !empty($data['position']) ? $data['position'] : 'Anggota',
+                ':pos'  => $data['position'],
                 ':hp'   => !empty($data['no_telp']) ? $data['no_telp'] : NULL, 
                 ':addr' => !empty($data['alamat']) ? $data['alamat'] : NULL, 
-                ':photo'=> $data['photo'],
+                ':photo'=> $data['photo'], // SINKRONKAN DENGAN CONTROLLER
                 ':completed' => $data['is_completed'] ?? 0,
-                ':lab'  => !empty($data['lab_id']) ? $data['lab_id'] : NULL
+                ':lab'  => ($data['lab_id'] > 0) ? $data['lab_id'] : NULL
             ]);
 
             // 4. Simpan Permanen
@@ -79,19 +137,16 @@ class UserModel {
             return true;
 
         } catch (Exception $e) { 
-            // Jika Gagal: Batalkan Semua
+            // Batalkan semua jika ada satu saja yang gagal
             $this->conn->rollBack(); 
-            
-            // [DEBUGGING MODE]
-            // Kode ini akan menampilkan pesan error asli MySQL ke layar/console
-            // Hapus bagian ini jika website sudah live/production
+    
             header('Content-Type: application/json');
             echo json_encode([
                 'status' => 'error',
                 'title' => 'DATABASE ERROR',
                 'message' => 'Penyebab Gagal: ' . $e->getMessage()
             ]);
-            exit; // Stop program agar pesan error terbaca
+            exit; 
         }
     }
 
