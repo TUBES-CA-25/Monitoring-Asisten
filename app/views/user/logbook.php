@@ -241,7 +241,7 @@
     // --- Modal Form ---
     function openLogModal(dateStr, activity, timeIn, logId) {
         document.getElementById('modalDate').value = dateStr;
-        document.getElementById('modalLogId').value = logId;
+        // document.getElementById('modalLogId').value = logId;
         const logIdInput = document.getElementById('modalLogId');
         if(logIdInput) logIdInput.value = logId;
 
