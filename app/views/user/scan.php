@@ -345,16 +345,18 @@
         // 5. SUBMIT
         function submitAttendance() {
             const token = document.getElementById('scanned-token').value;
+            const type = document.getElementById('scanned-type').value;
             const img = document.getElementById('final-image-base64').value;
             // Kirim alamat string juga untuk disimpan di DB (opsional, kalau ada kolomnya)
             const address = document.getElementById('geo-address').value;
 
             if (!img) { showModal('error', 'Foto Kosong', 'Silakan ambil foto bukti.'); return; }
 
-            showLoading(true);
+            // showLoading(true);
 
             const fd = new FormData();
             fd.append('token', token);
+            fd.append('type', type);
             fd.append('image', img);
             fd.append('address', address); // Kirim alamat
 
@@ -368,7 +370,9 @@
                     showModal('error', 'Gagal', data.message);
                 }
             })
-            .catch(() => { showLoading(false); showModal('error', 'Koneksi Error', 'Gagal menghubungi server.'); });
+            .catch(() => { 
+                showLoading(false); 
+                showModal('error', 'Koneksi Error', 'Gagal menghubungi server.'); });
         }
 
         function showLoading(show) {
