@@ -141,6 +141,7 @@
                         <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1">Role Akun <span class="text-red-500">*</span></label>
                             <select name="role" id="inputRole" onchange="toggleRoleFields()" required class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
+                                <option value="" disabled selected>-- Role --</option>
                                 <option value="User">User (Asisten)</option>
                                 <option value="Admin">Admin</option>
                                 <option value="Kepala Lab">Kepala Lab</option>
@@ -175,12 +176,12 @@
                         </div> -->
 
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1">
-                                Jabatan <span class="text-danger">*</span>
-                            </label>
-                            <select name="position" id="inputPosition" 
-                                    class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer"
-                                    required> <option value="" disabled selected>-- Pilih Jabatan --</option>
+                            <!-- <label class="block text-xs font-bold text-gray-500 mb-1"> Jabatan <span class="text-danger">*</span></label>
+                            <select name="position" id="inputPosition" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer"
+                                    required class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">  -->
+                            <label class="block text-xs font-bold text-gray-500 mb-1"> Jabatan <span class="text-red-500">*</span></label>
+                                <select name="jbt" id="inputjbt" onchange="toggleRoleFields()" required class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
+                                <option value="" disabled selected>-- Pilih Jabatan --</option>
                                 <option value="Kepala Lab">Kepala Lab</option>
                                 <option value="Laboran">Laboran</option>
                                 <option value="Administrator">Koordinator Asisten</option>
