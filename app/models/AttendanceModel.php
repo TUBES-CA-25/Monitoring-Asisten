@@ -21,11 +21,22 @@ class AttendanceModel
         $pId = $this->getProfilId($userId);
         if (!$pId) return false;
 
+        $date = date('Y-m-d');
+        $time = date('H:i:s');
+
+        $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :date");
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':date', $date);
+        
+        if($this->db->single()) return false;
+
         $query = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, foto_presensi, status)
                   VALUES (:pid, CURDATE(), CURTIME(), :img, 'Hadir')";
 
         $this->db->query($query);
         $this->db->bind(':pid', $pId);
+        $this->db->bind(':img', $img);
+        $this->db->bind(':time', $time);
         $this->db->bind(':img', $img);
         return $this->db->execute();
     }
@@ -34,6 +45,9 @@ class AttendanceModel
     {
         $pId = $this->getProfilId($userId);
         if (!$pId) return false;
+
+        $date = date('Y-m-d');
+        $time = date('H:i:s');
 
         $query = "UPDATE presensi SET waktu_pulang = CURTIME(), foto_pulang = :img
                   WHERE id_profil = :pid AND tanggal = CURDATE()";
