@@ -206,6 +206,40 @@ class UserController extends Controller {
         }
     }
 
+    public function saveLogbook($data) {
+        // 1. Cek apakah ini proses UPDATE (Edit)
+        if (!empty($data['log_id'])) {
+            $query = "UPDATE presensi 
+                    SET keterangan_aktivitas = :activity, 
+                        waktu_presensi = :time 
+                    WHERE id_presensi = :log_id AND id_profil = (SELECT id_profil FROM profile WHERE id_user = :uid)";
+            
+            $this->db->query($query);
+            $this->db->bind(':log_id', $data['log_id']);
+            $this->db->bind(':activity', $data['activity']);
+            $this->db->bind(':time', $data['time']);
+            $this->db->bind(':uid', $data['user_id']);
+            
+            return $this->db->execute();
+        } 
+        
+        // 2. Jika bukan edit (Tambah baru), cari baris presensi hari ini untuk di-update
+        // Karena asisten mengisi logbook setelah scan masuk (data presensi sudah ada)
+        $query = "UPDATE presensi 
+                SET keterangan_aktivitas = :activity, 
+                    waktu_presensi = :time 
+                WHERE id_profil = (SELECT id_profil FROM profile WHERE id_user = :uid) 
+                AND tanggal = :date";
+
+        $this->db->query($query);
+        $this->db->bind(':activity', $data['activity']);
+        $this->db->bind(':time', $data['time']);
+        $this->db->bind(':uid', $data['user_id']);
+        $this->db->bind(':date', $data['date']);
+        
+        return $this->db->execute();
+    }
+
     public function schedule() {
         if ($_SESSION['role'] != 'User') exit;
         
