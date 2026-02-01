@@ -224,12 +224,12 @@
     </div>
 </div>
 
-
+<!-- 
 <form id="logForm" onsubmit="submitLogbook(event)" class="p-6 space-y-5">
     <input type="hidden" id="modalDate" name="date"> 
     <input type="hidden" id="modalLogId" name="log_id"> </form>
 
-<script>
+<script> -->
 
 <script>
     let logIdToReset = null;
