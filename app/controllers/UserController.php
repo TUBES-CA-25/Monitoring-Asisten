@@ -162,10 +162,13 @@ class UserController extends Controller {
     }
 
     public function submit_logbook() {
-        if ($_SESSION['role'] != 'User') { echo json_encode(['status'=>'error', 'message'=>'Unauthorized']); exit; }
+        if ($_SESSION['role'] != 'User') { 
+            echo json_encode(['status'=>'error', 'message'=>'Unauthorized']); 
+            exit; }
 
         $pId = $_SESSION['profil_id']; 
         $today = date('Y-m-d');
+        $logId = $_POST['log_id'] ?? null;
         
         $att = $this->model('AttendanceModel')->validateLogbookEntry($pId, $today);
 
@@ -177,6 +180,7 @@ class UserController extends Controller {
         }
 
         $payload = [
+            'log_id'   => $logId,
             'user_id'  => $_SESSION['user_id'],
             'date'     => $today,
             'time'     => $_POST['time'] ?? date('H:i'),
