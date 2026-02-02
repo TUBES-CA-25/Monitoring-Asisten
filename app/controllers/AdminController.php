@@ -411,7 +411,34 @@ class AdminController extends Controller {
         $data['end_date'] = $endDate;
         $data['selected_assistant'] = $assistantId;
 
-        $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+        // $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+        $fullData = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+
+        // --- LOGIKA PAGINATION ---
+        $itemsPerPage = 10; // Tampilkan 10 data per halaman
+        $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        if ($currentPage < 1) $currentPage = 1;
+
+        $totalData = count($fullData);
+        $totalPages = ceil($totalData / $itemsPerPage);
+
+        // Pastikan halaman tidak melebihi total
+        if ($currentPage > $totalPages && $totalPages > 0) $currentPage = $totalPages;
+
+        // Potong Array (Slice)
+        $offset = ($currentPage - 1) * $itemsPerPage;
+        $slicedData = array_slice($fullData, $offset, $itemsPerPage);
+
+        // 3. Kirim Data Potongan ke View
+        $data['attendance_list'] = $slicedData;
+
+        // Kirim Info Pagination
+        $data['pagination'] = [
+            'current' => $currentPage,
+            'total_pages' => $totalPages,
+            'total_items' => $totalData,
+            'per_page' => $itemsPerPage
+        ];
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
