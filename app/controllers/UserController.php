@@ -153,8 +153,31 @@ class UserController extends Controller {
         $data['judul'] = 'Logbook Kegiatan';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
-        $data['logs'] = $this->model('LogbookModel')->getUnifiedLogbook($_SESSION['user_id']); 
+        $allLogs = $this->model('LogbookModel')->getUnifiedLogbook($_SESSION['user_id']); 
         
+        $itemsPerPage = 10; // Jumlah data per halaman
+        $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        if ($currentPage < 1) $currentPage = 1;
+
+        $totalData = count($allLogs);
+        $totalPages = ceil($totalData / $itemsPerPage);
+        
+        // Validasi agar halaman tidak melebihi total
+        if ($currentPage > $totalPages && $totalPages > 0) $currentPage = $totalPages;
+
+        // Potong Data (Slice Array)
+        $offset = ($currentPage - 1) * $itemsPerPage;
+        $slicedLogs = array_slice($allLogs, $offset, $itemsPerPage);
+
+        // Kirim Data Hasil Potongan & Info Pagination ke View
+        $data['logs'] = $slicedLogs;
+        $data['pagination'] = [
+            'current' => $currentPage,
+            'total_pages' => $totalPages,
+            'total_items' => $totalData,
+            'per_page' => $itemsPerPage
+        ];
+
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
         $this->view('user/logbook', $data);

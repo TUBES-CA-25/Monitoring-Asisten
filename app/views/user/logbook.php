@@ -156,9 +156,62 @@
                     <?php endforeach; endif; ?>
                 </tbody>
             </table>
+        </div> <?php if (isset($pagination) && $pagination['total_pages'] > 1): ?>
+        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+            <div class="text-xs text-gray-500 font-bold uppercase tracking-wide">
+                Halaman <span class="text-blue-600"><?= $pagination['current'] ?></span> dari <?= $pagination['total_pages'] ?> 
+                <span class="normal-case text-gray-400 font-medium ml-1">(Total <?= $pagination['total_items'] ?> Data)</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <?php 
+                    // Helper untuk membuat Link Pagination
+                    function buildLogUrl($page) {
+                        return BASE_URL . '/user/logbook?page=' . $page;
+                    }
+                ?>
+
+                <?php if ($pagination['current'] > 1): ?>
+                    <a href="<?= buildLogUrl($pagination['current'] - 1) ?>" 
+                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm">
+                        <i class="fas fa-chevron-left text-xs"></i>
+                    </a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed">
+                        <i class="fas fa-chevron-left text-xs"></i>
+                    </span>
+                <?php endif; ?>
+
+                <?php 
+                    $startPage = max(1, $pagination['current'] - 2);
+                    $endPage = min($pagination['total_pages'], $pagination['current'] + 2);
+                    
+                    for ($i = $startPage; $i <= $endPage; $i++): 
+                        $activeClass = ($i == $pagination['current']) 
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/30' 
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                ?>
+                    <a href="<?= buildLogUrl($i) ?>" 
+                    class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition shadow-sm <?= $activeClass ?>">
+                        <?= $i ?>
+                    </a>
+                <?php endfor; ?>
+
+                <?php if ($pagination['current'] < $pagination['total_pages']): ?>
+                    <a href="<?= buildLogUrl($pagination['current'] + 1) ?>" 
+                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm">
+                        <i class="fas fa-chevron-right text-xs"></i>
+                    </a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed">
+                        <i class="fas fa-chevron-right text-xs"></i>
+                    </span>
+                <?php endif; ?>
+            </div>
         </div>
-    </div>
-</div>
+        <?php endif; ?>
+        </div> </div>
 
 <div id="logModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onclick="closeLogModal()"></div>
