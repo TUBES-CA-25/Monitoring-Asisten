@@ -125,7 +125,9 @@ class AdminController extends Controller {
         $this->checkAccess(['Admin']);
         $data['judul'] = 'Manajemen Pengguna';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+        
         $db = new Database();
+        $conn = $db->getConnection();
 
         $keyword = isset($_GET['search']) ? $_GET['search'] : null;
 
@@ -175,6 +177,7 @@ class AdminController extends Controller {
             'total_pages' => $totalPages,
             'total_items' => $totalData,
             'per_page' => $itemsPerPage
+        ];
         
         $db->query("SELECT * FROM lab ORDER BY nama_lab ASC");
         $data['labs'] = $db->resultSet();
