@@ -126,25 +126,60 @@ class AdminController extends Controller {
         $data['judul'] = 'Manajemen Pengguna';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $db = new Database();
-        $conn = $db->getConnection();
-        
-        $query = "SELECT u.id_user as id, u.email, u.role,
+
+        $keyword = isset($_GET['search']) ? $_GET['search'] : null;
+
+        $sql = "SELECT u.id_user as id, u.email, u.role,
                          p.nama as name, p.photo_profile, p.jabatan as position, 
                          p.nim, p.kelas, p.prodi, p.no_telp, p.alamat, p.jenis_kelamin, p.is_completed,
                          p.id_lab, l.nama_lab as lab_name
                   FROM user u
                   JOIN profile p ON u.id_user = p.id_user
-                  LEFT JOIN lab l ON p.id_lab = l.id_lab
-                  ORDER BY p.nama ASC";
+                  LEFT JOIN lab l ON p.id_lab = l.id_lab";
+
+        if ($keyword) {
+            $sql .= " WHERE p.nama LIKE :key OR p.nim LIKE :key OR u.email LIKE :key";
+        }
+
+        $sql .= " ORDER BY p.nama ASC";
                   
-        $stmt = $conn->prepare($query);
+        $stmt = $conn->prepare($sql);
+        
+        if ($keyword) {
+            $stmt->bindValue(':key', "%$keyword%");
+        }
+        
         $stmt->execute();
         $allUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // --- LOGIKA PAGINATION (Sama seperti Presensi) ---
+        $itemsPerPage = 10; // Menampilkan 10 user per halaman
+        $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        if ($currentPage < 1) $currentPage = 1;
+
+        $totalData = count($allUsers);
+        $totalPages = ceil($totalData / $itemsPerPage);
+        
+        if ($currentPage > $totalPages && $totalPages > 0) $currentPage = $totalPages;
+
+        // Potong Data (Slice)
+        $offset = ($currentPage - 1) * $itemsPerPage;
+        $slicedUsers = array_slice($allUsers, $offset, $itemsPerPage);
+
+        // Kirim data ke View
+        $data['users_list'] = $slicedUsers; 
+        $data['search_keyword'] = $keyword; // Kirim balik keyword agar tidak hilang dari kotak input
+        
+        $data['pagination'] = [
+            'current' => $currentPage,
+            'total_pages' => $totalPages,
+            'total_items' => $totalData,
+            'per_page' => $itemsPerPage
         
         $db->query("SELECT * FROM lab ORDER BY nama_lab ASC");
         $data['labs'] = $db->resultSet();
 
-        $data['users_list'] = $allUsers;
+        // $data['users_list'] = $allUsers;
         
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
