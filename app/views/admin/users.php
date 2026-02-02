@@ -29,19 +29,15 @@
     <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
             <h3 class="font-bold text-gray-700 uppercase tracking-wide text-sm">Daftar User</h3>
-<!--             
-            <div class="relative w-full sm:w-72">
-                <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 text-xs"></i>
-                <input type="text" id="searchUser" onkeyup="searchTable()" placeholder="Cari nama, email, atau NIM..." class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
-            </div>
-        </div> -->
-
+            
             <form action="<?= BASE_URL ?>/admin/manageUsers" method="GET" class="relative w-full sm:w-72">
                 <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 text-xs"></i>
                 <input type="text" name="search" value="<?= isset($search_keyword) ? $search_keyword : '' ?>" 
                        placeholder="Cari & Tekan Enter..." 
                        class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition shadow-sm">
             </form>
+
+        </div>
 
         <div class="overflow-x-auto">
             <table class="w-full text-left">
@@ -54,7 +50,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
-                    <?php if(!empty($users_list)): foreach($users_list as $u): 
+                    <?php if(!empty($users_list)): foreach($users_list as $u):
                         $isVerified = $u['is_completed'] == 1;
                         $statusBadge = $isVerified 
                             ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200"><i class="fas fa-check-circle mr-1"></i>Verifikasi</span>'
@@ -106,7 +102,7 @@
                             <?php endif; ?>
                         </td>
                     </tr>
-                    <?php endforeach; else: ?>
+                   <?php endforeach; else: ?>
                         <tr>
                             <td colspan="4" class="p-8 text-center text-gray-500">
                                 <div class="flex flex-col items-center justify-center opacity-50">
@@ -118,67 +114,47 @@
                     <?php endif; ?>
                 </tbody>
             </table>
-            </div> <?php if (isset($pagination) && $pagination['total_pages'] > 1): ?>
-    <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
-        
-        <div class="text-xs text-gray-500 font-bold uppercase tracking-wide">
-            Halaman <span class="text-blue-600"><?= $pagination['current'] ?></span> dari <?= $pagination['total_pages'] ?> 
-            <span class="normal-case text-gray-400 font-medium ml-1">(Total <?= $pagination['total_items'] ?> User)</span>
+        </div> <?php if (isset($pagination) && $pagination['total_pages'] > 1): ?>
+        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+            <div class="text-xs text-gray-500 font-bold uppercase tracking-wide">
+                Halaman <span class="text-blue-600"><?= $pagination['current'] ?></span> dari <?= $pagination['total_pages'] ?> 
+                <span class="normal-case text-gray-400 font-medium ml-1">(Total <?= $pagination['total_items'] ?> User)</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <?php 
+                    function buildUserUrl($page) {
+                        $params = $_GET; 
+                        $params['page'] = $page; 
+                        return BASE_URL . '/admin/manageUsers?' . http_build_query($params);
+                    }
+                ?>
+
+                <?php if ($pagination['current'] > 1): ?>
+                    <a href="<?= buildUserUrl($pagination['current'] - 1) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm"><i class="fas fa-chevron-left text-xs"></i></a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed"><i class="fas fa-chevron-left text-xs"></i></span>
+                <?php endif; ?>
+
+                <?php 
+                    $startPage = max(1, $pagination['current'] - 2);
+                    $endPage = min($pagination['total_pages'], $pagination['current'] + 2);
+                    for ($i = $startPage; $i <= $endPage; $i++): 
+                        $activeClass = ($i == $pagination['current']) ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/30' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                ?>
+                    <a href="<?= buildUserUrl($i) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition shadow-sm <?= $activeClass ?>"><?= $i ?></a>
+                <?php endfor; ?>
+
+                <?php if ($pagination['current'] < $pagination['total_pages']): ?>
+                    <a href="<?= buildUserUrl($pagination['current'] + 1) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm"><i class="fas fa-chevron-right text-xs"></i></a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed"><i class="fas fa-chevron-right text-xs"></i></span>
+                <?php endif; ?>
+            </div>
         </div>
-
-        <div class="flex items-center gap-2">
-            <?php 
-                function buildUserUrl($page) {
-                    $params = $_GET; 
-                    $params['page'] = $page; 
-                    return BASE_URL . '/admin/manageUsers?' . http_build_query($params);
-                }
-            ?>
-
-            <?php if ($pagination['current'] > 1): ?>
-                <a href="<?= buildUserUrl($pagination['current'] - 1) ?>" 
-                   class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm">
-                    <i class="fas fa-chevron-left text-xs"></i>
-                </a>
-            <?php else: ?>
-                <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed">
-                    <i class="fas fa-chevron-left text-xs"></i>
-                </span>
-            <?php endif; ?>
-
-            <?php 
-                $startPage = max(1, $pagination['current'] - 2);
-                $endPage = min($pagination['total_pages'], $pagination['current'] + 2);
-                
-                for ($i = $startPage; $i <= $endPage; $i++): 
-                    $activeClass = ($i == $pagination['current']) 
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/30' 
-                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
-            ?>
-                <a href="<?= buildUserUrl($i) ?>" 
-                   class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition shadow-sm <?= $activeClass ?>">
-                    <?= $i ?>
-                </a>
-            <?php endfor; ?>
-
-            <?php if ($pagination['current'] < $pagination['total_pages']): ?>
-                <a href="<?= buildUserUrl($pagination['current'] + 1) ?>" 
-                   class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm">
-                    <i class="fas fa-chevron-right text-xs"></i>
-                </a>
-            <?php else: ?>
-                <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed">
-                    <i class="fas fa-chevron-right text-xs"></i>
-                </span>
-            <?php endif; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-    </div> </div>
-        </div>
-    </div>
-    
-</div>
+        <?php endif; ?>
+        </div> </div>
 
 <div id="modalUser" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onclick="closeUserModal()"></div>
