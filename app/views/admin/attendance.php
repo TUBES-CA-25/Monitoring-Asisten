@@ -180,6 +180,74 @@
                     <?php endif; ?>
                 </tbody>
             </table>
+
+        
+        </div>
+        <?php if ($pagination['total_pages'] > 1): ?>
+        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+            <div class="text-xs text-gray-500 font-bold uppercase tracking-wide">
+                Menampilkan Halaman <span class="text-blue-600"><?= $pagination['current'] ?></span> dari <?= $pagination['total_pages'] ?> 
+                <span class="normal-case text-gray-400 font-medium ml-1">(Total <?= $pagination['total_items'] ?> Data)</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <?php 
+                    // Fungsi bantu untuk membuat Link tetap membawa filter tanggal
+                    function buildUrl($page, $sDate, $eDate, $astId) {
+                        $params = [
+                            'page' => $page,
+                            'start_date' => $sDate,
+                            'end_date' => $eDate,
+                            'assistant_id' => $astId
+                        ];
+                        // Gunakan http_build_query agar URL rapi
+                        return BASE_URL . '/admin/monitorAttendance?' . http_build_query($params);
+                    }
+                ?>
+
+                <?php if ($pagination['current'] > 1): ?>
+                    <a href="<?= buildUrl($pagination['current'] - 1, $start_date, $end_date, $selected_assistant) ?>" 
+                       class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm">
+                        <i class="fas fa-chevron-left text-xs"></i>
+                    </a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed">
+                        <i class="fas fa-chevron-left text-xs"></i>
+                    </span>
+                <?php endif; ?>
+
+                <?php 
+                    $startPage = max(1, $pagination['current'] - 2);
+                    $endPage = min($pagination['total_pages'], $pagination['current'] + 2);
+                    
+                    for ($i = $startPage; $i <= $endPage; $i++): 
+                        $activeClass = ($i == $pagination['current']) 
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/30' 
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                ?>
+                    <a href="<?= buildUrl($i, $start_date, $end_date, $selected_assistant) ?>" 
+                       class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition shadow-sm <?= $activeClass ?>">
+                        <?= $i ?>
+                    </a>
+                <?php endfor; ?>
+
+                <?php if ($pagination['current'] < $pagination['total_pages']): ?>
+                    <a href="<?= buildUrl($pagination['current'] + 1, $start_date, $end_date, $selected_assistant) ?>" 
+                       class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm">
+                        <i class="fas fa-chevron-right text-xs"></i>
+                    </a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed">
+                        <i class="fas fa-chevron-right text-xs"></i>
+                    </span>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+        </div>
+</div>
+
         </div>
     </div>
 </div>
