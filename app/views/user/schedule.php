@@ -192,7 +192,7 @@
                 <input type="text" name="title" id="inputTitle" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-100" placeholder="Contoh: Pemrograman Web">
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <!-- <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Kelas</label>
                     <input type="text" name="kelas" id="inputKelas" required class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-100" placeholder="A">
@@ -201,7 +201,7 @@
                     <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Ruangan</label>
                     <input type="text" name="location" id="inputLocation" value="Lab Terpadu" required class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-100">
                 </div>
-            </div>
+            </div> -->
 
             <div>
                 <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Dosen Pengampu</label>
