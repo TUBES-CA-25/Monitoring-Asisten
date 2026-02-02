@@ -179,10 +179,9 @@
                     </tr>
                     <?php endif; ?>
                 </tbody>
-            </table>
-
-        
+            </table>   
         </div>
+        
         <?php if ($pagination['total_pages'] > 1): ?>
         <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
             
@@ -245,8 +244,7 @@
             </div>
         </div>
         <?php endif; ?>
-        </div>
-</div>
+
 
         </div>
     </div>
