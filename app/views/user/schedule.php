@@ -202,6 +202,36 @@
                     <input type="text" name="location" id="inputLocation" value="Lab Terpadu" required class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-100">
                 </div>
             </div> -->
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Kelas</label>
+                    <select name="kelas" id="inputKelas" required class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-100 cursor-pointer">
+                        <option value="">Pilih Kelas</option>
+                        <?php 
+                        $listKelas = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10',
+                                        'B1', 'B2', 'B3', 'B4', 'B5'];
+                        foreach ($listKelas as $k): 
+                        ?>
+                            <option value="<?= $k ?>">Kelas <?= $k ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Ruangan</label>
+                    <select name="location" id="inputLocation" required class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-100 cursor-pointer">
+                        <option value="">Pilih Ruangan</option>
+                        <?php 
+                        $listRuangan = ['301', '302', '303', '304', '306', '307', '308', '309',
+                                        '401', '402', '403', '404', '406', '407', '408', '409'];
+                        foreach ($listRuangan as $r): 
+                        ?>
+                            <option value="<?= $r ?>"><?= $r ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
 
             <div>
                 <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Dosen Pengampu</label>
