@@ -12,8 +12,15 @@
         --fc-button-bg-color: white; 
         --fc-button-border-color: #e2e8f0;
         --fc-today-bg-color: #f8fafc;
+        min-height: 500px;
+    }
+
+    @media (min-width: 1024px) {
+    #calendar {
+        height: 100%; /* Ikuti tinggi parent di Laptop */
         min-height: 750px;
     }
+}
     
     .fc-header-toolbar { margin-bottom: 1.5rem !important; }
     .fc-button { border-radius: 10px !important; font-weight: 600; padding: 0.6rem 1.2rem; }
@@ -56,7 +63,7 @@
     .assistant-card.filter-active .check-icon { opacity: 1; }
 </style>
 
-<div class="max-w-7xl mx-auto space-y-6 animate-enter pb-12">
+<div class="max-w-7xl mx-auto space-y-6 animate-enter pb-20">
 
     <div class="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
         <div class="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-left"></div>
@@ -75,8 +82,8 @@
         </div>
     </div>
 
-    <div class="flex flex-col lg:flex-row gap-6 h-[850px]">
-        <div class="w-full lg:w-72 space-y-6 flex flex-col h-full">
+    <div class="flex flex-col lg:flex-row gap-6 lg:h-[850px]">
+        <div class="w-full lg:w-72 space-y-6 flex flex-col h[500px] lg:h-full">
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 shrink-0">
                 <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide mb-4">Kategori</h3>
                 <div class="space-y-3 text-sm font-medium text-gray-600">
