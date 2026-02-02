@@ -3,7 +3,7 @@ class GoogleClient {
     // GANTI DENGAN KREDENSIAL DARI GOOGLE CONSOLE ANDA
     private $client_id = '923620749646-fpi8v56rmjqevgct6vqp0k5i9tmgp8nu.apps.googleusercontent.com';
     private $client_secret = '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';
-    private $redirect_uri = 'http://localhost/Code/Project_ICLabs/iclabs_v2/public/google/callback';
+    private $redirect_uri = 'http://localhost/ICLABS/public/google/callback';
 
     private $token_url = 'https://oauth2.googleapis.com/token';
     private $auth_url = 'https://accounts.google.com/o/oauth2/auth';

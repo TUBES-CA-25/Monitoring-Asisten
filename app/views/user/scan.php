@@ -85,7 +85,14 @@
         </div>
     </div>
 
+    <!-- <input type="hidden" id="scanned-token">
+    <input type="hidden" id="final-image-base64">
+    <input type="hidden" id="geo-lat" value="">
+    <input type="hidden" id="geo-lng" value="">
+    <input type="hidden" id="geo-address" value=""> -->
+
     <input type="hidden" id="scanned-token">
+    <input type="hidden" id="scanned-type"> 
     <input type="hidden" id="final-image-base64">
     <input type="hidden" id="geo-lat" value="">
     <input type="hidden" id="geo-lng" value="">
@@ -200,29 +207,76 @@
             html5QrcodeScanner.render(onScanSuccess, (err) => {});
         }
 
-        function onScanSuccess(decodedText) {
-            html5QrcodeScanner.clear().then(() => {
-                let cleanToken = decodedText;
-                try {
-                    const parsed = JSON.parse(decodedText);
-                    if (parsed.token) cleanToken = parsed.token;
-                } catch (e) {}
+        // function onScanSuccess(decodedText) {
+        //     html5QrcodeScanner.clear().then(() => {
+        //         let cleanToken = decodedText;
+        //         try {
+        //             const parsed = JSON.parse(decodedText);
+        //             if (parsed.token) cleanToken = parsed.token;
+        //         } catch (e) {}
 
-                document.getElementById('scanned-token').value = cleanToken;
+        //         document.getElementById('scanned-token').value = cleanToken;
                 
-                document.getElementById('step-scan').classList.add('hidden');
-                document.getElementById('step-selfie').classList.remove('hidden');
-                document.getElementById('controls-selfie').classList.remove('hidden');
-                document.getElementById('controls-selfie').classList.add('flex');
+        //         document.getElementById('step-scan').classList.add('hidden');
+        //         document.getElementById('step-selfie').classList.remove('hidden');
+        //         document.getElementById('controls-selfie').classList.remove('hidden');
+        //         document.getElementById('controls-selfie').classList.add('flex');
 
-                setTimeout(startSelfieCamera, 500); 
-            }).catch(err => {
-                console.error("Scanner Error", err);
-                location.reload();
-            });
+        //         setTimeout(startSelfieCamera, 500); 
+        //     }).catch(err => {
+        //         console.error("Scanner Error", err);
+        //         location.reload();
+        //     });
+        // }
+
+        // // 3. KAMERA
+        // async function startSelfieCamera() {
+        //     try {
+        //         selfieStream = await navigator.mediaDevices.getUserMedia({ 
+        //             video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1080 } }, 
+        //             audio: false 
+        //         });
+        //         videoEl.srcObject = selfieStream;
+        //     } catch (err) {
+        //         try {
+        //             selfieStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        //             videoEl.srcObject = selfieStream;
+        //         } catch (err2) {
+        //             showModal('error', 'Kamera Error', 'Gagal membuka kamera.');
+        //         }
+        //     }
+        // }
+
+        function onScanSuccess(decodedText) {
+    html5QrcodeScanner.clear().then(() => {
+        let cleanToken = decodedText;
+        let type = 'check_in'; // Default
+
+        try {
+            // Mengurai JSON dari QR Admin
+            const parsed = JSON.parse(decodedText);
+            if (parsed.token) cleanToken = parsed.token;
+            
+            // Konversi tipe: CHECK_IN -> check_in, CHECK_OUT -> check_out
+            if (parsed.type === 'CHECK_IN') type = 'check_in';
+            if (parsed.type === 'CHECK_OUT') type = 'check_out';
+        } catch (e) {
+            console.warn("Format QR bukan JSON, menggunakan token mentah.");
         }
 
-        // 3. KAMERA
+        // Mengisi input hidden yang baru Anda buat
+        document.getElementById('scanned-token').value = cleanToken;
+        document.getElementById('scanned-type').value = type; 
+        
+        // Pindah ke tahap selfie
+        document.getElementById('step-scan').classList.add('hidden');
+        document.getElementById('step-selfie').classList.remove('hidden');
+        document.getElementById('controls-selfie').classList.remove('hidden');
+        document.getElementById('controls-selfie').classList.add('flex');
+
+        setTimeout(startSelfieCamera, 500); 
+    });
+}
         async function startSelfieCamera() {
             try {
                 selfieStream = await navigator.mediaDevices.getUserMedia({ 
@@ -230,12 +284,15 @@
                     audio: false 
                 });
                 videoEl.srcObject = selfieStream;
+                console.log("Kamera selfie berhasil dimulai");
             } catch (err) {
+                console.error("Gagal membuka kamera:", err);
                 try {
+                    // Fallback jika resolusi ideal tidak didukung perangkat
                     selfieStream = await navigator.mediaDevices.getUserMedia({ video: true });
                     videoEl.srcObject = selfieStream;
                 } catch (err2) {
-                    showModal('error', 'Kamera Error', 'Gagal membuka kamera.');
+                    showModal('error', 'Kamera Error', 'Tidak dapat mengakses kamera: ' + err2.message);
                 }
             }
         }
@@ -307,16 +364,18 @@
         // 5. SUBMIT
         function submitAttendance() {
             const token = document.getElementById('scanned-token').value;
+            const type = document.getElementById('scanned-type').value;
             const img = document.getElementById('final-image-base64').value;
             // Kirim alamat string juga untuk disimpan di DB (opsional, kalau ada kolomnya)
             const address = document.getElementById('geo-address').value;
 
             if (!img) { showModal('error', 'Foto Kosong', 'Silakan ambil foto bukti.'); return; }
 
-            showLoading(true);
+            // showLoading(true);
 
             const fd = new FormData();
             fd.append('token', token);
+            fd.append('type', type);
             fd.append('image', img);
             fd.append('address', address); // Kirim alamat
 
@@ -330,7 +389,9 @@
                     showModal('error', 'Gagal', data.message);
                 }
             })
-            .catch(() => { showLoading(false); showModal('error', 'Koneksi Error', 'Gagal menghubungi server.'); });
+            .catch(() => { 
+                showLoading(false); 
+                showModal('error', 'Koneksi Error', 'Gagal menghubungi server.'); });
         }
 
         function showLoading(show) {

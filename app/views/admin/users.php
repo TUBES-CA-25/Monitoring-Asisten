@@ -13,7 +13,7 @@
         <div class="relative z-10 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0 text-center md:text-left">
                 <h1 class="text-3xl font-extrabold">Manajemen Pengguna</h1>
-                <p class="text-blue-100 mt-2 text-sm">Kelola akun Asisten, Admin, dan Super Admin.</p>
+                <p class="text-blue-100 mt-2 text-sm">Kelola akun Asisten, Admin, dan Kepala Lab.</p>
                 <button onclick="openUserModal('add')" class="mt-6 bg-white text-blue-600 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition transform hover:scale-105 flex items-center gap-2 mx-auto md:mx-0">
                     <i class="fas fa-plus-circle"></i> Tambah User Baru
                 </button>
@@ -30,10 +30,13 @@
         <div class="p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
             <h3 class="font-bold text-gray-700 uppercase tracking-wide text-sm">Daftar User</h3>
             
-            <div class="relative w-full sm:w-72">
+            <form action="<?= BASE_URL ?>/admin/manageUsers" method="GET" class="relative w-full sm:w-72">
                 <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 text-xs"></i>
-                <input type="text" id="searchUser" onkeyup="searchTable()" placeholder="Cari nama, email, atau NIM..." class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
-            </div>
+                <input type="text" name="search" value="<?= isset($search_keyword) ? $search_keyword : '' ?>" 
+                       placeholder="Cari & Tekan Enter..." 
+                       class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition shadow-sm">
+            </form>
+
         </div>
 
         <div class="overflow-x-auto">
@@ -47,7 +50,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
-                    <?php foreach($users_list as $u): 
+                    <?php if(!empty($users_list)): foreach($users_list as $u):
                         $isVerified = $u['is_completed'] == 1;
                         $statusBadge = $isVerified 
                             ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200"><i class="fas fa-check-circle mr-1"></i>Verifikasi</span>'
@@ -72,14 +75,14 @@
                         </td>
                         <td class="p-6">
                             <div class="text-sm font-bold text-gray-700 mb-1"><?= $u['position'] ?? 'Anggota' ?></div>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Super Admin'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Kepala Lab'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
                                 <?= $u['role'] ?>
                             </span>
-                            <?php if ($u['role'] == 'User' && !empty($u['kelas'])): ?>
+                            <?php if ($u['role'] == 'User' && !empty($u['class'])): ?>
                                 <div class="mt-2 flex items-center gap-1.5">
                                     <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas:</span>
                                     <span class="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-mono">
-                                        <?= $u['kelas'] ?>
+                                        <?= $u['class'] ?>
                                     </span>
                                 </div>
                             <?php endif; ?>
@@ -99,12 +102,59 @@
                             <?php endif; ?>
                         </td>
                     </tr>
-                    <?php endforeach; ?>
+                   <?php endforeach; else: ?>
+                        <tr>
+                            <td colspan="4" class="p-8 text-center text-gray-500">
+                                <div class="flex flex-col items-center justify-center opacity-50">
+                                    <i class="fas fa-search text-3xl mb-2"></i>
+                                    <p>Data pengguna tidak ditemukan.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
+        </div> <?php if (isset($pagination) && $pagination['total_pages'] > 1): ?>
+        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+            <div class="text-xs text-gray-500 font-bold uppercase tracking-wide">
+                Halaman <span class="text-blue-600"><?= $pagination['current'] ?></span> dari <?= $pagination['total_pages'] ?> 
+                <span class="normal-case text-gray-400 font-medium ml-1">(Total <?= $pagination['total_items'] ?> User)</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <?php 
+                    function buildUserUrl($page) {
+                        $params = $_GET; 
+                        $params['page'] = $page; 
+                        return BASE_URL . '/admin/manageUsers?' . http_build_query($params);
+                    }
+                ?>
+
+                <?php if ($pagination['current'] > 1): ?>
+                    <a href="<?= buildUserUrl($pagination['current'] - 1) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm"><i class="fas fa-chevron-left text-xs"></i></a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed"><i class="fas fa-chevron-left text-xs"></i></span>
+                <?php endif; ?>
+
+                <?php 
+                    $startPage = max(1, $pagination['current'] - 2);
+                    $endPage = min($pagination['total_pages'], $pagination['current'] + 2);
+                    for ($i = $startPage; $i <= $endPage; $i++): 
+                        $activeClass = ($i == $pagination['current']) ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/30' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                ?>
+                    <a href="<?= buildUserUrl($i) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition shadow-sm <?= $activeClass ?>"><?= $i ?></a>
+                <?php endfor; ?>
+
+                <?php if ($pagination['current'] < $pagination['total_pages']): ?>
+                    <a href="<?= buildUserUrl($pagination['current'] + 1) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm"><i class="fas fa-chevron-right text-xs"></i></a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed"><i class="fas fa-chevron-right text-xs"></i></span>
+                <?php endif; ?>
+            </div>
         </div>
-    </div>
-</div>
+        <?php endif; ?>
+        </div> </div>
 
 <div id="modalUser" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onclick="closeUserModal()"></div>
@@ -141,9 +191,10 @@
                         <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1">Role Akun <span class="text-red-500">*</span></label>
                             <select name="role" id="inputRole" onchange="toggleRoleFields()" required class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
+                                <option value="" disabled selected>-- Role --</option>
                                 <option value="User">User (Asisten)</option>
                                 <option value="Admin">Admin</option>
-                                <option value="Super Admin">Super Admin</option>
+                                <option value="Kepala Lab">Kepala Lab</option>
                             </select>
                         </div>
                         <div>
@@ -161,9 +212,23 @@
                     <h4 class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-widest border-b pb-2">Detail Profil</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         
-                        <div>
+                        <!-- <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1">Jabatan</label>
                             <select name="position" id="inputPosition" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
+                                <option value="" disabled selected>-- Pilih Jabatan --</option>
+                                <option value="Kepala Lab">Kepala Lab</option>
+                                <option value="Laboran">Laboran</option>
+                                <option value="Administrator">Koordinator Asisten</option>
+                                <option value="Asisten 1">Asisten 1</option>
+                                <option value="Asisten 2">Asisten 2</option>
+                                <option value="Asisten Pendamping">Asisten Pendamping</option>
+                            </select>
+                        </div> -->
+
+                       <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1"> Jabatan <span class="text-red-500">*</span></label>
+                            <select name="position" id="inputPosition" onchange="toggleRoleFields()" required 
+                                    class="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
                                 <option value="" disabled selected>-- Pilih Jabatan --</option>
                                 <option value="Kepala Lab">Kepala Lab</option>
                                 <option value="Laboran">Laboran</option>
@@ -184,16 +249,45 @@
                                 <label class="block text-xs font-bold text-gray-500 mb-1">NIM</label>
                                 <input type="text" name="nim" id="inputNim" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono">
                             </div>
-                            <div>
+                            <!-- <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Kelas</label>
                                 <input type="text" name="class" id="inputClass" placeholder="Contoh: TI-3A" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono uppercase">
-                            </div>
+                            </div> -->
+                     <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Kelas <span class="text-red-500">*</span></label>
+                        
+                        <select name="class" id="inputClass" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                            
+                            <option value="" disabled selected>-- Pilih Kelas --</option>
+
+                            <?php 
+                                $daftarKelas = [
+                                    'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10',
+                                    'B1', 'B2', 'B3', 'B4', 'B5'
+                                ];
+
+                                foreach($daftarKelas as $k):
+                                    // Menggunakan operator '??' untuk mencegah error jika data kelas kosong
+                                    $cek = ($user['kelas'] ?? '') == $k ? 'selected' : '';
+                            ?>
+                                <option value="<?= $k ?>" <?= $cek ?>><?= $k ?></option>
+                            <?php endforeach; ?>
+
+                        </select>
+                    </div>
+
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Program Studi</label>
-                                <input type="text" name="prodi" id="inputProdi" placeholder="Contoh: Teknik Informatika" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">
-                            </div>
+                                <select name="prodi" id="inputProdi" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
+                                <option value="" prodi>-- Pilih Prodi --</option>
+                                <option value="Sistem Informasi">Sistem Informasi</option>
+                                <option value="Teknik Informatika">Teknik Informatika</option>
+                                </select>
                             
+                            </div>
+
                             <div>
+
                                 <label class="block text-xs font-bold text-gray-500 mb-1">Laboratorium</label>
                                 <select name="lab_id" id="inputLab" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
                                     <option value="">-- Pilih Lab --</option>
@@ -298,7 +392,7 @@
         
         if (mode === 'add') {
             title.innerText = "Tambah Pengguna Baru";
-            document.getElementById('inputRole').value = 'User'; 
+            // document.getElementById('inputRole').value = 'User'; 
             document.getElementById('inputPass').required = true;
             document.getElementById('passReq').classList.remove('hidden');
             document.getElementById('passHint').innerText = "";

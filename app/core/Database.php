@@ -19,6 +19,7 @@ class Database {
 
         try {
             $this->dbh = new PDO($dsn, $this->user, $this->pass, $option);
+            $this->dbh->exec("SET time_zone = '+08:00'");
         } catch(PDOException $e) {
             die("Koneksi Database Gagal: " . $e->getMessage());
         }

@@ -170,9 +170,9 @@
             
             <div class="mt-auto w-full pt-6">
                 <?php 
-                    // [LOGIKA BARU] Cek User & Super Admin yang sudah completed
+                    // [LOGIKA BARU] Cek User & Kepala Lab yang sudah completed
                     $isLocked = false;
-                    $targetRoles = ['User', 'Super Admin'];
+                    $targetRoles = ['User', 'Kepala Lab'];
                     
                     if(in_array($user['role'], $targetRoles) && isset($user['is_completed']) && $user['is_completed'] == 1) {
                         $isLocked = true;

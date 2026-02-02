@@ -87,13 +87,13 @@
 <body class="h-screen w-screen flex items-center justify-center overflow-hidden font-sans selection:bg-cyan-500 selection:text-white">
 
     <div class="bg-container">
-        <div class="bg-slide active" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/startup.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/IoT.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/CV.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/DS.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/Comnet.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/Micro.webp');"></div>
-        <div class="bg-slide" style="background-image: url('/Code/Project_ICLabs/iclabs_v2/public/assets/img/Mulmed.webp');"></div>
+        <div class="bg-slide active" style="background-image: url('/ICLABS/public/assets/img/startup.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/ICLABS/public/assets/img/IoT.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/ICLABS/public/assets/img/CV.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/ICLABS/public/assets/img/DS.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/ICLABS/public/assets/img/Comnet.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/ICLABS/public/assets/img/Micro.webp');"></div>
+        <div class="bg-slide" style="background-image: url('/ICLABS/public/assets/img/Mulmed.webp');"></div>
         
         <div class="bg-overlay"></div>
     </div>
@@ -135,9 +135,9 @@
                 </div>
             </div>
 
-            <div class="flex justify-end">
+            <!-- <div class="flex justify-end">
                 <a href="#" class="text-xs text-slate-400 hover:text-cyan-400 transition-colors">Lupa Password?</a>
-            </div>
+            </div> -->
 
             <button type="submit" id="submitBtn" class="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-900/20 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 group">
                 <span id="btnText">Masuk Sekarang</span>

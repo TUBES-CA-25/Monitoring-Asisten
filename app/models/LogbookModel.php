@@ -59,6 +59,15 @@ class LogbookModel {
 
         if (!$pId) return false;
 
+        if (!empty($data['log_id'])) {
+        $sql = "UPDATE logbook SET detail_aktivitas = :act WHERE id_logbook = :lid AND id_profil = :pid";
+        $this->db->query($sql);
+        $this->db->bind(':lid', $data['log_id']);
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':act', $data['activity']);
+        return $this->db->execute();
+    }
+
         $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :date");
         $this->db->bind(':pid', $pId);
         $this->db->bind(':date', $data['date']);

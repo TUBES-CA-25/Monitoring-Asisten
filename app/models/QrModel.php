@@ -24,7 +24,7 @@ class QrModel {
         }
 
         $code = md5(uniqid(rand(), true));
-        $interval = ($dbType == 'Presensi') ? '5 MINUTE' : '24 HOUR'; 
+        $interval = ($dbType == 'Presensi') ? '24 HOUR' : '24 HOUR'; 
         
         $sqlClean = "DELETE FROM qr_code WHERE tipe = :t AND valid_until < NOW()";
         $this->db->query($sqlClean);

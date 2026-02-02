@@ -4,9 +4,9 @@ class AdminController extends Controller {
     public function index() { $this->dashboard(); }
 
     public function dashboard() {
-        if (!isset($_SESSION['role']) || ($_SESSION['role'] != 'Admin' && $_SESSION['role'] != 'Super Admin')) {
-            header("Location: " . BASE_URL . "/auth/login"); exit;
-        }
+        $this->checkAccess(['Admin']);
+
+        $data['asisten'] = $this->model('UserModel')->getAssistants();
 
         $data['judul'] = 'Dashboard Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -17,6 +17,7 @@ class AdminController extends Controller {
         $db = new Database(); 
         $conn = $db->getConnection();
 
+        // Statistik Global
         $stmt = $conn->query("SELECT COUNT(*) as total FROM user WHERE role = 'User'");
         $totalAsisten = $stmt->fetch()['total'];
 
@@ -32,7 +33,7 @@ class AdminController extends Controller {
         ];
 
         $stmtAst = $conn->query("SELECT u.id_user, u.email, u.created_at,
-                                        p.id_profil, p.nama, p.photo_profile, p.jabatan, 
+                                        p.id_profil, p.nama as name, p.photo_profile, p.jabatan, 
                                         p.nim, p.no_telp, p.alamat, p.prodi, p.kelas, p.is_completed 
                                  FROM user u 
                                  JOIN profile p ON u.id_user = p.id_user 
@@ -43,6 +44,7 @@ class AdminController extends Controller {
         foreach ($assistants as &$ast) {
             $pid = $ast['id_profil'];
 
+            // 1. Cek Status Visual
             $stmtP = $conn->prepare("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
             $stmtP->execute([':pid' => $pid]);
             $presensi = $stmtP->fetch(PDO::FETCH_ASSOC);
@@ -59,6 +61,7 @@ class AdminController extends Controller {
                 $ast['visual_status'] = 'alpha';
             }
 
+            // 2. Hitung Statistik Individu
             $stmtH = $conn->prepare("SELECT COUNT(*) FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
             $stmtH->execute([':pid' => $pid]);
             $ast['total_hadir'] = $stmtH->fetchColumn();
@@ -73,6 +76,7 @@ class AdminController extends Controller {
         $data['assistants'] = $assistants;
         $chartData = [];
         
+        // A. Harian
         $dLabels = []; $dData = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-$i days"));
@@ -82,23 +86,23 @@ class AdminController extends Controller {
         }
         $chartData['daily'] = ['labels' => $dLabels, 'data' => $dData];
 
+        // B. Mingguan
         $wLabels = []; $wData = [];
         for ($i = 3; $i >= 0; $i--) {
             $wStart = date('Y-m-d', strtotime("-$i weeks Monday this week"));
             $wEnd   = date('Y-m-d', strtotime("-$i weeks Sunday this week"));
             $wLabels[] = "Minggu " . date('W', strtotime($wStart));
-            
             $stmt = $conn->query("SELECT COUNT(*) FROM presensi WHERE tanggal BETWEEN '$wStart' AND '$wEnd' AND status = 'Hadir'");
             $wData[] = $stmt->fetchColumn();
         }
         $chartData['weekly'] = ['labels' => $wLabels, 'data' => $wData];
 
+        // C. Bulanan
         $mLabels = []; $mData = [];
         for ($i = 5; $i >= 0; $i--) {
             $mStart = date('Y-m-01', strtotime("-$i months"));
             $mEnd   = date('Y-m-t', strtotime("-$i months"));
             $mLabels[] = date('F', strtotime($mStart));
-            
             $stmt = $conn->query("SELECT COUNT(*) FROM presensi WHERE tanggal BETWEEN '$mStart' AND '$mEnd' AND status = 'Hadir'");
             $mData[] = $stmt->fetchColumn();
         }
@@ -106,6 +110,7 @@ class AdminController extends Controller {
 
         $data['chart_data'] = $chartData;
 
+        // QR Code
         $qrModel = $this->model('QrModel');
         $data['qr_in'] = json_encode(['type'=>'CHECK_IN', 'token'=>$qrModel->getOrGenerateToken('check_in')]);
         $data['qr_out'] = json_encode(['type'=>'CHECK_OUT', 'token'=>$qrModel->getOrGenerateToken('check_out')]);
@@ -117,29 +122,67 @@ class AdminController extends Controller {
     }
 
     public function manageUsers() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $data['judul'] = 'Manajemen Pengguna';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+        
         $db = new Database();
         $conn = $db->getConnection();
-        
-        $query = "SELECT u.id_user as id, u.email, u.role,
+
+        $keyword = isset($_GET['search']) ? $_GET['search'] : null;
+
+        $sql = "SELECT u.id_user as id, u.email, u.role,
                          p.nama as name, p.photo_profile, p.jabatan as position, 
                          p.nim, p.kelas, p.prodi, p.no_telp, p.alamat, p.jenis_kelamin, p.is_completed,
                          p.id_lab, l.nama_lab as lab_name
                   FROM user u
                   JOIN profile p ON u.id_user = p.id_user
-                  LEFT JOIN lab l ON p.id_lab = l.id_lab
-                  ORDER BY p.nama ASC";
+                  LEFT JOIN lab l ON p.id_lab = l.id_lab";
+
+        if ($keyword) {
+            $sql .= " WHERE p.nama LIKE :key OR p.nim LIKE :key OR u.email LIKE :key";
+        }
+
+        $sql .= " ORDER BY p.nama ASC";
                   
-        $stmt = $conn->prepare($query);
+        $stmt = $conn->prepare($sql);
+        
+        if ($keyword) {
+            $stmt->bindValue(':key', "%$keyword%");
+        }
+        
         $stmt->execute();
         $allUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // --- LOGIKA PAGINATION (Sama seperti Presensi) ---
+        $itemsPerPage = 10; // Menampilkan 10 user per halaman
+        $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        if ($currentPage < 1) $currentPage = 1;
+
+        $totalData = count($allUsers);
+        $totalPages = ceil($totalData / $itemsPerPage);
+        
+        if ($currentPage > $totalPages && $totalPages > 0) $currentPage = $totalPages;
+
+        // Potong Data (Slice)
+        $offset = ($currentPage - 1) * $itemsPerPage;
+        $slicedUsers = array_slice($allUsers, $offset, $itemsPerPage);
+
+        // Kirim data ke View
+        $data['users_list'] = $slicedUsers; 
+        $data['search_keyword'] = $keyword; // Kirim balik keyword agar tidak hilang dari kotak input
+        
+        $data['pagination'] = [
+            'current' => $currentPage,
+            'total_pages' => $totalPages,
+            'total_items' => $totalData,
+            'per_page' => $itemsPerPage
+        ];
         
         $db->query("SELECT * FROM lab ORDER BY nama_lab ASC");
         $data['labs'] = $db->resultSet();
 
-        $data['users_list'] = $allUsers;
+        // $data['users_list'] = $allUsers;
         
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -147,33 +190,130 @@ class AdminController extends Controller {
         $this->view('layout/footer');
     }
 
+    // public function addUser() {
+    //     // 1. Cek Akses
+    //     $this->checkAccess(['Admin']);
+
+    //     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    //         ob_clean(); 
+    //         header('Content-Type: application/json');
+
+    //         // --- [PERBAIKAN] Validasi Jabatan Wajib ---
+    //         if (empty($_POST['position'])) {
+    //             echo json_encode([
+    //                 'status' => 'error', 
+    //                 'title' => 'Data Belum Lengkap', 
+    //                 'message' => 'Jabatan wajib dipilih agar data valid.'
+    //             ]);
+    //             exit;
+    //         }
+
+    //         $photoName = 'default.jpg'; 
+            
+    //         // 2. Logika Upload Foto
+    //         if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
+    //             $targetDir = "../public/uploads/profile/";
+    //             if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+                
+    //             $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
+    //             $targetFilePath = $targetDir . $fileName;
+    //             $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
+                
+    //             if (in_array(strtolower($fileType), ['jpg', 'jpeg', 'png', 'webp'])) {
+    //                 if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
+    //                     $photoName = $fileName;
+    //                 }
+    //             }
+    //         }
+
+    //         $role = $_POST['role'];
+    //         $isUser = ($role == 'User');
+            
+    //         // Cek kelengkapan profil dasar
+    //         $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
+
+    //         // 3. Susun Data (Jabatan sekarang langsung diambil karena sudah divalidasi)
+    //         $data = [
+    //             'email'    => $_POST['email'],
+    //             'password' => $_POST['password'], 
+    //             'role'     => $role,
+    //             'name'     => $_POST['name'],
+                
+    //             // Gunakan String Kosong '' atau NULL sesuai DB (Model Anda sudah handle jadi NULL jika kosong)
+    //             'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : '',
+    //             'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : '',
+    //             'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : '',
+    //             'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : 0,
+    //             'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : '',
+                
+    //             // [PENTING] Langsung ambil post position
+    //             'position' => $_POST['position'], 
+                
+    //             'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
+    //             'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
+    //             'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
+    //             'photo'    => $photoName,
+    //             'is_completed' => $isCompleted
+    //         ];
+
+    //         // 4. Eksekusi ke Model
+    //         if ($this->model('UserModel')->createUser($data)) {
+    //             echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
+    //         } else {
+    //             echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user. Email mungkin sudah ada.']);
+    //         }
+    //         exit;
+    //     }
+    // }
+
     public function addUser() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ob_clean(); 
             header('Content-Type: application/json');
 
-            $photoName = 'default.jpg';
+            if (empty($_POST['position'])) {
+                echo json_encode(['status' => 'error', 'title' => 'Data Belum Lengkap', 'message' => 'Jabatan wajib dipilih agar data valid.']);
+                exit;
+            }
+
+            $photoName = 'default.jpg'; 
             
-            if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
-                $targetDir = "../public/uploads/profile/";
-                if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+            // LOGIKA UPLOAD FOTO (DIPERBAIKI)
+            if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+                // Gunakan DOCUMENT_ROOT agar path mengarah ke folder fisik proyek Anda
+                $targetDir = $_SERVER['DOCUMENT_ROOT'] . "/ICLABS/public/uploads/profile/";
                 
-                $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
-                $targetFilePath = $targetDir . $fileName;
-                $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
+                if (!file_exists($targetDir)) {
+                    mkdir($targetDir, 0777, true);
+                }
                 
-                if (in_array(strtolower($fileType), ['jpg', 'jpeg', 'png', 'webp'])) {
-                    if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
-                        $photoName = $fileName;
+                $fileExtension = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
+                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+                
+                if (in_array($fileExtension, $allowedExtensions)) {
+                    // Validasi Ukuran (Maks 2MB)
+                    if ($_FILES["photo"]["size"] <= 2048000) {
+                        $newFileName = time() . '_' . uniqid() . '.' . $fileExtension;
+                        $targetFilePath = $targetDir . $newFileName;
+
+                        if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
+                            $photoName = $newFileName;
+                        } else {
+                            // Pesan ini muncul jika Folder tidak bisa ditulisi (Permission)
+                            echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal memindahkan file. Cek izin folder profile di Windows/Mac Anda.']);
+                            exit;
+                        }
+                    } else {
+                        echo json_encode(['status' => 'error', 'title' => 'File Terlalu Besar', 'message' => 'Ukuran foto maksimal adalah 2MB.']);
+                        exit;
                     }
                 }
             }
 
             $role = $_POST['role'];
             $isUser = ($role == 'User');
-            
             $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
 
             $data = [
@@ -181,17 +321,15 @@ class AdminController extends Controller {
                 'password' => $_POST['password'], 
                 'role'     => $role,
                 'name'     => $_POST['name'],
-                
-                'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : null,
-                'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : null,
-                'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : null,
-                'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : null,
-                'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : null,
-                
-                'position' => !empty($_POST['position']) ? $_POST['position'] : null,
-                'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : null,
-                'alamat'   => !empty($_POST['address']) ? $_POST['address'] : null,
-                'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : null,
+                'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : '',
+                'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : '',
+                'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : '',
+                'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : 0,
+                'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : '',
+                'position' => $_POST['position'], 
+                'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
+                'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
+                'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
                 'photo'    => $photoName,
                 'is_completed' => $isCompleted
             ];
@@ -199,24 +337,32 @@ class AdminController extends Controller {
             if ($this->model('UserModel')->createUser($data)) {
                 echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
             } else {
-                echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user (Email mungkin sudah ada).']);
+                echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user. Email mungkin sudah ada.']);
             }
             exit;
         }
     }
 
     public function editUser() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ob_clean();
             header('Content-Type: application/json');
 
+            // --- [PERBAIKAN] Validasi Jabatan Wajib di Edit Juga ---
+            if (empty($_POST['position'])) {
+                echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Jabatan tidak boleh dikosongkan.']);
+                exit;
+            }
+
             $oldUser = $this->model('UserModel')->getUserById($_POST['id_user']);
             $photoName = $oldUser['photo_profile'];
 
             if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
-                $targetDir = "../public/uploads/profile/";
+                // Gunakan DOCUMENT_ROOT agar path mengarah ke folder fisik proyek Anda
+                $targetDir = $_SERVER['DOCUMENT_ROOT'] . "/ICLABS/public/uploads/profile/";
+
                 $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
                 $targetFilePath = $targetDir . $fileName;
                 $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
@@ -248,18 +394,17 @@ class AdminController extends Controller {
                 'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : null,
                 'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : null,
                 
-                'position' => !empty($_POST['position']) ? $_POST['position'] : null,
+                // [PENTING] Langsung ambil post position
+                'position' => $_POST['position'],
+                
                 'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : null,
                 'alamat'   => !empty($_POST['address']) ? $_POST['address'] : null,
                 'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : null,
-                'photo'    => ($photoName != $oldUser['photo_profile']) ? $photoName : null,
+                'photo' => $photoName,
                 'is_completed' => $isCompleted
             ];
 
-            if (!empty($_POST['password'])) {
-                $this->model('UserModel')->changePassword($data['id'], $_POST['password']);
-            }
-
+            // Update user via Model
             $updateResult = $this->model('UserModel')->updateUser($data);
 
             if ($updateResult) {
@@ -272,7 +417,7 @@ class AdminController extends Controller {
     }
 
     public function deleteUser() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         if (isset($_GET['id'])) {
             ob_clean();
@@ -288,7 +433,7 @@ class AdminController extends Controller {
     }
 
     public function monitorAttendance() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);        
         
         $data['judul'] = 'Rekap Presensi';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -304,7 +449,34 @@ class AdminController extends Controller {
         $data['end_date'] = $endDate;
         $data['selected_assistant'] = $assistantId;
 
-        $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+        // $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+        $fullData = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+
+        // --- LOGIKA PAGINATION ---
+        $itemsPerPage = 10; // Tampilkan 10 data per halaman
+        $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        if ($currentPage < 1) $currentPage = 1;
+
+        $totalData = count($fullData);
+        $totalPages = ceil($totalData / $itemsPerPage);
+
+        // Pastikan halaman tidak melebihi total
+        if ($currentPage > $totalPages && $totalPages > 0) $currentPage = $totalPages;
+
+        // Potong Array (Slice)
+        $offset = ($currentPage - 1) * $itemsPerPage;
+        $slicedData = array_slice($fullData, $offset, $itemsPerPage);
+
+        // 3. Kirim Data Potongan ke View
+        $data['attendance_list'] = $slicedData;
+
+        // Kirim Info Pagination
+        $data['pagination'] = [
+            'current' => $currentPage,
+            'total_pages' => $totalPages,
+            'total_items' => $totalData,
+            'per_page' => $itemsPerPage
+        ];
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -313,7 +485,7 @@ class AdminController extends Controller {
     }
 
     public function exportCsv() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
@@ -347,7 +519,7 @@ class AdminController extends Controller {
     }
 
     public function exportPdf() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
@@ -369,7 +541,7 @@ class AdminController extends Controller {
     }
 
     public function schedule() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $data['judul'] = 'Kelola Jadwal';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
@@ -385,7 +557,7 @@ class AdminController extends Controller {
     }
 
     public function addSchedule() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $type = $_POST['type']; 
             $userId = ($type == 'umum') ? NULL : ($_POST['user_id'] ?? null);
@@ -403,7 +575,7 @@ class AdminController extends Controller {
     }
 
     public function editSchedule() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $type = $_POST['type'];
             $userId = ($type == 'umum') ? NULL : ($_POST['user_id'] ?? null);
@@ -421,8 +593,7 @@ class AdminController extends Controller {
     }
 
     public function deleteSchedule() {
-        if ($_SESSION['role'] != 'Admin') exit;
-
+        $this->checkAccess(['Admin']);
         if (isset($_GET['id']) && isset($_GET['type'])) {
             if ($this->model('ScheduleModel')->deleteSchedule($_GET['id'], $_GET['type'])) {
                 $_SESSION['flash'] = ['type' => 'success', 'title' => 'Terhapus', 'message' => 'Jadwal berhasil dihapus.'];
@@ -435,7 +606,7 @@ class AdminController extends Controller {
     }
 
     public function logbook() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $data['judul'] = 'Monitoring Logbook';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
@@ -449,23 +620,19 @@ class AdminController extends Controller {
     }
     
     public function getLogsByUser() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $userId = $_POST['user_id'] ?? 0;
-        
         $logs = $this->model('LogbookModel')->getUnifiedLogbook($userId);
-        
         echo json_encode($logs);
     }
     
     public function reset_logbook() {
-        if ($_SESSION['role'] != 'Admin') { 
-            echo json_encode(['status'=>'error', 'message'=>'Unauthorized']); exit; 
-        }
+        $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $idRef = $_POST['id_ref'];
-            $type = $_POST['type'];
-            $mode = $_POST['mode'];
+            $idRef = $_POST['id_ref']; 
+            $type = $_POST['type'];    
+            $mode = $_POST['mode'];    
 
             if ($this->model('LogbookModel')->resetLogAdmin($idRef, $type, $mode)) {
                 echo json_encode(['status' => 'success', 'message' => 'Logbook berhasil direset.']);
@@ -476,7 +643,7 @@ class AdminController extends Controller {
     }
 
     public function saveLogbookAdmin() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         
         $fileName = null;
         if (isset($_FILES['proof_file']['name']) && $_FILES['proof_file']['name'] != "") {
@@ -510,13 +677,13 @@ class AdminController extends Controller {
     }
     
     public function deleteLogbook() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $id = $_POST['id'];
         if ($this->model('LogbookModel')->deleteLogAdmin($id)) echo json_encode(['status'=>'success']); else echo json_encode(['status'=>'error']);
     }
     
     public function profile() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);        
 
         $data['judul'] = 'Profil Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
@@ -535,7 +702,6 @@ class AdminController extends Controller {
         $data['chart_data'] = $attModel->getChartData(); 
 
         $userModel = $this->model('UserModel');
-
         $data['demographics'] = $userModel->getDemographics();
 
         $stmtSch = $conn->query("SELECT * FROM jadwal_lab 
@@ -570,21 +736,22 @@ class AdminController extends Controller {
     }
     
     public function editProfile() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
         $data['judul'] = 'Edit Profil Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         $this->view('layout/header', $data); $this->view('layout/sidebar', $data); $this->view('common/edit_profile', $data); $this->view('layout/footer');
     }
     
     public function updateProfile() {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $userModel = $this->model('UserModel');
             $currentUser = $userModel->getUserById($_SESSION['user_id']);
 
             $photoName = $currentUser['photo_profile'];
-            $targetDir = "../public/uploads/profile/";
+            // Gunakan DOCUMENT_ROOT agar path mengarah ke folder fisik proyek Anda
+                $targetDir = $_SERVER['DOCUMENT_ROOT'] . "/ICLABS/public/uploads/profile/";
 
             if (!empty($_POST['cropped_image'])) {
                 $dataImg = $_POST['cropped_image'];
@@ -630,7 +797,7 @@ class AdminController extends Controller {
                 'address'  => $_POST['address'],
                 'gender'   => $_POST['gender'],
                 'interest' => null,
-                'photo'    => ($photoName != $currentUser['photo_profile']) ? $photoName : null,
+                'photo' => $photoName,
                 'is_completed' => $isCompleted 
             ];
 
@@ -652,9 +819,9 @@ class AdminController extends Controller {
     }
 
     public function getQrAjax() {
-        if ($_SESSION['role'] != 'Admin') exit;
-        
-        $type = $_POST['type'] ?? 'check_in';
+        $this->checkAccess(['Admin']);    
+
+        $type = $_POST['type'] ?? 'check_in'; 
         $token = $this->model('QrModel')->getOrGenerateToken($type);
         
         $qrString = json_encode([
@@ -666,7 +833,7 @@ class AdminController extends Controller {
     }
 
     public function assistantSchedule($id) {
-        if ($_SESSION['role'] != 'Admin') exit;
+        $this->checkAccess(['Admin']);
 
         $assistant = $this->model('UserModel')->getUserById($id);
         if (!$assistant || $assistant['role'] != 'User') {
@@ -684,6 +851,28 @@ class AdminController extends Controller {
         $this->view('layout/sidebar', $data);
         $this->view('admin/assistant_schedule', $data); 
         $this->view('layout/footer');
+    }
+
+    // --- FUNGSI BANTUAN UNTUK CEK AKSES (DIAKTIFKAN KEMBALI) ---
+    protected function checkAccess($allowedRoles = ['Admin']) {
+        // 1. Cek Login
+        if (!isset($_SESSION['role'])) {
+            header("Location: " . BASE_URL . "/auth/login");
+            exit;
+        }
+
+        // 2. Cek Role (Jika role user tidak ada dalam daftar yang diizinkan)
+        if (!in_array($_SESSION['role'], $allowedRoles)) {
+            // Pastikan file ErrorController ada, jika tidak, redirect ke login
+            if (file_exists('../app/controllers/ErrorController.php')) {
+                require_once '../app/controllers/ErrorController.php';
+                $error = new ErrorController();
+                $error->unauthorized();
+            } else {
+                header("Location: " . BASE_URL . "/auth/login");
+            }
+            exit; // Matikan script agar halaman admin tidak bocor
+        }
     }
 }
 ?>

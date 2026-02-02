@@ -34,9 +34,231 @@ class UserModel {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    // // --- FUNGSI CREATE USER (BAGIAN PALING KRUSIAL) ---
+    // public function createUser($data) {
+    //     try {
+    //         // 1. Mulai Transaksi
+    //         $this->conn->beginTransaction();
+
+    //         // 2. Insert ke Tabel USER (Login Info)
+    //         $sqlUser = "INSERT INTO user (email, password, role, created_at) VALUES (:email, :pass, :role, NOW())";
+    //         $stmtUser = $this->conn->prepare($sqlUser);
+    //         $stmtUser->execute([
+    //             ':email' => $data['email'], 
+    //             ':pass'  => password_hash($data['password'], PASSWORD_BCRYPT), 
+    //             ':role'  => $data['role']
+    //         ]);
+            
+    //         // Ambil ID User baru
+    //         $newUserId = $this->conn->lastInsertId();
+
+    //         // 3. Insert ke Tabel PROFILE (Biodata)
+    //         $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile, is_completed, id_lab) 
+    //                     VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo, :completed, :lab)";
+            
+    //         $stmtProf = $this->conn->prepare($sqlProf);
+            
+    //         // [PERBAIKAN] Data Sanitization: Ubah String Kosong "" menjadi NULL
+    //         // Ini mencegah error "Incorrect integer value" pada kolom angka/enum
+    //         $stmtProf->execute([
+    //             ':uid'  => $newUserId, 
+    //             ':name' => $data['name'], 
+    //             ':nim'  => !empty($data['nim']) ? $data['nim'] : NULL, 
+    //             ':cls'  => !empty($data['class']) ? $data['class'] : NULL, 
+    //             ':prodi'=> !empty($data['prodi']) ? $data['prodi'] : NULL, 
+    //             ':pos'  => !empty($data['position']) ? $data['position'] : 'Anggota',
+    //             ':hp'   => !empty($data['no_telp']) ? $data['no_telp'] : NULL, 
+    //             ':addr' => !empty($data['alamat']) ? $data['alamat'] : NULL, 
+    //             ':photo'=> $data['photo'],
+    //             ':completed' => $data['is_completed'] ?? 0,
+    //             ':lab'  => !empty($data['lab_id']) ? $data['lab_id'] : NULL
+    //         ]);
+
+    //         // 4. Simpan Permanen
+    //         $this->conn->commit();
+    //         return true;
+
+    //     } catch (Exception $e) { 
+    //         // Jika Gagal: Batalkan Semua
+    //         $this->conn->rollBack(); 
+            
+    //         // [DEBUGGING MODE]
+    //         // Kode ini akan menampilkan pesan error asli MySQL ke layar/console
+    //         // Hapus bagian ini jika website sudah live/production
+    //         header('Content-Type: application/json');
+    //         echo json_encode([
+    //             'status' => 'error',
+    //             'title' => 'DATABASE ERROR',
+    //             'message' => 'Penyebab Gagal: ' . $e->getMessage()
+    //         ]);
+    //         exit; // Stop program agar pesan error terbaca
+    //     }
+    // }
+
+    public function createUser($data) {
+        try {
+            // 1. Mulai Transaksi agar data User & Profile masuk bersamaan
+            $this->conn->beginTransaction();
+
+            // 2. Insert ke Tabel USER
+            $sqlUser = "INSERT INTO user (email, password, role, created_at) VALUES (:email, :pass, :role, NOW())";
+            $stmtUser = $this->conn->prepare($sqlUser);
+            $stmtUser->execute([
+                ':email' => $data['email'], 
+                ':pass'  => password_hash($data['password'], PASSWORD_BCRYPT), 
+                ':role'  => $data['role']
+            ]);
+    
+            $newUserId = $this->conn->lastInsertId();
+
+            // 3. Insert ke Tabel PROFILE
+            $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile, is_completed, id_lab) 
+                        VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo, :completed, :lab)";
+            
+            $stmtProf = $this->conn->prepare($sqlProf);
+            
+            // Eksekusi dengan Sanitasi Data NULL
+            $stmtProf->execute([
+                ':uid'  => $newUserId, 
+                ':name' => $data['name'], 
+                ':nim'  => !empty($data['nim']) ? $data['nim'] : NULL, 
+                ':cls'  => !empty($data['class']) ? $data['class'] : NULL, 
+                ':prodi'=> !empty($data['prodi']) ? $data['prodi'] : NULL, 
+                ':pos'  => $data['position'],
+                ':hp'   => !empty($data['no_telp']) ? $data['no_telp'] : NULL, 
+                ':addr' => !empty($data['alamat']) ? $data['alamat'] : NULL, 
+                ':photo'=> $data['photo'], // SINKRONKAN DENGAN CONTROLLER
+                ':completed' => $data['is_completed'] ?? 0,
+                ':lab'  => ($data['lab_id'] > 0) ? $data['lab_id'] : NULL
+            ]);
+
+            // 4. Simpan Permanen
+            $this->conn->commit();
+            return true;
+
+        } catch (Exception $e) { 
+            // Batalkan semua jika ada satu saja yang gagal
+            $this->conn->rollBack(); 
+    
+            header('Content-Type: application/json');
+            echo json_encode([
+                'status' => 'error',
+                'title' => 'DATABASE ERROR',
+                'message' => 'Penyebab Gagal: ' . $e->getMessage()
+            ]);
+            exit; 
+        }
+    }
+
+    public function updateUser($data) {
+        try {
+            $this->conn->beginTransaction();
+            
+            // 1. Update Profile
+            $sqlProf = "UPDATE profile SET nama = :name, nim = :nim, kelas = :cls, prodi = :prodi, no_telp = :telp, alamat = :alamat, jabatan = :pos, id_lab = :lab";
+            if (!empty($data['photo'])) { $sqlProf .= ", photo_profile = :photo"; }
+            $sqlProf .= " WHERE id_user = :uid";
+            
+            $stmtProf = $this->conn->prepare($sqlProf);
+            $params = [
+                ':name' => $data['name'], 
+                ':nim' => !empty($data['nim']) ? $data['nim'] : NULL, 
+                ':cls' => !empty($data['class']) ? $data['class'] : NULL, 
+                ':prodi' => !empty($data['prodi']) ? $data['prodi'] : NULL, 
+                ':telp' => !empty($data['no_telp']) ? $data['no_telp'] : NULL, 
+                ':alamat' => !empty($data['alamat']) ? $data['alamat'] : NULL, 
+                ':pos' => !empty($data['position']) ? $data['position'] : 'Anggota', 
+                ':lab' => !empty($data['lab_id']) ? $data['lab_id'] : NULL, 
+                ':uid' => $data['id']
+            ];
+            if (!empty($data['photo'])) $params[':photo'] = $data['photo'];
+            
+            $stmtProf->execute($params);
+            
+            // 2. Update User (Termasuk Password jika diisi)
+            $sqlUser = "UPDATE user SET email = :email, role = :role";
+            $paramsUser = [':email'=>$data['email'], ':role'=>$data['role'], ':uid'=>$data['id']];
+
+            // Cek jika password diisi baru update
+            if (!empty($data['password'])) {
+                $sqlUser .= ", password = :pass";
+                $paramsUser[':pass'] = password_hash($data['password'], PASSWORD_BCRYPT);
+            }
+
+            $sqlUser .= " WHERE id_user = :uid";
+            $stmtUser = $this->conn->prepare($sqlUser);
+            $stmtUser->execute($paramsUser);
+            
+            $this->conn->commit();
+            return true;
+        } catch (Exception $e) { 
+            $this->conn->rollBack(); 
+            // Debugging juga untuk update
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+            exit;
+        }
+    }
+
+    public function updateSelfProfile($data) {
+        try {
+            $this->conn->beginTransaction();
+
+            // [PERBAIKAN] Digabung jadi satu query agar lebih efisien
+            $query = "UPDATE profile SET 
+                      nama = :nama, 
+                      nim = :nim, 
+                      kelas = :kelas,
+                      prodi = :prodi,
+                      jabatan = :pos,
+                      no_telp = :hp, 
+                      alamat = :alamat, 
+                      jenis_kelamin = :jk,
+                      peminatan = :minat,
+                      id_lab = :lab,
+                      is_completed = 1 
+                      WHERE id_user = :uid";
+            
+            $stmt = $this->conn->prepare($query);
+            
+            $params = [
+                ':nama' => $data['name'],
+                ':nim' => !empty($data['nim']) ? $data['nim'] : NULL,
+                ':kelas' => !empty($data['class']) ? $data['class'] : NULL,
+                ':prodi' => !empty($data['prodi']) ? $data['prodi'] : NULL,
+                ':pos' => $data['position'],
+                ':hp' => $data['phone'],
+                ':alamat' => $data['address'],
+                ':jk' => $data['gender'],
+                ':minat' => !empty($data['interest']) ? $data['interest'] : NULL,
+                ':lab' => !empty($data['lab_id']) ? $data['lab_id'] : NULL,
+                ':uid' => $data['id']
+            ];
+
+            $stmt->execute($params);
+
+            if (!empty($data['photo'])) {
+                $queryFoto = "UPDATE profile SET photo_profile = :photo WHERE id_user = :uid";
+                $stmtFoto = $this->conn->prepare($queryFoto);
+                $stmtFoto->execute([':photo' => $data['photo'], ':uid' => $data['id']]);
+            }
+
+            $this->conn->commit();
+            return true;
+
+        } catch (Exception $e) {
+            $this->conn->rollBack();
+            return false;
+        }
+    }
+
+    // --- FUNGSI LAINNYA TETAP SAMA (READ ONLY) ---
+
     public function calculateRealAlpha($id_profil, $accountCreatedAt, $isCompleted) {
         if ($isCompleted != 1) return 0;
-
+        // Peringatan: Fungsi ini cukup berat jika user sudah lama terdaftar
+        // Pertimbangkan optimasi query SQL murni di masa depan.
+        
         $this->db->query("SELECT tanggal FROM presensi WHERE id_profil = :pid AND status IN ('Hadir', 'Terlambat')");
         $this->db->bind(':pid', $id_profil);
         $presensiRaw = $this->db->resultSet();
@@ -47,8 +269,11 @@ class UserModel {
         $this->db->bind(':pid', $id_profil);
         $izinRanges = $this->db->resultSet();
 
-        $startDate = new DateTime($accountCreatedAt); 
-        $endDate = new DateTime(); 
+        $startDate = new DateTime($accountCreatedAt);
+        $startDate->setTime(0, 0, 0);
+
+        $endDate = new DateTime();
+        $endDate->setTime(0, 0, 0);
         $endDate->modify('-1 day'); 
 
         if ($startDate > $endDate) return 0;
@@ -57,9 +282,9 @@ class UserModel {
 
         while ($startDate <= $endDate) {
             $currDate = $startDate->format('Y-m-d');
+            $dayOfWeek = $startDate->format('N');
             
-            if ($startDate->format('N') <= 7) {
-                
+            if ($dayOfWeek <= 7) { 
                 $isPresent = isset($presensiMap[$currDate]);
                 $isPermitted = false;
 
@@ -76,73 +301,15 @@ class UserModel {
                     $alphaCount++;
                 }
             }
-
             $startDate->modify('+1 day');
         }
-
         return $alphaCount;
     }
 
-    public function updateSelfProfile($data) {
-        try {
-            $this->conn->beginTransaction();
-
-            $query = "UPDATE profile SET 
-                      nama = :nama, 
-                      nim = :nim, 
-                      kelas = :kelas,
-                      prodi = :prodi,
-                      jabatan = :pos,
-                      no_telp = :hp, 
-                      alamat = :alamat, 
-                      jenis_kelamin = :jk,
-                      peminatan = :minat,
-                      id_lab = :lab,
-                      is_completed = :completed 
-                      WHERE id_user = :uid";
-            
-            $stmt = $this->conn->prepare($query);
-            
-            $params = [
-                ':nama' => $data['name'],
-                ':nim' => $data['nim'],
-                ':kelas' => $data['class'] ?? null,
-                ':prodi' => $data['prodi'] ?? null,
-                ':pos' => $data['position'],
-                ':hp' => $data['phone'],
-                ':alamat' => $data['address'],
-                ':jk' => $data['gender'],
-                ':minat' => $data['interest'] ?? null,
-                ':lab' => $data['lab_id'] ?? null,
-                ':completed' => $data['is_completed'] ?? 1, 
-                ':uid' => $data['id']
-            ];
-
-            if (!empty($data['photo'])) {
-                $queryFoto = "UPDATE profile SET photo_profile = :photo WHERE id_user = :uid";
-                $stmtFoto = $this->conn->prepare($queryFoto);
-                $stmtFoto->execute([':photo' => $data['photo'], ':uid' => $data['id']]);
-            }
-
-            $queryStatus = "UPDATE profile SET is_completed = 1 WHERE id_user = :uid";
-            $stmtStatus = $this->conn->prepare($queryStatus);
-            $stmtStatus->execute([':uid' => $data['id']]);
-
-            $stmt->execute($params);
-            $this->conn->commit();
-            return true;
-
-        } catch (Exception $e) {
-            $this->conn->rollBack();
-            return false;
-        }
-    }
-
     public function getAllUsers() {
-       $sql = "SELECT u.id_user as id, p.id_profil, u.role, u.email, 
-                       p.nama as name, p.nim, p.prodi, p.jabatan as position, p.photo_profile,
-                       p.no_telp, p.alamat, 
-                       l.nama_lab as lab_name, p.is_completed
+       $sql = "SELECT u.id_user as id, u.created_at, p.id_profil, u.role, u.email, 
+                       p.nama as name, p.nim, p.kelas, p.prodi, p.jabatan as position, p.photo_profile,
+                       p.no_telp, p.alamat, l.nama_lab as lab_name, p.is_completed
                 FROM user u 
                 JOIN profile p ON u.id_user = p.id_user 
                 LEFT JOIN lab l ON p.id_lab = l.id_lab 
@@ -162,59 +329,6 @@ class UserModel {
             $this->db->query($sql);
         }
         return $this->db->single()['total'];
-    }
-
-    public function createUser($data) {
-        try {
-            $this->conn->beginTransaction();
-            $sqlUser = "INSERT INTO user (email, password, role) VALUES (:email, :pass, :role)";
-            $stmtUser = $this->conn->prepare($sqlUser);
-            $stmtUser->execute([':email'=>$data['email'], ':pass'=>password_hash($data['password'], PASSWORD_BCRYPT), ':role'=>$data['role']]);
-            $newUserId = $this->conn->lastInsertId();
-
-            $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile) 
-                        VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo)";
-            $stmtProf = $this->conn->prepare($sqlProf);
-            $stmtProf->execute([
-                ':uid'  => $newUserId, 
-                ':name' => $data['name'], 
-                ':nim'  => $data['nim'] ?? null,
-                ':cls'  => $data['class'] ?? null, 
-                ':prodi'=> $data['prodi'] ?? null,
-                ':pos'  => $data['position'] ?? 'Anggota',
-                ':hp'   => $data['no_telp'],
-                ':addr' => $data['alamat'],
-                ':photo'=> $data['photo']
-            ]);
-            $this->conn->commit();
-            return true;
-        } catch (Exception $e) { $this->conn->rollBack(); return false; }
-    }
-
-    public function updateUser($data) {
-        try {
-            $this->conn->beginTransaction();
-            $sqlProf = "UPDATE profile SET nama = :name, nim = :nim, kelas = :cls, prodi = :prodi, no_telp = :telp, alamat = :alamat, jabatan = :pos";
-            if (!empty($data['photo'])) { $sqlProf .= ", photo_profile = :photo"; }
-            $sqlProf .= " WHERE id_user = :uid";
-            
-            $stmtProf = $this->conn->prepare($sqlProf);
-            $params = [
-                ':name' => $data['name'], ':nim' => $data['nim'], ':cls' => $data['class'] ?? null, 
-                ':prodi' => $data['prodi'] ?? null, ':telp' => $data['no_telp'], 
-                ':alamat' => $data['alamat'], ':pos' => $data['position'], ':uid' => $data['id']
-            ];
-            if (!empty($data['photo'])) $params[':photo'] = $data['photo'];
-            
-            $stmtProf->execute($params);
-            
-            $sqlUser = "UPDATE user SET email = :email, role = :role WHERE id_user = :uid";
-            $stmtUser = $this->conn->prepare($sqlUser);
-            $stmtUser->execute([':email'=>$data['email'], ':role'=>$data['role'], ':uid'=>$data['id']]);
-            
-            $this->conn->commit();
-            return true;
-        } catch (Exception $e) { $this->conn->rollBack(); return false; }
     }
 
     public function deleteUser($id) {
@@ -330,7 +444,7 @@ class UserModel {
     public function getAllAssistantsWithStatus() {
         $this->db->query("SELECT p.*, u.role 
                           FROM profile p 
-                          JOIN users u ON p.id_user = u.id_user 
+                          JOIN user u ON p.id_user = u.id_user 
                           WHERE u.role = 'User' 
                           ORDER BY p.nama ASC");
         $assistants = $this->db->resultSet();
@@ -362,6 +476,53 @@ class UserModel {
         }
 
         return $assistants;
+    }
+
+    public function saveGoogleToken($userId, $token) {
+        try {
+            $refreshToken = $token['refresh_token'] ?? '';
+            $idToken = $token['id_token'] ?? ''; 
+
+            $sql = "INSERT INTO user_google_token (id_user, access_token, refresh_token, id_token, expires_in, created_at) 
+                    VALUES (:uid, :at, :rt, :it, :exp, NOW())
+                    ON DUPLICATE KEY UPDATE 
+                    access_token = :at, 
+                    refresh_token = IF(:rt != '', :rt, refresh_token), 
+                    id_token = IF(:it != '', :it, id_token), 
+                    expires_in = :exp, 
+                    created_at = NOW()";
+
+            $this->db->query($sql);
+            $this->db->bind(':uid', $userId);
+            $this->db->bind(':at', $token['access_token']);
+            $this->db->bind(':rt', $refreshToken);
+            $this->db->bind(':it', $idToken);
+            $this->db->bind(':exp', $token['expires_in']);
+            
+            return $this->db->execute();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function isGoogleConnected($userId) {
+        $stmt = $this->conn->prepare("SELECT id_token FROM user_google_token WHERE id_user = :uid");
+        $stmt->execute([':uid' => $userId]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public function getAssistants() {
+        $sql = "SELECT u.id_user, u.email, u.role,
+                       p.nama as name, p.nim, p.photo_profile, 
+                       p.jabatan as position, p.kelas, p.is_completed 
+                FROM user u 
+                LEFT JOIN profile p ON u.id_user = p.id_user 
+                WHERE u.role = 'User' 
+                ORDER BY p.nama ASC";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 ?>

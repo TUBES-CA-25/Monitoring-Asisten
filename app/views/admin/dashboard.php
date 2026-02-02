@@ -172,7 +172,8 @@
 
                         $photoPath = !empty($asisten['photo_profile']) && file_exists('uploads/profile/' . $asisten['photo_profile'])
                             ? BASE_URL . '/uploads/profile/' . $asisten['photo_profile'] 
-                            : "https://ui-avatars.com/api/?name=" . urlencode($asisten['nama']) . "&background=random&size=500";
+                            // : "https://ui-avatars.com/api/?name=" . urlencode($asisten['name']) . "&background=random&size=500";
+                            : "https://ui-avatars.com/api/?name=" . urlencode($asisten['name'] ?? 'Asisten') . "&background=random&size=500";
                         
                         $jsonUser = htmlspecialchars(json_encode($asisten), ENT_QUOTES, 'UTF-8');
                     ?>
@@ -184,11 +185,11 @@
                         <div class="aspect-square bg-gray-100 mb-3 border border-gray-100 overflow-hidden rounded-lg relative">
                             <img src="<?= $photoPath ?>" 
                                 class="w-full h-full object-cover transition-all duration-500 <?= $imgFilter ?>" 
-                                alt="<?= $asisten['nama'] ?>">
+                                alt="<?= $asisten['name'] ?>">
                         </div>
 
                         <div class="text-center">
-                            <h3 class="font-bold text-gray-800 text-sm truncate px-1 leading-tight"><?= $asisten['nama'] ?></h3>
+                            <h3 class="font-bold text-gray-800 text-sm truncate px-1 leading-tight"><?= $asisten['name'] ?></h3>
                             <p class="text-[10px] text-gray-400 font-bold uppercase mt-1"><?= $asisten['jabatan'] ?? 'Asisten' ?></p>
                         </div>
 
@@ -382,7 +383,7 @@
     let qrInterval = null;
     let currentMode = 'check_in';
 
-    const roleSegment = window.location.href.includes('superadmin') ? 'superadmin' : 'admin';
+    const roleSegment = window.location.href.includes('kepalalab') ? 'kepalalab' : 'admin';
     const qrFetchUrl = `<?= BASE_URL ?>/${roleSegment}/getQrAjax`;
 
     function openQRModal() {
@@ -392,6 +393,10 @@
             document.getElementById('qrContent').classList.add('scale-100', 'opacity-100'); 
         }, 10);
         
+        if(currentMode === 'check_in' && qrDataIn) {
+        qrCodeObj.makeCode(qrDataIn);
+    }
+
         setQRMode(true); 
     }
 
@@ -454,7 +459,7 @@
         const content = document.getElementById('detailContent');
         
         // 1. MAPPING DATA TEKS (Ke Kolom Kiri)
-        document.getElementById('m_name').innerText = user.nama;
+        document.getElementById('m_name').innerText = user.name;
         document.getElementById('m_position').innerText = user.jabatan || 'Asisten Lab';
         document.getElementById('m_nim').innerText = user.nim || '-';
         document.getElementById('m_class').innerText = user.kelas || '-';
@@ -529,7 +534,7 @@
 
         // 5. UPDATE BUTTON JADWAL LENGKAP
         const btnSchedule = document.getElementById('btnSchedule');
-        const currentRole = window.location.href.includes('superadmin') ? 'superadmin' : 'admin';
+        const currentRole = window.location.href.includes('kepalalab') ? 'kepalalab' : 'admin';
         if (btnSchedule) {
             btnSchedule.href = `<?= BASE_URL ?>/${currentRole}/assistantSchedule/${user.id_user}`;
         }

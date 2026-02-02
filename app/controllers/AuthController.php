@@ -56,7 +56,7 @@ class AuthController extends Controller {
     private function getRoleUrl($role) {
         if ($role == 'User') return '/user/dashboard';
         if ($role == 'Admin') return '/admin/dashboard';
-        if ($role == 'Super Admin') return '/superadmin/dashboard';
+        if ($role == 'Kepala Lab') return '/kepalalab/dashboard';
         return ''; 
     }
 }

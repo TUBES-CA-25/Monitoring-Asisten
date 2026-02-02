@@ -1,217 +1,219 @@
 <?php
-class AttendanceModel {
-    private $conn;
+class AttendanceModel
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = new Database();
-        $this->conn = $this->db->getConnection();
     }
 
-    public function getCurrentStatus($userId) {
-        $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
-        $this->db->bind(':uid', $userId);
-        $res = $this->db->single();
-        if(!$res) return 'unknown';
-        $pId = $res['id_profil'];
-
-        $this->db->query("SELECT * FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE() ORDER BY id_presensi DESC LIMIT 1");
-        $this->db->bind(':pid', $pId);
-        $lastLog = $this->db->single();
-
-        if (!$lastLog) {
-            return 'not_present';
-        }
-
-        if ($lastLog['waktu_presensi'] && $lastLog['waktu_pulang'] == NULL) {
-            return 'checked_in';
-        }
-
-        return 'checked_out';
-    }
-
-    private function getProfilId($userId) {
+    private function getProfilId($userId)
+    {
         $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
         $this->db->bind(':uid', $userId);
         $result = $this->db->single();
         return $result['id_profil'] ?? false;
     }
 
-    public function clockIn($userId, $photo) {
-        try {
-            $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
-            $this->db->bind(':uid', $userId);
-            $pId = $this->db->single()['id_profil'];
+    public function clockIn($userId, $img)
+    {
+        $pId = $this->getProfilId($userId);
+        if (!$pId) return false;
 
-            $query = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, status, foto_presensi) 
-                      VALUES (:pid, CURDATE(), CURTIME(), 'Hadir', :foto)";
-            
-            $this->db->query($query);
-            $this->db->bind(':pid', $pId);
-            $this->db->bind(':foto', $photo);
-            return $this->db->execute();
-        } catch (Exception $e) {
-            return false;
-        }
-    }
+        $date = date('Y-m-d');
+        $time = date('H:i:s');
 
-    public function clockOut($userId, $photo) {
-        try {
-            $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
-            $this->db->bind(':uid', $userId);
-            $pId = $this->db->single()['id_profil'];
-
-            $query = "UPDATE presensi 
-                      SET waktu_pulang = CURTIME(), foto_pulang = :foto 
-                      WHERE id_profil = :pid 
-                      AND tanggal = CURDATE() 
-                      AND waktu_pulang IS NULL 
-                      ORDER BY id_presensi DESC LIMIT 1";
-            
-            $this->db->query($query);
-            $this->db->bind(':pid', $pId);
-            $this->db->bind(':foto', $photo);
-            
-            if ($this->db->execute()) {
-                return $this->db->rowCount() > 0;
-            }
-            return false;
-        } catch (Exception $e) { return false; }
-    }
-
-    public function reClockIn($userId, $photo) {
-        try {
-            $this->db->getConnection()->beginTransaction();
-
-            $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
-            $this->db->bind(':uid', $userId);
-            $pId = $this->db->single()['id_profil'];
-
-            $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
-            $this->db->bind(':pid', $pId);
-            $presensi = $this->db->single();
-
-            if ($presensi) {
-                $idPresensi = $presensi['id_presensi'];
-
-                $sqlUpd = "UPDATE presensi 
-                           SET waktu_presensi = CURTIME(), 
-                               waktu_pulang = NULL, 
-                               foto_presensi = :foto, 
-                               foto_pulang = NULL 
-                           WHERE id_presensi = :idp";
-                $this->db->query($sqlUpd);
-                $this->db->bind(':foto', $photo);
-                $this->db->bind(':idp', $idPresensi);
-                $this->db->execute();
-
-                $sqlLog = "UPDATE logbook SET detail_aktivitas = NULL WHERE id_presensi = :idp";
-                $this->db->query($sqlLog);
-                $this->db->bind(':idp', $idPresensi);
-                $this->db->execute();
-            }
-
-            $this->db->getConnection()->commit();
-            return true;
-        } catch (Exception $e) {
-            $this->db->getConnection()->rollBack();
-            return false;
-        }
-    }
-
-    public function getStatusColor($userId) {
-        $status = $this->getCurrentStatus($userId);
-        if ($status == 'checked_in') return 'green';
-        if ($status == 'checked_out') return 'yellow';
-        
-        $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
-        $this->db->bind(':uid', $userId);
-        $pId = $this->db->single()['id_profil'] ?? 0;
-        
-        $this->db->query("SELECT * FROM izin WHERE id_profil = :pid AND CURDATE() BETWEEN start_date AND end_date AND status_approval = 'Approved'");
+        $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :date");
         $this->db->bind(':pid', $pId);
-        if($this->db->single()) return 'yellow';
+        $this->db->bind(':date', $date);
+        
+        if($this->db->single()) return false;
+
+        $query = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, foto_presensi, status)
+                  VALUES (:pid, :date, :time, :img, 'Hadir')";
+
+        $this->db->query($query);
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':date', $date);
+        $this->db->bind(':time', $time);
+        $this->db->bind(':img', $img);
+        return $this->db->execute();
+    }
+
+    public function clockOut($userId, $img)
+    {
+        $pId = $this->getProfilId($userId);
+        if (!$pId) return false;
+
+        $date = date('Y-m-d');
+        $time = date('H:i:s');
+
+        $query = "UPDATE presensi SET waktu_pulang = :time, foto_pulang = :img
+                  WHERE id_profil = :pid AND tanggal = :date";
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':date', $date);
+        $data = $this->db->single();
+
+        if (!$data) return false;
+
+        if ($data['waktu_pulang'] != null) {
+            return false; 
+        }
+
+        $query = "UPDATE presensi SET waktu_pulang = :time, foto_pulang = :img
+                  WHERE id_profil = :pid AND tanggal = :date";
+        $this->db->query($query);
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':img', $img);
+        $this->db->bind(':time', $time);
+        $this->db->bind(':date', $date);
+        if($this->db->execute()) {
+            return $this->db->rowCount() > 0;
+        }
+        return false;
+    }
+
+    public function getStatusColor($userId)
+    {
+        $pId = $this->getProfilId($userId);
+        if (!$pId) return 'red';
+
+        $today = date('Y-m-d');
+        $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :date");
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':date', $today);
+        if ($this->db->rowCount() > 0) return 'green';
+
+        $this->db->query("SELECT id_izin FROM izin
+                          WHERE id_profil = :pid
+                          AND :date BETWEEN start_date AND end_date
+                          AND status_approval = 'Approved'");
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':date', $today);
+        if ($this->db->rowCount() > 0) return 'yellow';
 
         return 'red';
     }
 
-    public function getMonitoringData($date) {
-        $query = "SELECT p.nama as name, u.role, pr.waktu_presensi as check_in_time, pr.waktu_pulang as check_out_time, pr.status 
+    public function getMonitoringData($date)
+    {
+        $query = "SELECT p.nama as name, u.role, pr.waktu_presensi as check_in_time, pr.waktu_pulang as check_out_time, pr.status
                   FROM profile p
                   JOIN user u ON p.id_user = u.id_user
-                  LEFT JOIN presensi pr ON p.id_profil = pr.id_profil AND pr.tanggal = :d 
-                  WHERE u.role = 'User' 
+                  LEFT JOIN presensi pr ON p.id_profil = pr.id_profil AND pr.tanggal = :d
+                  WHERE u.role = 'User'
                   ORDER BY pr.waktu_presensi DESC";
-        
+
         $this->db->query($query);
         $this->db->bind(':d', $date);
         return $this->db->resultSet();
     }
 
-    public function getTodayStats() {
+    public function getTodayStats()
+    {
         $today = date('Y-m-d');
         $stats = ['hadir' => 0, 'izin' => 0, 'alpa' => 0];
 
         $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE tanggal = :date");
         $this->db->bind(':date', $today);
-        $stats['hadir'] = $this->db->single()['total'];
+        $stats['hadir'] = $this->db->single()['total'] ?? 0;
 
         $this->db->query("SELECT COUNT(*) as total FROM izin WHERE :date BETWEEN start_date AND end_date AND status_approval = 'Approved'");
         $this->db->bind(':date', $today);
-        $stats['izin'] = $this->db->single()['total'];
-        
+        $stats['izin'] = $this->db->single()['total'] ?? 0;
+
         $this->db->query("SELECT COUNT(*) as total FROM user WHERE role = 'User'");
-        $totalAsisten = $this->db->single()['total'];
-        
+        $totalAsisten = $this->db->single()['total'] ?? 0;
+
         $stats['alpa'] = max(0, $totalAsisten - ($stats['hadir'] + $stats['izin']));
         return $stats;
     }
 
-    public function getChartData() {
-        $weeklyData = []; $weeklyLabels = [];
+    public function getChartData()
+    {
+        $weeklyData = [];
+        $weeklyLabels = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-$i days"));
-            
             $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE tanggal = :date");
             $this->db->bind(':date', $date);
             $res = $this->db->single();
-            
             $weeklyData[] = $res ? $res['total'] : 0;
             $weeklyLabels[] = date('D', strtotime($date));
         }
-        
+
         $this->db->query("SELECT MONTH(tanggal) as bulan, COUNT(*) as total FROM presensi WHERE YEAR(tanggal) = YEAR(CURDATE()) GROUP BY MONTH(tanggal)");
         $results = $this->db->resultSet();
-        
         $monthlyData = array_fill(0, 12, 0);
-        foreach ($results as $res) { 
-            $monthlyData[$res['bulan'] - 1] = $res['total']; 
+        foreach ($results as $res) {
+            $monthlyData[$res['bulan'] - 1] = $res['total'];
         }
-
-        $this->db->query("SELECT HOUR(waktu_presensi) as jam, COUNT(*) as total FROM presensi WHERE tanggal = CURDATE() GROUP BY HOUR(waktu_presensi)");
-        $dailyRes = $this->db->resultSet();
-        $dailyData = array_fill(0, 24, 0);
-        foreach($dailyRes as $d) {
-            $dailyData[$d['jam']] = $d['total'];
-        }
-        $dailyLabelsChart = ['07:00', '09:00', '11:00', '13:00', '15:00'];
-        $dailyDataChart = [
-            $dailyData[7]+$dailyData[8], 
-            $dailyData[9]+$dailyData[10], 
-            $dailyData[11]+$dailyData[12], 
-            $dailyData[13]+$dailyData[14], 
-            $dailyData[15]+$dailyData[16]
-        ];
 
         return [
             'weekly'  => ['labels' => $weeklyLabels, 'data' => $weeklyData],
             'monthly' => ['labels' => ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'], 'data' => $monthlyData],
-            'daily'   => ['labels' => $dailyLabelsChart, 'data' => $dailyDataChart]
+            'daily'   => ['labels' => ['08:00', '10:00', '12:00', '14:00', '16:00'], 'data' => [0,0,0,0,0]]
         ];
     }
 
+    // Tambahkan ini di dalam class AttendanceModel
+    public function getUserStats($pId) {
+        $stats = [];
+        $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
+        $this->db->bind(':pid', $pId);
+        $stats['hadir'] = $this->db->single()['total'] ?? 0;
+
+        $this->db->query("SELECT COUNT(*) as total FROM izin WHERE id_profil = :pid AND status_approval = 'Approved'");
+        $this->db->bind(':pid', $pId);
+        $stats['izin'] = $this->db->single()['total'] ?? 0;
+
+        return $stats;
+    }
+
+    public function getTodayAttendanceDetail($pId) {
+        $today = date('Y-m-d');
+        // $this->db->query("SELECT * FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
+        // $this->db->bind(':pid', $pId);
+        // $presensi = $this->db->single();
+
+        $this->db->query("SELECT * FROM presensi WHERE id_profil = :pid AND tanggal = :d");
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':d', $today);
+        $presensi = $this->db->single();
+
+        // $this->db->query("SELECT * FROM izin WHERE id_profil = :pid AND CURDATE() BETWEEN start_date AND end_date AND status_approval = 'Approved'");
+        // $this->db->bind(':pid', $pId);
+        // $izin = $this->db->single();
+
+        $this->db->query("SELECT * FROM izin WHERE id_profil = :pid AND :d BETWEEN start_date AND end_date AND status_approval = 'Approved'");
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':d', $today);
+        $izin = $this->db->single();
+
+        return ['presensi' => $presensi, 'izin' => $izin];
+    }
+
+    public function getUserDailyChart($pId) {
+        $labels = []; $data = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-$i days"));
+            $labels[] = date('d M', strtotime($date));
+            
+            $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND tanggal = :d AND status = 'Hadir'");
+            $this->db->bind(':pid', $pId);
+            $this->db->bind(':d', $date);
+            $data[] = $this->db->single()['total'] ?? 0;
+        }
+        return ['labels' => $labels, 'data' => $data];
+    }
+
     public function getAllAssistantsList() {
-        $this->db->query("SELECT u.id_user, p.nama, p.nim FROM user u JOIN profile p ON u.id_user = p.id_user WHERE u.role = 'User' ORDER BY p.nama ASC");
+        $this->db->query("SELECT u.id_user, p.nama, p.nim 
+                          FROM user u 
+                          JOIN profile p ON u.id_user = p.id_user 
+                          WHERE u.role = 'User' 
+                          ORDER BY p.nama ASC");
         return $this->db->resultSet();
     }
 
@@ -355,7 +357,19 @@ class AttendanceModel {
             return false;
         }
     }
-
     
+    public function validateLogbookEntry($profileId, $date) {
+        $this->db->query("SELECT waktu_presensi, waktu_pulang FROM presensi WHERE id_profil = :pid AND tanggal = :d");
+        $this->db->bind(':pid', $profileId);
+        $this->db->bind(':d', $date);
+        return $this->db->single();
+    }
+
+    public function countLateToday() {
+        $today = date('Y-m-d');
+        $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE tanggal = :d AND waktu_presensi > '08:00:00'");
+        $this->db->bind(':d', $today);
+        $result = $this->db->single();
+        return $result['total'] ?? 0;
+    }
 }
-?>
