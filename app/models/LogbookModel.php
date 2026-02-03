@@ -388,5 +388,55 @@ class LogbookModel {
             return false;
         }
     }
+
+    private function getProfileIdByUser($userId)
+    {
+        $this->db->query("
+            SELECT id_profil 
+            FROM profile 
+            WHERE id_user = :uid
+        ");
+        $this->db->bind(':uid', $userId);
+
+        $row = $this->db->single();
+        return $row ? $row['id_profil'] : null;
+    }
+
+    private function updateByLogId($logId, $profileId, $activity, $time)
+    {
+        $this->db->query("
+            UPDATE presensi 
+            SET keterangan_aktivitas = :activity, 
+                waktu_presensi = :time 
+            WHERE id_presensi = :log_id 
+            AND id_profil = :pid
+        ");
+
+        $this->db->bind(':log_id', $logId);
+        $this->db->bind(':activity', $activity);
+        $this->db->bind(':time', $time);
+        $this->db->bind(':pid', $profileId);
+
+        return $this->db->execute();
+    }
+
+    private function updateByDate($profileId, $activity, $time, $date)
+    {
+        $this->db->query("
+            UPDATE presensi 
+            SET keterangan_aktivitas = :activity, 
+                waktu_presensi = :time 
+            WHERE id_profil = :pid 
+            AND tanggal = :date
+        ");
+
+        $this->db->bind(':activity', $activity);
+        $this->db->bind(':time', $time);
+        $this->db->bind(':pid', $profileId);
+        $this->db->bind(':date', $date);
+
+        return $this->db->execute();
+    }
+
 }
 ?>

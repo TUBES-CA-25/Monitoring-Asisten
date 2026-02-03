@@ -55,6 +55,9 @@ class UserController extends Controller {
             'monthly' => ['labels' => [], 'data' => []]
         ];
 
+        $data['page_css'][] = BASE_URL . '/public/css/user/dashboard.css';
+        $data['page_js'][]  = BASE_URL . '/public/js/user/dashboard.js';
+
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data); 
         $this->view('user/dashboard', $data);
@@ -76,6 +79,23 @@ class UserController extends Controller {
         $userStats = $attModel->getUserStats($pId);
         $data['stats'] = ['hadir' => $userStats['hadir'], 'izin' => $userStats['izin'], 'alpa' => 0];
 
+        $data['page_css'] = [
+            BASE_URL . '/public/css/common/profile.css'
+        ];
+
+        $data['page_js'] = [
+            'https://cdn.jsdelivr.net/npm/chart.js',
+            BASE_URL . '/public/js/common/profile.js'
+        ];
+
+        $data['js_config'] = [
+            'BASE_URL' => BASE_URL,
+            'RAW_DEMOGRAPHICS' => $data['demographics'] ?? [],
+            'RANKINGS' => $data['rankings'] ?? [],
+            'USER_STATS' => $data['chart_data'] ?? null,
+            'IS_USER_ROLE' => ($data['user']['role'] === 'User')
+        ];
+
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
         $this->view('common/profile', $data);
@@ -92,6 +112,21 @@ class UserController extends Controller {
         $data['role'] = $_SESSION['role'];
         $data['isUser'] = ($_SESSION['role'] == 'User');
         $data['isAdmin'] = ($_SESSION['role'] == 'Admin');
+
+        $data['page_css'] = [
+            'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css',
+            BASE_URL . '/public/css/common/edit-profile.css'
+        ];
+
+        $data['page_js'] = [
+            'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js',
+            BASE_URL . '/public/js/common/edit-profile.js'
+        ];
+
+        $data['js_config'] = [
+            'BASE_URL' => BASE_URL,
+            'USER_ROLE' => $data['user']['role']
+        ];
         
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -155,21 +190,18 @@ class UserController extends Controller {
         
         $allLogs = $this->model('LogbookModel')->getUnifiedLogbook($_SESSION['user_id']); 
         
-        $itemsPerPage = 10; // Jumlah data per halaman
+        $itemsPerPage = 10; 
         $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
         if ($currentPage < 1) $currentPage = 1;
 
         $totalData = count($allLogs);
         $totalPages = ceil($totalData / $itemsPerPage);
         
-        // Validasi agar halaman tidak melebihi total
         if ($currentPage > $totalPages && $totalPages > 0) $currentPage = $totalPages;
 
-        // Potong Data (Slice Array)
         $offset = ($currentPage - 1) * $itemsPerPage;
         $slicedLogs = array_slice($allLogs, $offset, $itemsPerPage);
 
-        // Kirim Data Hasil Potongan & Info Pagination ke View
         $data['logs'] = $slicedLogs;
         $data['pagination'] = [
             'current' => $currentPage,
@@ -177,6 +209,9 @@ class UserController extends Controller {
             'total_items' => $totalData,
             'per_page' => $itemsPerPage
         ];
+
+        $data['page_css'][] = BASE_URL . '/public/css/user/logbook.css';
+        $data['page_js'][]  = BASE_URL . '/public/js/user/logbook.js';
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -190,11 +225,9 @@ class UserController extends Controller {
             exit; }
 
         $pId = $_SESSION['profil_id']; 
-        // $today = date('Y-m-d');
         $targetDate = $_POST['date'] ?? date('Y-m-d');
         $logId = $_POST['log_id'] ?? null;
         
-        // $att = $this->model('AttendanceModel')->validateLogbookEntry($pId, $today);
         $att = $this->model('AttendanceModel')->validateLogbookEntry($pId, $targetDate);
 
         if (!$att || !$att['waktu_presensi']) {
@@ -231,39 +264,58 @@ class UserController extends Controller {
         }
     }
 
-    public function saveLogbook($data) {
-        // 1. Cek apakah ini proses UPDATE (Edit)
-        if (!empty($data['log_id'])) {
-            $query = "UPDATE presensi 
-                    SET keterangan_aktivitas = :activity, 
-                        waktu_presensi = :time 
-                    WHERE id_presensi = :log_id AND id_profil = (SELECT id_profil FROM profile WHERE id_user = :uid)";
-            
-            $this->db->query($query);
-            $this->db->bind(':log_id', $data['log_id']);
-            $this->db->bind(':activity', $data['activity']);
-            $this->db->bind(':time', $data['time']);
-            $this->db->bind(':uid', $data['user_id']);
-            
-            return $this->db->execute();
-        } 
-        
-        // 2. Jika bukan edit (Tambah baru), cari baris presensi hari ini untuk di-update
-        // Karena asisten mengisi logbook setelah scan masuk (data presensi sudah ada)
-        $query = "UPDATE presensi 
-                SET keterangan_aktivitas = :activity, 
-                    waktu_presensi = :time 
-                WHERE id_profil = (SELECT id_profil FROM profile WHERE id_user = :uid) 
-                AND tanggal = :date";
+    public function saveLogbook()
+    {
+        $this->checkAccess(['User']);
 
-        $this->db->query($query);
-        $this->db->bind(':activity', $data['activity']);
-        $this->db->bind(':time', $data['time']);
-        $this->db->bind(':uid', $data['user_id']);
-        $this->db->bind(':date', $data['date']);
-        
-        return $this->db->execute();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header("Location: " . BASE_URL . "/user/dashboard");
+            exit;
+        }
+
+        $logbookModel = $this->model('LogbookModel');
+
+        $data = [
+            'user_id' => $_SESSION['user_id'] ?? null,
+            'log_id'  => $_POST['log_id'] ?? null,
+            'activity'=> isset($_POST['activity']) ? trim($_POST['activity']) : null,
+            'time'    => $_POST['time'] ?? null,
+            'date'    => $_POST['date'] ?? null
+        ];
+
+        if (
+            empty($data['user_id']) ||
+            empty($data['activity']) ||
+            empty($data['time']) ||
+            (empty($data['log_id']) && empty($data['date']))
+        ) {
+            $_SESSION['flash'] = [
+                'type' => 'error',
+                'message' => 'Data logbook tidak lengkap.'
+            ];
+            header("Location: " . BASE_URL . "/user/logbook");
+            exit;
+        }
+
+        $result = $logbookModel->saveLogbook($data);
+
+        if ($result) {
+            $_SESSION['flash'] = [
+                'type' => 'success',
+                'message' => 'Logbook berhasil disimpan.'
+            ];
+        } else {
+            $_SESSION['flash'] = [
+                'type' => 'error',
+                'message' => 'Gagal menyimpan logbook.'
+            ];
+        }
+
+        header("Location: " . BASE_URL . "/user/logbook");
+        exit;
     }
+
+
 
     public function schedule() {
         if ($_SESSION['role'] != 'User') exit;
@@ -272,6 +324,9 @@ class UserController extends Controller {
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
         
         $data['raw_schedules'] = $this->model('ScheduleModel')->getAllUserSchedules($_SESSION['user_id']); 
+
+        $data['page_css'][] = BASE_URL . '/public/css/user/schedule.css';
+        $data['page_js'][]  = BASE_URL . '/public/js/user/schedule.js';
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -359,6 +414,10 @@ class UserController extends Controller {
         }
         $data['judul'] = 'Scan Presensi';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+
+        $data['page_css'][] = BASE_URL . '/public/css/user/scan.css';
+        $data['page_js'][]  = BASE_URL . '/public/js/user/scan.js';
+
         $this->view('user/scan', $data); 
     }
 
@@ -424,6 +483,9 @@ class UserController extends Controller {
                 echo json_encode(['status' => 'error', 'message' => $msg]);
             }
         }
+
+        $data['page_css'][] = BASE_URL . '/public/css/user/capture.css';
+        $data['page_js'][]  = BASE_URL . '/public/js/user/capture.js';
     }
 
     public function submit_leave() {

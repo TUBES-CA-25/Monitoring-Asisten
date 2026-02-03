@@ -9,43 +9,58 @@ class AuthController extends Controller {
             exit;
         }
 
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Content-Type: application/json');
 
-            $email = $_POST['email'] ?? '';
+            $email = trim($_POST['email'] ?? '');
             $password = $_POST['password'] ?? '';
 
-            $user = $this->model('UserModel')->login($email);
+            if (!$email || !$password) {
+                echo json_encode([
+                    'status' => 'error',
+                    'title' => 'Form Kosong',
+                    'message' => 'Email dan password wajib diisi.'
+                ]);
+                exit;
+            }
+
+            $userModel = $this->model('UserModel');
+            $user = $userModel->login($email);
 
             if ($user && password_verify($password, $user['password'])) {
-                $profile = $this->model('UserModel')->getUserById($user['id']);
+                $profile = $userModel->getUserById($user['id']);
 
                 $_SESSION['user_id']   = $user['id'];
-                $_SESSION['profil_id'] = $user['id_profil'];
-                $_SESSION['role']      = ucwords(strtolower($user['role'])); 
+                $_SESSION['profil_id'] = $profile['id_profil'] ?? null;
+                $_SESSION['role']      = ucwords(strtolower($user['role']));
                 $_SESSION['name']      = $user['name'];
-                $_SESSION['jabatan']   = !empty($profile['position']) ? $profile['position'] : $_SESSION['role'];
-                $_SESSION['photo']     = $profile['photo_profile'] ?? null; 
+                $_SESSION['jabatan']  = $profile['position'] ?? $_SESSION['role'];
+                $_SESSION['photo']    = $profile['photo_profile'] ?? null;
 
                 echo json_encode([
                     'status' => 'success',
-                    'title' => 'Login Berhasil!',
+                    'title' => 'Login Berhasil',
                     'message' => 'Mengalihkan ke dashboard...',
                     'redirect' => BASE_URL . $this->getRoleUrl($_SESSION['role'])
                 ]);
                 exit;
-            } else {
-                echo json_encode([
-                    'status' => 'error',
-                    'title' => 'Login Gagal',
-                    'message' => 'Email atau Password yang Anda masukkan salah.'
-                ]);
-                exit;
             }
+
+            echo json_encode([
+                'status' => 'error',
+                'title' => 'Login Gagal',
+                'message' => 'Email atau password salah.'
+            ]);
+            exit;
         }
-        
-        $this->view('auth/login'); 
+
+        $data['js_config'] = [
+            'BASE_URL' => BASE_URL
+        ];
+
+        $this->view('auth/login', $data);
     }
+
 
     public function logout() {
         session_destroy();

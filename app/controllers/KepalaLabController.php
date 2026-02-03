@@ -3,43 +3,57 @@ class KepalaLabController extends Controller {
 
     public function index() { $this->dashboard(); }
 
-    public function dashboard() {
-        if (!isset($_SESSION['role']) || $_SESSION['role'] != 'Kepala Lab') {
-            header("Location: " . BASE_URL . "/auth/login"); exit;
+    public function dashboard()
+    {
+        if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Kepala Lab') {
+            header("Location: " . BASE_URL . "/auth/login");
+            exit;
         }
 
+        $data = [];
         $data['judul'] = 'Dashboard Pengawas';
-        
+
         $userModel = $this->model('UserModel');
-        $attModel = $this->model('AttendanceModel');
-        $qrModel = $this->model('QrModel');
+        $attModel  = $this->model('AttendanceModel');
+        $qrModel   = $this->model('QrModel');
 
         $data['user'] = $userModel->getUserById($_SESSION['user_id']);
-        
-        $todayStats = $attModel->getTodayStats(); 
+
+        $todayStats  = $attModel->getTodayStats();
         $totalAsisten = $userModel->countUsersByRole('User');
-        $totalLate = $attModel->countLateToday();
-        
+        $totalLate    = $attModel->countLateToday();
+
         $data['stats'] = [
-            'hadir_today'   => $todayStats['hadir'],
-            'izin_today'    => $todayStats['izin'],
-            'alpa_today'    => $todayStats['alpa'],
-            'total_asisten' => $totalAsisten,
-            'total_late'    => $totalLate 
+            'hadir_today'   => (int) ($todayStats['hadir'] ?? 0),
+            'izin_today'   => (int) ($todayStats['izin'] ?? 0),
+            'alpa_today'   => (int) ($todayStats['alpa'] ?? 0),
+            'total_asisten'=> (int) $totalAsisten,
+            'total_late'   => (int) $totalLate
         ];
 
         $allUsers = $userModel->getAllUsers();
-        $assistants = array_filter($allUsers, fn($u) => $u['role'] == 'User');
-        
+        $assistants = array_values(array_filter($allUsers, function ($u) {
+            return isset($u['role']) && $u['role'] === 'User';
+        }));
+
         foreach ($assistants as &$ast) {
-            $pid = $ast['id_profil'];
+            $pid = $ast['id_profil'] ?? null;
+            if (!$pid) {
+                $ast['visual_status'] = 'alpha';
+                $ast['total_hadir']  = 0;
+                $ast['total_izin']   = 0;
+                $ast['total_alpa']  = 0;
+                continue;
+            }
 
             $statusDetail = $attModel->getTodayAttendanceDetail($pid);
-            $presensi = $statusDetail['presensi'];
-            $izin = $statusDetail['izin'];
+            $presensi = $statusDetail['presensi'] ?? null;
+            $izin     = $statusDetail['izin'] ?? null;
 
-            if ($presensi && !empty($presensi['waktu_presensi'])) {
-                $ast['visual_status'] = ($presensi['waktu_pulang'] != null) ? 'offline_pulang' : 'online';
+            if (!empty($presensi['waktu_presensi'])) {
+                $ast['visual_status'] = !empty($presensi['waktu_pulang'])
+                    ? 'offline_pulang'
+                    : 'online';
             } elseif ($izin) {
                 $ast['visual_status'] = 'izin';
             } else {
@@ -47,19 +61,49 @@ class KepalaLabController extends Controller {
             }
 
             $userStats = $attModel->getUserStats($pid);
-            $ast['total_hadir'] = $userStats['hadir'];
-            $ast['total_izin'] = $userStats['izin'];
-            
-            $createdAt = $ast['created_at'] ?? date('Y-m-d');
-            $isCompleted = $ast['is_completed'] ?? 0;
-            $ast['total_alpa'] = $userModel->calculateRealAlpha($pid, $createdAt, $isCompleted);
+            $ast['total_hadir'] = (int) ($userStats['hadir'] ?? 0);
+            $ast['total_izin'] = (int) ($userStats['izin'] ?? 0);
+
+            $createdAt  = $ast['created_at'] ?? date('Y-m-d');
+            $isCompleted = (int) ($ast['is_completed'] ?? 0);
+
+            $ast['total_alpa'] = (int) $userModel->calculateRealAlpha(
+                $pid,
+                $createdAt,
+                $isCompleted
+            );
         }
+        unset($ast);
 
         $data['assistants'] = $assistants;
-        $data['chart_data'] = $attModel->getChartData();
 
-        $data['qr_in'] = json_encode(['type'=>'CHECK_IN', 'token'=>$qrModel->getOrGenerateToken('check_in')]);
-        $data['qr_out'] = json_encode(['type'=>'CHECK_OUT', 'token'=>$qrModel->getOrGenerateToken('check_out')]);
+        $chartData = $attModel->getChartData();
+
+        $data['chart_data'] = is_array($chartData)
+            ? $chartData
+            : [
+                'daily'   => ['labels' => [], 'data' => []],
+                'weekly'  => ['labels' => [], 'data' => []],
+                'monthly' => ['labels' => [], 'data' => []]
+            ];
+
+        $data['qr_in']  = json_encode([
+            'type'  => 'CHECK_IN',
+            'token' => $qrModel->getOrGenerateToken('check_in')
+        ]);
+
+        $data['qr_out'] = json_encode([
+            'type'  => 'CHECK_OUT',
+            'token' => $qrModel->getOrGenerateToken('check_out')
+        ]);
+
+        $data['page_css'] = [
+            BASE_URL . '/public/css/kepalalab/dashboard.css'
+        ];
+
+        $data['page_js'] = [
+            BASE_URL . '/public/js/kepalalab/dashboard.js'
+        ];
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -80,6 +124,14 @@ class KepalaLabController extends Controller {
         });
         
         $data['labs'] = $this->model('LabModel')->getAllLabs();
+
+        $data['page_css'] = [
+            BASE_URL . '/public/css/kepalalab/users.css'
+        ];
+
+        $data['page_js'] = [
+            BASE_URL . '/public/js/kepalalab/users.js'
+        ];
         
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -113,6 +165,9 @@ class KepalaLabController extends Controller {
         $data['assistants'] = array_filter($allUsers, fn($u) => $u['role'] == 'User');
         
         $data['raw_schedules'] = $this->model('ScheduleModel')->getAllSchedules(); 
+        
+        $data['css'] = 'kepalalab/schedule.css';
+        $data['js']  = 'kepalalab/schedule.js';
         
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -156,6 +211,15 @@ class KepalaLabController extends Controller {
         $data['selected_assistant'] = $assistantId;
 
         $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+
+        $data['page_css'] = [
+            BASE_URL . '/public/css/kepalalab/attendance.css'
+        ];
+
+        $data['page_js'] = [
+            BASE_URL . '/public/js/kepalalab/attendance.js'
+        ];
+
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -209,6 +273,8 @@ class KepalaLabController extends Controller {
             $data['assistant_name'] = $user['name'] ?? 'Asisten';
         }
 
+        $data['css'] = 'kepalalab/pdf_attendance.css';
+
         $this->view('kepalalab/pdf_attendance', $data);
     }
 
@@ -220,6 +286,9 @@ class KepalaLabController extends Controller {
         
         $allUsers = $userModel->getAllUsers();
         $data['assistants'] = array_filter($allUsers, fn($u) => $u['role'] == 'User');
+
+        $data['css'] = 'kepalalab/logbook.css';
+        $data['js']  = 'kepalalab/logbook.js';
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -282,6 +351,23 @@ class KepalaLabController extends Controller {
             'sibuk' => $userModel->getAssistantRankings('sibuk')
         ];
 
+        $data['page_css'] = [
+            BASE_URL . '/public/css/common/profile.css'
+        ];
+
+        $data['page_js'] = [
+            'https://cdn.jsdelivr.net/npm/chart.js',
+            BASE_URL . '/public/js/common/profile.js'
+        ];
+
+        $data['js_config'] = [
+            'BASE_URL' => BASE_URL,
+            'RAW_DEMOGRAPHICS' => $data['demographics'] ?? [],
+            'RANKINGS' => $data['rankings'] ?? [],
+            'USER_STATS' => $data['chart_data'] ?? null,
+            'IS_USER_ROLE' => ($data['user']['role'] === 'User')
+        ];
+
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
         $this->view('common/profile', $data); 
@@ -298,6 +384,21 @@ class KepalaLabController extends Controller {
         $data['role'] = $_SESSION['role'];
         $data['isUser'] = ($_SESSION['role'] == 'User');
         $data['isAdmin'] = ($_SESSION['role'] == 'Admin'); 
+
+        $data['page_css'] = [
+            'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css',
+            BASE_URL . '/public/css/common/edit-profile.css'
+        ];
+
+        $data['page_js'] = [
+            'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js',
+            BASE_URL . '/public/js/common/edit-profile.js'
+        ];
+
+        $data['js_config'] = [
+            'BASE_URL' => BASE_URL,
+            'USER_ROLE' => $data['user']['role']
+        ];
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -446,6 +547,14 @@ class KepalaLabController extends Controller {
         $data['assistant'] = $assistant; 
         
         $data['schedules'] = $this->model('ScheduleModel')->getAllUserSchedules($id);
+
+        $data['page_css'] = [
+            BASE_URL . '/public/css/kepalalab/assistant-schedule.css'
+        ];
+
+        $data['page_js'] = [
+            BASE_URL . '/public/js/kepalalab/assistant-schedule.js'
+        ];
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);

@@ -2,10 +2,11 @@
 require_once '../app/core/GoogleClient.php';
 class ScheduleModel {
     private $conn;
+    private $db;
 
     public function __construct() {
-        $db = new Database();
-        $this->conn = $db->getConnection();
+        $this->db = new Database();
+        $this->conn = $this->db->getConnection();
     }
 
     private function getAssistantAttendees() {
@@ -343,6 +344,26 @@ class ScheduleModel {
         } catch (Exception $e) { return false; }
     }
     
-    public function getUpcomingSchedules() { return []; }
+    public function getUpcomingSchedules($limit = 5)
+    {
+        $this->db->query("
+            SELECT * 
+            FROM jadwal_lab
+            WHERE tanggal >= CURDATE()
+            ORDER BY tanggal ASC, jam_mulai ASC
+            LIMIT :limit
+        ");
+        $this->db->bind(':limit', (int)$limit);
+
+        $results = $this->db->resultSet();
+
+        foreach ($results as &$sch) {
+            $sch['display_date'] = date('d M Y', strtotime($sch['tanggal']));
+            $sch['type'] = 'umum';
+        }
+
+        return $results;
+    }
+
 }
 ?>

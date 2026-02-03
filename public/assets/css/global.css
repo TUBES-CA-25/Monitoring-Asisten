@@ -1,0 +1,92 @@
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
+               'Segoe UI', Roboto, Arial, sans-serif;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.preload-minimized #sidebar {
+  width: 5rem !important; /* w-20 */
+}
+
+.preload-minimized #mainContent {
+  margin-left: 5rem !important;
+}
+
+.preload-minimized .sidebar-text,
+.preload-minimized .sidebar-header,
+.preload-minimized #toggleSidebar,
+.preload-minimized #logoContainer span {
+  display: none !important;
+}
+
+.preload-minimized #logoHeader {
+  cursor: pointer !important;
+}
+
+.preload-minimized #profileContainer,
+.preload-minimized #logoContainer {
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+.preload-minimized * {
+  transition: none !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 20px;
+}
+
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+}
+
+.sidebar-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  left: 4rem;
+  position: absolute;
+  pointer-events: none;
+  background-color: #1f2937;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  z-index: 50;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+#sidebar.w-20 .group:hover .sidebar-tooltip {
+  visibility: visible;
+  opacity: 1;
+  left: 3.5rem;
+  pointer-events: auto;
+}
+

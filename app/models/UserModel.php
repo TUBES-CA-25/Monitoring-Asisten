@@ -34,73 +34,10 @@ class UserModel {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // // --- FUNGSI CREATE USER (BAGIAN PALING KRUSIAL) ---
-    // public function createUser($data) {
-    //     try {
-    //         // 1. Mulai Transaksi
-    //         $this->conn->beginTransaction();
-
-    //         // 2. Insert ke Tabel USER (Login Info)
-    //         $sqlUser = "INSERT INTO user (email, password, role, created_at) VALUES (:email, :pass, :role, NOW())";
-    //         $stmtUser = $this->conn->prepare($sqlUser);
-    //         $stmtUser->execute([
-    //             ':email' => $data['email'], 
-    //             ':pass'  => password_hash($data['password'], PASSWORD_BCRYPT), 
-    //             ':role'  => $data['role']
-    //         ]);
-            
-    //         // Ambil ID User baru
-    //         $newUserId = $this->conn->lastInsertId();
-
-    //         // 3. Insert ke Tabel PROFILE (Biodata)
-    //         $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile, is_completed, id_lab) 
-    //                     VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo, :completed, :lab)";
-            
-    //         $stmtProf = $this->conn->prepare($sqlProf);
-            
-    //         // [PERBAIKAN] Data Sanitization: Ubah String Kosong "" menjadi NULL
-    //         // Ini mencegah error "Incorrect integer value" pada kolom angka/enum
-    //         $stmtProf->execute([
-    //             ':uid'  => $newUserId, 
-    //             ':name' => $data['name'], 
-    //             ':nim'  => !empty($data['nim']) ? $data['nim'] : NULL, 
-    //             ':cls'  => !empty($data['class']) ? $data['class'] : NULL, 
-    //             ':prodi'=> !empty($data['prodi']) ? $data['prodi'] : NULL, 
-    //             ':pos'  => !empty($data['position']) ? $data['position'] : 'Anggota',
-    //             ':hp'   => !empty($data['no_telp']) ? $data['no_telp'] : NULL, 
-    //             ':addr' => !empty($data['alamat']) ? $data['alamat'] : NULL, 
-    //             ':photo'=> $data['photo'],
-    //             ':completed' => $data['is_completed'] ?? 0,
-    //             ':lab'  => !empty($data['lab_id']) ? $data['lab_id'] : NULL
-    //         ]);
-
-    //         // 4. Simpan Permanen
-    //         $this->conn->commit();
-    //         return true;
-
-    //     } catch (Exception $e) { 
-    //         // Jika Gagal: Batalkan Semua
-    //         $this->conn->rollBack(); 
-            
-    //         // [DEBUGGING MODE]
-    //         // Kode ini akan menampilkan pesan error asli MySQL ke layar/console
-    //         // Hapus bagian ini jika website sudah live/production
-    //         header('Content-Type: application/json');
-    //         echo json_encode([
-    //             'status' => 'error',
-    //             'title' => 'DATABASE ERROR',
-    //             'message' => 'Penyebab Gagal: ' . $e->getMessage()
-    //         ]);
-    //         exit; // Stop program agar pesan error terbaca
-    //     }
-    // }
-
     public function createUser($data) {
         try {
-            // 1. Mulai Transaksi agar data User & Profile masuk bersamaan
             $this->conn->beginTransaction();
 
-            // 2. Insert ke Tabel USER
             $sqlUser = "INSERT INTO user (email, password, role, created_at) VALUES (:email, :pass, :role, NOW())";
             $stmtUser = $this->conn->prepare($sqlUser);
             $stmtUser->execute([
@@ -111,13 +48,11 @@ class UserModel {
     
             $newUserId = $this->conn->lastInsertId();
 
-            // 3. Insert ke Tabel PROFILE
             $sqlProf = "INSERT INTO profile (id_user, nama, nim, kelas, prodi, jabatan, no_telp, alamat, photo_profile, is_completed, id_lab) 
                         VALUES (:uid, :name, :nim, :cls, :prodi, :pos, :hp, :addr, :photo, :completed, :lab)";
             
             $stmtProf = $this->conn->prepare($sqlProf);
             
-            // Eksekusi dengan Sanitasi Data NULL
             $stmtProf->execute([
                 ':uid'  => $newUserId, 
                 ':name' => $data['name'], 
@@ -127,17 +62,15 @@ class UserModel {
                 ':pos'  => $data['position'],
                 ':hp'   => !empty($data['no_telp']) ? $data['no_telp'] : NULL, 
                 ':addr' => !empty($data['alamat']) ? $data['alamat'] : NULL, 
-                ':photo'=> $data['photo'], // SINKRONKAN DENGAN CONTROLLER
+                ':photo'=> $data['photo'], 
                 ':completed' => $data['is_completed'] ?? 0,
                 ':lab'  => ($data['lab_id'] > 0) ? $data['lab_id'] : NULL
             ]);
 
-            // 4. Simpan Permanen
             $this->conn->commit();
             return true;
 
         } catch (Exception $e) { 
-            // Batalkan semua jika ada satu saja yang gagal
             $this->conn->rollBack(); 
     
             header('Content-Type: application/json');
@@ -154,7 +87,6 @@ class UserModel {
         try {
             $this->conn->beginTransaction();
             
-            // 1. Update Profile
             $sqlProf = "UPDATE profile SET nama = :name, nim = :nim, kelas = :cls, prodi = :prodi, no_telp = :telp, alamat = :alamat, jabatan = :pos, id_lab = :lab";
             if (!empty($data['photo'])) { $sqlProf .= ", photo_profile = :photo"; }
             $sqlProf .= " WHERE id_user = :uid";
@@ -175,11 +107,9 @@ class UserModel {
             
             $stmtProf->execute($params);
             
-            // 2. Update User (Termasuk Password jika diisi)
             $sqlUser = "UPDATE user SET email = :email, role = :role";
             $paramsUser = [':email'=>$data['email'], ':role'=>$data['role'], ':uid'=>$data['id']];
 
-            // Cek jika password diisi baru update
             if (!empty($data['password'])) {
                 $sqlUser .= ", password = :pass";
                 $paramsUser[':pass'] = password_hash($data['password'], PASSWORD_BCRYPT);
@@ -193,7 +123,6 @@ class UserModel {
             return true;
         } catch (Exception $e) { 
             $this->conn->rollBack(); 
-            // Debugging juga untuk update
             header('Content-Type: application/json');
             echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
             exit;
@@ -204,7 +133,6 @@ class UserModel {
         try {
             $this->conn->beginTransaction();
 
-            // [PERBAIKAN] Digabung jadi satu query agar lebih efisien
             $query = "UPDATE profile SET 
                       nama = :nama, 
                       nim = :nim, 
@@ -252,12 +180,9 @@ class UserModel {
         }
     }
 
-    // --- FUNGSI LAINNYA TETAP SAMA (READ ONLY) ---
 
     public function calculateRealAlpha($id_profil, $accountCreatedAt, $isCompleted) {
         if ($isCompleted != 1) return 0;
-        // Peringatan: Fungsi ini cukup berat jika user sudah lama terdaftar
-        // Pertimbangkan optimasi query SQL murni di masa depan.
         
         $this->db->query("SELECT tanggal FROM presensi WHERE id_profil = :pid AND status IN ('Hadir', 'Terlambat')");
         $this->db->bind(':pid', $id_profil);
@@ -505,10 +430,16 @@ class UserModel {
         }
     }
 
-    public function isGoogleConnected($userId) {
-        $stmt = $this->conn->prepare("SELECT id_token FROM user_google_token WHERE id_user = :uid");
-        $stmt->execute([':uid' => $userId]);
-        return $stmt->rowCount() > 0;
+    
+    public function isGoogleConnected($userId)
+    {
+        $this->db->query("
+            SELECT id_token 
+            FROM user_google_token 
+            WHERE id_user = :uid
+        ");
+        $this->db->bind(':uid', $userId);
+        return $this->db->rowCount() > 0;
     }
 
     public function getAssistants() {
@@ -524,5 +455,95 @@ class UserModel {
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getTotalAssistants()
+    {
+        $this->db->query("SELECT COUNT(*) as total FROM user WHERE role = 'User'");
+        return $this->db->single()['total'];
+    }
+
+    public function getAssistantsWithProfile()
+    {
+        $this->db->query("
+            SELECT u.id_user, u.email, u.created_at,
+                p.id_profil, p.nama as name, p.photo_profile, p.jabatan, 
+                p.nim, p.no_telp, p.alamat, p.prodi, p.kelas, p.is_completed 
+            FROM user u 
+            JOIN profile p ON u.id_user = p.id_user 
+            WHERE u.role = 'User' 
+            ORDER BY p.nama ASC
+        ");
+        return $this->db->resultSet();
+    }
+
+    public function getUsersWithProfileAndLab($keyword = null, $limit = 10, $offset = 0)
+    {
+        $sql = "
+            SELECT u.id_user as id, u.email, u.role,
+                p.nama as name, p.photo_profile, p.jabatan as position, 
+                p.nim, p.kelas, p.prodi, p.no_telp, p.alamat, 
+                p.jenis_kelamin, p.is_completed,
+                p.id_lab, l.nama_lab as lab_name
+            FROM user u
+            JOIN profile p ON u.id_user = p.id_user
+            LEFT JOIN lab l ON p.id_lab = l.id_lab
+        ";
+
+        if ($keyword) {
+            $sql .= " WHERE p.nama LIKE :key 
+                    OR p.nim LIKE :key 
+                    OR u.email LIKE :key";
+        }
+
+        $sql .= " ORDER BY p.nama ASC
+                LIMIT :limit OFFSET :offset";
+
+        $this->db->query($sql);
+
+        if ($keyword) {
+            $this->db->bind(':key', "%$keyword%");
+        }
+
+        $this->db->bind(':limit', (int)$limit);
+        $this->db->bind(':offset', (int)$offset);
+
+        return $this->db->resultSet();
+    }
+
+    public function countUsersWithProfileAndLab($keyword = null)
+    {
+        $sql = "
+            SELECT COUNT(*) as total
+            FROM user u
+            JOIN profile p ON u.id_user = p.id_user
+            LEFT JOIN lab l ON p.id_lab = l.id_lab
+        ";
+
+        if ($keyword) {
+            $sql .= " WHERE p.nama LIKE :key 
+                    OR p.nim LIKE :key 
+                    OR u.email LIKE :key";
+        }
+
+        $this->db->query($sql);
+
+        if ($keyword) {
+            $this->db->bind(':key', "%$keyword%");
+        }
+
+        return $this->db->single()['total'];
+    }
+
+    public function getTotalManagedUsers()
+    {
+        $this->db->query("
+            SELECT COUNT(*) as total 
+            FROM user 
+            WHERE role = 'User'
+        ");
+        return $this->db->single()['total'];
+    }
+
+    
 }
 ?>

@@ -157,7 +157,6 @@ class AttendanceModel
         ];
     }
 
-    // Tambahkan ini di dalam class AttendanceModel
     public function getUserStats($pId) {
         $stats = [];
         $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND status = 'Hadir'");
@@ -173,18 +172,11 @@ class AttendanceModel
 
     public function getTodayAttendanceDetail($pId) {
         $today = date('Y-m-d');
-        // $this->db->query("SELECT * FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
-        // $this->db->bind(':pid', $pId);
-        // $presensi = $this->db->single();
 
         $this->db->query("SELECT * FROM presensi WHERE id_profil = :pid AND tanggal = :d");
         $this->db->bind(':pid', $pId);
         $this->db->bind(':d', $today);
         $presensi = $this->db->single();
-
-        // $this->db->query("SELECT * FROM izin WHERE id_profil = :pid AND CURDATE() BETWEEN start_date AND end_date AND status_approval = 'Approved'");
-        // $this->db->bind(':pid', $pId);
-        // $izin = $this->db->single();
 
         $this->db->query("SELECT * FROM izin WHERE id_profil = :pid AND :d BETWEEN start_date AND end_date AND status_approval = 'Approved'");
         $this->db->bind(':pid', $pId);
@@ -372,4 +364,135 @@ class AttendanceModel
         $result = $this->db->single();
         return $result['total'] ?? 0;
     }
+
+    public function getTotalLateToday()
+    {
+        $this->db->query("
+            SELECT COUNT(*) as total 
+            FROM presensi 
+            WHERE tanggal = CURDATE() 
+            AND waktu_presensi > '08:00:00'
+        ");
+        return $this->db->single()['total'];
+    }
+
+    public function getTodayPresenceByProfile($profileId)
+    {
+        $this->db->query("
+            SELECT waktu_presensi, waktu_pulang 
+            FROM presensi 
+            WHERE id_profil = :pid 
+            AND tanggal = CURDATE()
+        ");
+        $this->db->bind(':pid', $profileId);
+        return $this->db->single();
+    }
+
+    public function getActiveLeaveByProfile($profileId)
+    {
+        $this->db->query("
+            SELECT tipe 
+            FROM izin 
+            WHERE id_profil = :pid 
+            AND status_approval = 'Approved' 
+            AND CURDATE() BETWEEN start_date AND end_date
+        ");
+        $this->db->bind(':pid', $profileId);
+        return $this->db->single();
+    }
+
+    public function getTotalHadir($profileId)
+    {
+        $this->db->query("
+            SELECT COUNT(*) as total 
+            FROM presensi 
+            WHERE id_profil = :pid 
+            AND status = 'Hadir'
+        ");
+        $this->db->bind(':pid', $profileId);
+        return $this->db->single()['total'];
+    }
+
+    public function getTotalIzin($profileId)
+    {
+        $this->db->query("
+            SELECT COUNT(*) as total 
+            FROM izin 
+            WHERE id_profil = :pid 
+            AND status_approval = 'Approved'
+        ");
+        $this->db->bind(':pid', $profileId);
+        return $this->db->single()['total'];
+    }
+
+    public function getDailyStats($days = 7)
+    {
+        $labels = [];
+        $data = [];
+
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-$i days"));
+            $labels[] = date('d M', strtotime($date));
+
+            $this->db->query("
+                SELECT COUNT(*) as total 
+                FROM presensi 
+                WHERE tanggal = :tgl 
+                AND status = 'Hadir'
+            ");
+            $this->db->bind(':tgl', $date);
+            $data[] = $this->db->single()['total'];
+        }
+
+        return ['labels' => $labels, 'data' => $data];
+    }
+
+    public function getWeeklyStats($weeks = 4)
+    {
+        $labels = [];
+        $data = [];
+
+        for ($i = $weeks - 1; $i >= 0; $i--) {
+            $start = date('Y-m-d', strtotime("-$i weeks Monday this week"));
+            $end   = date('Y-m-d', strtotime("-$i weeks Sunday this week"));
+            $labels[] = "Minggu " . date('W', strtotime($start));
+
+            $this->db->query("
+                SELECT COUNT(*) as total 
+                FROM presensi 
+                WHERE tanggal BETWEEN :start AND :end 
+                AND status = 'Hadir'
+            ");
+            $this->db->bind(':start', $start);
+            $this->db->bind(':end', $end);
+            $data[] = $this->db->single()['total'];
+        }
+
+        return ['labels' => $labels, 'data' => $data];
+    }
+
+    public function getMonthlyStats($months = 6)
+    {
+        $labels = [];
+        $data = [];
+
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $start = date('Y-m-01', strtotime("-$i months"));
+            $end   = date('Y-m-t', strtotime("-$i months"));
+            $labels[] = date('F', strtotime($start));
+
+            $this->db->query("
+                SELECT COUNT(*) as total 
+                FROM presensi 
+                WHERE tanggal BETWEEN :start AND :end 
+                AND status = 'Hadir'
+            ");
+            $this->db->bind(':start', $start);
+            $this->db->bind(':end', $end);
+            $data[] = $this->db->single()['total'];
+        }
+
+        return ['labels' => $labels, 'data' => $data];
+    }
+
 }
