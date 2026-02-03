@@ -173,18 +173,11 @@ class AttendanceModel
 
     public function getTodayAttendanceDetail($pId) {
         $today = date('Y-m-d');
-        // $this->db->query("SELECT * FROM presensi WHERE id_profil = :pid AND tanggal = CURDATE()");
-        // $this->db->bind(':pid', $pId);
-        // $presensi = $this->db->single();
 
         $this->db->query("SELECT * FROM presensi WHERE id_profil = :pid AND tanggal = :d");
         $this->db->bind(':pid', $pId);
         $this->db->bind(':d', $today);
         $presensi = $this->db->single();
-
-        // $this->db->query("SELECT * FROM izin WHERE id_profil = :pid AND CURDATE() BETWEEN start_date AND end_date AND status_approval = 'Approved'");
-        // $this->db->bind(':pid', $pId);
-        // $izin = $this->db->single();
 
         $this->db->query("SELECT * FROM izin WHERE id_profil = :pid AND :d BETWEEN start_date AND end_date AND status_approval = 'Approved'");
         $this->db->bind(':pid', $pId);

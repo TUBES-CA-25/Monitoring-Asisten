@@ -273,6 +273,9 @@ class UserController extends Controller {
         
         $data['raw_schedules'] = $this->model('ScheduleModel')->getAllUserSchedules($_SESSION['user_id']); 
 
+        $data['page_css'][] = BASE_URL . '/public/css/user/schedule.css';
+        $data['page_js'][]  = BASE_URL . '/public/js/user/schedule.js';
+
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
         $this->view('user/schedule', $data);
@@ -359,6 +362,10 @@ class UserController extends Controller {
         }
         $data['judul'] = 'Scan Presensi';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+
+        $data['page_css'][] = BASE_URL . '/public/css/user/scan.css';
+        $data['page_js'][]  = BASE_URL . '/public/js/user/scan.js';
+
         $this->view('user/scan', $data); 
     }
 
@@ -424,6 +431,9 @@ class UserController extends Controller {
                 echo json_encode(['status' => 'error', 'message' => $msg]);
             }
         }
+
+        $data['page_css'][] = BASE_URL . '/public/css/user/capture.css';
+        $data['page_js'][]  = BASE_URL . '/public/js/user/capture.js';
     }
 
     public function submit_leave() {

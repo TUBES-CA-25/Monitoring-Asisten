@@ -13,23 +13,13 @@ class AdminController extends Controller {
         $attModel = $this->model('AttendanceModel');
         $userModel = $this->model('UserModel'); 
         $todayStats = $attModel->getTodayStats();
-        
-        $db = new Database(); 
-        $conn = $db->getConnection();
-
-        // Statistik Global
-        $stmt = $conn->query("SELECT COUNT(*) as total FROM user WHERE role = 'User'");
-        $totalAsisten = $stmt->fetch()['total'];
-
-        $stmtLate = $conn->query("SELECT COUNT(*) as total FROM presensi WHERE tanggal = CURDATE() AND waktu_presensi > '08:00:00'");
-        $totalLate = $stmtLate->fetch()['total'];
 
         $data['stats'] = [
             'hadir_today'   => $todayStats['hadir'],
             'izin_today'    => $todayStats['izin'],
             'alpa_today'    => $todayStats['alpa'],
-            'total_asisten' => $totalAsisten,
-            'total_late'    => $totalLate
+            'total_asisten'=> $userModel->getTotalAssistants(),
+            'total_late'   => $attModel->getTotalLateToday()
         ];
 
         $stmtAst = $conn->query("SELECT u.id_user, u.email, u.created_at,
@@ -54,7 +44,9 @@ class AdminController extends Controller {
             $izin = $stmtI->fetch(PDO::FETCH_ASSOC);
 
             if ($presensi) {
-                $ast['visual_status'] = ($presensi['waktu_pulang'] != null) ? 'offline_pulang' : 'online';
+                $ast['visual_status'] = ($presensi['waktu_pulang'] != null)
+                    ? 'offline_pulang'
+                    : 'online';
             } elseif ($izin) {
                 $ast['visual_status'] = 'izin';
             } else {
@@ -112,8 +104,25 @@ class AdminController extends Controller {
 
         // QR Code
         $qrModel = $this->model('QrModel');
-        $data['qr_in'] = json_encode(['type'=>'CHECK_IN', 'token'=>$qrModel->getOrGenerateToken('check_in')]);
-        $data['qr_out'] = json_encode(['type'=>'CHECK_OUT', 'token'=>$qrModel->getOrGenerateToken('check_out')]);
+        $data['qr_in'] = json_encode([
+            'type' => 'CHECK_IN',
+            'token' => $qrModel->getOrGenerateToken('check_in')
+        ]);
+
+        $data['qr_out'] = json_encode([
+            'type' => 'CHECK_OUT',
+            'token' => $qrModel->getOrGenerateToken('check_out')
+        ]);
+
+        $data['css'] = 'admin/dashboard.css';
+
+        $data['vendor_js'] = [
+            'https://cdn.jsdelivr.net/npm/chart.js',
+            'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
+        ];
+
+        $data['js'] = 'admin/dashboard.js';
+
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -189,82 +198,6 @@ class AdminController extends Controller {
         $this->view('admin/users', $data); 
         $this->view('layout/footer');
     }
-
-    // public function addUser() {
-    //     // 1. Cek Akses
-    //     $this->checkAccess(['Admin']);
-
-    //     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    //         ob_clean(); 
-    //         header('Content-Type: application/json');
-
-    //         // --- [PERBAIKAN] Validasi Jabatan Wajib ---
-    //         if (empty($_POST['position'])) {
-    //             echo json_encode([
-    //                 'status' => 'error', 
-    //                 'title' => 'Data Belum Lengkap', 
-    //                 'message' => 'Jabatan wajib dipilih agar data valid.'
-    //             ]);
-    //             exit;
-    //         }
-
-    //         $photoName = 'default.jpg'; 
-            
-    //         // 2. Logika Upload Foto
-    //         if (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
-    //             $targetDir = "../public/uploads/profile/";
-    //             if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-                
-    //             $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
-    //             $targetFilePath = $targetDir . $fileName;
-    //             $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
-                
-    //             if (in_array(strtolower($fileType), ['jpg', 'jpeg', 'png', 'webp'])) {
-    //                 if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
-    //                     $photoName = $fileName;
-    //                 }
-    //             }
-    //         }
-
-    //         $role = $_POST['role'];
-    //         $isUser = ($role == 'User');
-            
-    //         // Cek kelengkapan profil dasar
-    //         $isCompleted = (!empty($_POST['name']) && !empty($_POST['phone']) && !empty($_POST['address'])) ? 1 : 0;
-
-    //         // 3. Susun Data (Jabatan sekarang langsung diambil karena sudah divalidasi)
-    //         $data = [
-    //             'email'    => $_POST['email'],
-    //             'password' => $_POST['password'], 
-    //             'role'     => $role,
-    //             'name'     => $_POST['name'],
-                
-    //             // Gunakan String Kosong '' atau NULL sesuai DB (Model Anda sudah handle jadi NULL jika kosong)
-    //             'nim'      => ($isUser && !empty($_POST['nim'])) ? $_POST['nim'] : '',
-    //             'class'    => ($isUser && !empty($_POST['class'])) ? $_POST['class'] : '',
-    //             'prodi'    => ($isUser && !empty($_POST['prodi'])) ? $_POST['prodi'] : '',
-    //             'lab_id'   => ($isUser && !empty($_POST['lab_id'])) ? $_POST['lab_id'] : 0,
-    //             'interest' => ($isUser && !empty($_POST['interest'])) ? $_POST['interest'] : '',
-                
-    //             // [PENTING] Langsung ambil post position
-    //             'position' => $_POST['position'], 
-                
-    //             'no_telp'  => !empty($_POST['phone']) ? $_POST['phone'] : '',
-    //             'alamat'   => !empty($_POST['address']) ? $_POST['address'] : '',
-    //             'gender'   => !empty($_POST['gender']) ? $_POST['gender'] : '',
-    //             'photo'    => $photoName,
-    //             'is_completed' => $isCompleted
-    //         ];
-
-    //         // 4. Eksekusi ke Model
-    //         if ($this->model('UserModel')->createUser($data)) {
-    //             echo json_encode(['status' => 'success', 'title' => 'Berhasil', 'message' => 'User baru berhasil ditambahkan.']);
-    //         } else {
-    //             echo json_encode(['status' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menambah user. Email mungkin sudah ada.']);
-    //         }
-    //         exit;
-    //     }
-    // }
 
     public function addUser() {
         $this->checkAccess(['Admin']);
@@ -536,6 +469,7 @@ class AdminController extends Controller {
             $user = $this->model('UserModel')->getUserById($assistantId);
             $data['assistant_name'] = $user['name'] ?? 'Asisten';
         }
+        $data['css'] = 'admin/pdf_attendance.css';
 
         $this->view('admin/pdf_attendance', $data);
     }
@@ -549,6 +483,9 @@ class AdminController extends Controller {
         $data['assistants'] = array_filter($allUsers, fn($u) => $u['role'] == 'User');
         
         $data['raw_schedules'] = $this->model('ScheduleModel')->getAllSchedules(); 
+
+        $data['css'] = 'admin/schedule.css';
+        $data['js']  = 'admin/schedule.js';
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -612,6 +549,9 @@ class AdminController extends Controller {
         
         $allUsers = $this->model('UserModel')->getAllUsers();
         $data['assistants'] = array_filter($allUsers, fn($u) => $u['role'] == 'User');
+
+        $data['css'] = 'admin/logbook.css';
+        $data['js']  = 'admin/logbook.js';
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -704,11 +644,7 @@ class AdminController extends Controller {
         $userModel = $this->model('UserModel');
         $data['demographics'] = $userModel->getDemographics();
 
-        $stmtSch = $conn->query("SELECT * FROM jadwal_lab 
-                                 WHERE tanggal >= CURDATE() 
-                                 ORDER BY tanggal ASC, jam_mulai ASC 
-                                 LIMIT 5");
-        $rawSchedules = $stmtSch->fetchAll(PDO::FETCH_ASSOC);
+        $data['upcoming_schedules'] = $schModel->getUpcomingSchedules(5);
         
         foreach ($rawSchedules as &$sch) {
             $sch['display_date'] = date('d M Y', strtotime($sch['tanggal']));
@@ -717,16 +653,33 @@ class AdminController extends Controller {
         $data['upcoming_schedules'] = $rawSchedules;
         
         $data['rankings'] = [
-            'online' => $userModel->getAssistantRankings('online'),
-            'rajin' => $userModel->getAssistantRankings('rajin'),
-            'jarang' => $userModel->getAssistantRankings('jarang'),
-            'cepat' => $userModel->getAssistantRankings('cepat'),
-            'terlambat' => $userModel->getAssistantRankings('terlambat'),
-            'sering_izin' => $userModel->getAssistantRankings('sering_izin'),
+            'online'           => $userModel->getAssistantRankings('online'),
+            'rajin'            => $userModel->getAssistantRankings('rajin'),
+            'jarang'           => $userModel->getAssistantRankings('jarang'),
+            'cepat'            => $userModel->getAssistantRankings('cepat'),
+            'terlambat'        => $userModel->getAssistantRankings('terlambat'),
+            'sering_izin'     => $userModel->getAssistantRankings('sering_izin'),
             'logbook_lengkap' => $userModel->getAssistantRankings('logbook_lengkap'),
             'logbook_singkat' => $userModel->getAssistantRankings('logbook_singkat'),
-            'sibuk' => $userModel->getAssistantRankings('sibuk'),
-            'santai' => $userModel->getAssistantRankings('santai'),
+            'sibuk'            => $userModel->getAssistantRankings('sibuk'),
+            'santai'          => $userModel->getAssistantRankings('santai'),
+        ];
+
+        $data['page_css'] = [
+            BASE_URL . '/public/css/common/profile.css'
+        ];
+
+        $data['page_js'] = [
+            'https://cdn.jsdelivr.net/npm/chart.js',
+            BASE_URL . '/public/js/common/profile.js'
+        ];
+
+        $data['js_config'] = [
+            'BASE_URL' => BASE_URL,
+            'RAW_DEMOGRAPHICS' => $data['demographics'] ?? [],
+            'RANKINGS' => $data['rankings'] ?? [],
+            'USER_STATS' => $data['chart_data'] ?? null,
+            'IS_USER_ROLE' => ($data['user']['role'] === 'User')
         ];
 
         $this->view('layout/header', $data);
@@ -739,7 +692,25 @@ class AdminController extends Controller {
         $this->checkAccess(['Admin']);
         $data['judul'] = 'Edit Profil Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
-        $this->view('layout/header', $data); $this->view('layout/sidebar', $data); $this->view('common/edit_profile', $data); $this->view('layout/footer');
+
+        $data['page_css'] = [
+            'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css',
+            BASE_URL . '/public/css/common/edit-profile.css'
+        ];
+
+        $data['page_js'] = [
+            'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js',
+            BASE_URL . '/public/js/common/edit-profile.js'
+        ];
+
+        $data['js_config'] = [
+            'BASE_URL' => BASE_URL,
+            'USER_ROLE' => $data['user']['role']
+        ];
+
+        $this->view('layout/header', $data); $this->view('layout/sidebar', $data); 
+        $this->view('common/edit_profile', $data); 
+        $this->view('layout/footer');
     }
     
     public function updateProfile() {
@@ -846,6 +817,8 @@ class AdminController extends Controller {
         $data['assistant'] = $assistant; 
         
         $data['schedules'] = $this->model('ScheduleModel')->getAllUserSchedules($id);
+
+        $data['css'] = 'admin/assistant_schedule.css';
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);

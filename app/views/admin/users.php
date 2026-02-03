@@ -212,19 +212,6 @@
                     <h4 class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-widest border-b pb-2">Detail Profil</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         
-                        <!-- <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1">Jabatan</label>
-                            <select name="position" id="inputPosition" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
-                                <option value="" disabled selected>-- Pilih Jabatan --</option>
-                                <option value="Kepala Lab">Kepala Lab</option>
-                                <option value="Laboran">Laboran</option>
-                                <option value="Administrator">Koordinator Asisten</option>
-                                <option value="Asisten 1">Asisten 1</option>
-                                <option value="Asisten 2">Asisten 2</option>
-                                <option value="Asisten Pendamping">Asisten Pendamping</option>
-                            </select>
-                        </div> -->
-
                        <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1"> Jabatan <span class="text-red-500">*</span></label>
                             <select name="position" id="inputPosition" onchange="toggleRoleFields()" required 
