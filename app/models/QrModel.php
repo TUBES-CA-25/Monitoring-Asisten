@@ -41,35 +41,6 @@ class QrModel {
         
         return $code;
         
-
-        // =================================================================================
-        // OPSI 2: QR CODE STATIS / PERMANEN (OPSIONAL)
-        // =================================================================================
-        /*
-        $sql = "SELECT token_code FROM qr_code 
-                WHERE tipe = :t AND valid_until > '3000-01-01' 
-                ORDER BY id_qr DESC LIMIT 1";
-        
-        $this->db->query($sql);
-        $this->db->bind(':t', $dbType);
-        $token = $this->db->single();
-
-        if ($token) {
-            return $token['token_code'];
-        }
-
-        $staticCode = md5('STATIC_' . $dbType . '_' . time()); 
-        
-        $sqlInsert = "INSERT INTO qr_code (tipe, token_code, generated_at, valid_until) 
-                      VALUES (:t, :c, NOW(), '9999-12-31 23:59:59')";
-        
-        $this->db->query($sqlInsert);
-        $this->db->bind(':t', $dbType);
-        $this->db->bind(':c', $staticCode);
-        $this->db->execute();
-        
-        return $staticCode;
-        */
     }
     
     public function getTokenData($code) {
