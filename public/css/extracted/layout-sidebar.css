@@ -1,0 +1,35 @@
+
+    /* Style Paksaan untuk Preload (agar transisi mati sementara) */
+    .preload-minimized #sidebar { width: 5rem !important; } /* w-20 */
+    .preload-minimized #mainContent { margin-left: 5rem !important; }
+    
+    /* Sembunyikan elemen teks saat preload */
+    .preload-minimized .sidebar-text, 
+    .preload-minimized .sidebar-header,
+    .preload-minimized #toggleSidebar,
+    .preload-minimized #logoContainer span { display: none !important; }
+    
+    /* Style Logo saat minimized */
+    .preload-minimized #logoHeader { cursor: pointer !important; }
+    .preload-minimized #profileContainer,
+    .preload-minimized #logoContainer { justify-content: center !important; width: 100% !important; }
+    
+    /* Matikan animasi saat loading */
+    .preload-minimized * { transition: none !important; }
+
+    /* Custom Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+    .custom-scrollbar:hover::-webkit-scrollbar-thumb { background-color: #94a3b8; }
+
+    /* Tooltip Custom (Muncul hanya saat sidebar kecil) */
+    .sidebar-tooltip {
+        visibility: hidden; opacity: 0; left: 4rem; position: absolute; pointer-events: none;
+        background-color: #1f2937; color: white; padding: 4px 8px; border-radius: 4px;
+        font-size: 0.75rem; z-index: 50; white-space: nowrap; transition: opacity 0.2s;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Trik CSS: Tooltip muncul jika parent (.group) dihover DAN sidebar sedang w-20 */
+    #sidebar.w-20 .group:hover .sidebar-tooltip { visibility: visible; opacity: 1; left: 3.5rem; pointer-events: auto; }

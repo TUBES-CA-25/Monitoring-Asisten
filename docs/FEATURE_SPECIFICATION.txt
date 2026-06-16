@@ -1,0 +1,1 @@
+Spesifikasi ICLABS V3 Stable: Dashboard monitoring, user management role-based, presensi QR, izin, logbook, jadwal, export CSV, API mobile compatibility.

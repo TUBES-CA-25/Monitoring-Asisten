@@ -1,0 +1,67 @@
+/* ANIMASI & STYLE DASAR */
+.animate-enter { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* CAROUSEL INFINITE LOOP */
+@keyframes scroll { 
+    0% { transform: translateX(0); } 
+    100% { transform: translateX(-50%); } 
+}
+
+.carousel-container { 
+    overflow: hidden; 
+    padding: 20px 0; 
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent); 
+}
+
+.carousel-track { 
+    display: flex; 
+    /* GAP DIHAPUS agar perhitungan matematika loop presisi */
+    /* gap: 2rem; */
+    width: max-content; 
+    animation: scroll 80s linear infinite; 
+    will-change: transform; /* Optimasi performa */
+}
+
+.carousel-track:hover { 
+    animation-play-state: paused; 
+}
+
+/* KARTU ASISTEN POLAROID */
+.polaroid-card {
+    background: white; 
+    width: 220px; 
+    padding: 10px 10px 40px 10px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+    border: 1px solid #e5e7eb;
+    transition: transform 0.3s; 
+    position: relative;
+    
+    /* [PERBAIKAN UTAMA] Gunakan margin item, bukan gap container */
+    margin-right: 2rem; 
+    flex-shrink: 0; 
+}
+
+.polaroid-card:hover { transform: scale(1.05); z-index: 10; box-shadow: 0 15px 25px rgba(0,0,0,0.1); }
+
+.led { width: 12px; height: 12px; border-radius: 50%; position: absolute; top: 20px; right: 20px; z-index: 10; animation: pulse 2s infinite; }
+.led.green { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+.led.red { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+.led.yellow { background: #eab308; box-shadow: 0 0 10px #eab308; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.img-status.red { filter: grayscale(100%); opacity: 0.8; }
+.img-status.yellow { filter: sepia(100%); opacity: 0.9; }
+
+/* Modal "Cari Asisten" — tombol filter jabatan pada sidebar */
+.assistant-jabatan-btn { color: #6b7280; }
+.assistant-jabatan-btn:hover { background-color: #f3f4f6; color: #374151; }
+.assistant-jabatan-btn.active {
+  background: linear-gradient(110deg, #2563eb, #0891b2);
+  color: #fff;
+  box-shadow: 0 8px 16px -6px rgba(37, 99, 235, 0.5);
+}
+
+/* Kartu pada modal "Cari Asisten" memakai grid (4xn), bukan carousel —
+   timpa ukuran/margin khusus carousel dari .polaroid-card agar pas di grid. */
+.assistant-search-card { width: 100%; margin-right: 0; flex-shrink: initial; }
+

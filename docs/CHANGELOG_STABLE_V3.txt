@@ -1,0 +1,9 @@
+ICLABS V3 Stable
+
+Patch 1 Core Fix
+Patch 2 CSV Repair
+Patch 3 Dashboard Recovery
+Patch 4 CRUD Stabilization
+Patch 5 Attendance Rule
+Patch 6 Assistant Explorer
+Patch 7 Final Packaging

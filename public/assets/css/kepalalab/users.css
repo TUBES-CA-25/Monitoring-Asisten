@@ -1,0 +1,12 @@
+.animate-enter { animation: fadeInUp 0.5s ease-out forwards; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+.input-readonly {
+    background-color: #f9fafb; /* gray-50 */
+    border-color: #e5e7eb;     /* gray-200 */
+    color: #374151;            /* gray-700 */
+    cursor: default;
+}
+/* Hide scrollbar for modal content */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }

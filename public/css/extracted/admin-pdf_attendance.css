@@ -1,0 +1,20 @@
+
+        /* Tambahan style khusus untuk PDF */
+        body { font-family: 'Inter', sans-serif; font-size: 11px; color: #333; }
+        .header h1 { font-size: 20px; margin: 0; text-transform: uppercase; font-weight: 700; }
+        .header p { font-size: 12px; margin: 5px 0 0; color: #666; }
+        .meta-container { margin-top: 15px; display: flex; justify-content: center; gap: 15px; font-size: 11px; }
+        .meta-badge { background: #f9fafb; padding: 6px 14px; border-radius: 6px; border: 1px solid #e5e7eb; font-weight: 600; color: #374151; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
+        th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; }
+        th { background-color: #f3f4f6; font-weight: 700; color: #374151; }
+        tr:nth-child(even) { background-color: #fcfcfc; }
+        .text-center { text-align: center; }
+        .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #999; }
+        
+        .badge { padding: 3px 8px; border-radius: 4px; font-weight: 700; font-size: 9px; text-transform: uppercase; display: inline-block; min-width: 50px; text-align: center; }
+        .badge-hadir { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .badge-izin { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+        .badge-alpha { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .badge-total { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+    
