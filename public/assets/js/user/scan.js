@@ -321,52 +321,63 @@ let html5QrCode = null;
             startSelfieCamera();
         }
 
-        // 4. SNAPSHOT + WATERMARK ALAMAT
+        // 4. SNAPSHOT + WATERMARK OVERLAY
         function takeSnapshot() {
             if (!selfieStream) return;
-            const size = 1000; const imgHeight = 800;
-            canvasEl.width = size; canvasEl.height = size;
+
+            // [PERBAIKAN] Canvas selalu persegi 1000×1000 agar foto tidak gepeng.
+            // Sebelumnya drawImage menulis sumber persegi ke area 1000×800,
+            // menyebabkan distorsi vertikal. Sekarang sumber (crop persegi dari
+            // video) dan tujuan (1000×1000) sama-sama persegi → tidak ada
+            // stretching. Footer ditulis sebagai overlay semi-transparan di
+            // bagian bawah foto (bukan area terpisah).
+            const SIZE = 1000;
+            canvasEl.width  = SIZE;
+            canvasEl.height = SIZE;
             const ctx = canvasEl.getContext('2d');
 
-            // Background
-            ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, size, size);
-            
-            // Image
-            ctx.save(); ctx.translate(size, 0); ctx.scale(-1, 1);
-            const vW = videoEl.videoWidth; const vH = videoEl.videoHeight;
-            const minDim = Math.min(vW, vH);
-            ctx.drawImage(videoEl, (vW-minDim)/2, (vH-minDim)/2, minDim, minDim, 0, 0, size, imgHeight);
+            // -- Gambar video (crop persegi, mirror horizontal) --
+            ctx.save();
+            ctx.translate(SIZE, 0);
+            ctx.scale(-1, 1);
+            const vW = videoEl.videoWidth  || SIZE;
+            const vH = videoEl.videoHeight || SIZE;
+            const crop = Math.min(vW, vH);
+            const sx   = (vW - crop) / 2;
+            const sy   = (vH - crop) / 2;
+            ctx.drawImage(videoEl, sx, sy, crop, crop, 0, 0, SIZE, SIZE);
             ctx.restore();
 
-            // Footer Data
-            const now = new Date();
+            // -- Footer overlay (gradient gelap di bagian bawah) --
+            const FOOTER_H = 180;
+            const grad = ctx.createLinearGradient(0, SIZE - FOOTER_H, 0, SIZE);
+            grad.addColorStop(0, 'rgba(0,0,0,0)');
+            grad.addColorStop(0.4, 'rgba(0,0,0,0.65)');
+            grad.addColorStop(1,   'rgba(0,0,0,0.82)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, SIZE - FOOTER_H, SIZE, FOOTER_H);
+
+            // -- Teks nama --
+            const name = config.userName || 'User';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 38px sans-serif';
+            ctx.fillText(name, SIZE / 2, SIZE - FOOTER_H + 52);
+
+            // -- Alamat --
+            const address = document.getElementById('geo-address').value || 'Lokasi GPS Tidak Terdeteksi';
+            let displayAddr = address.length > 52 ? address.substring(0, 52) + '…' : address;
+            ctx.fillStyle = 'rgba(255,255,255,0.80)';
+            ctx.font = 'italic 22px sans-serif';
+            ctx.fillText('📍 ' + displayAddr, SIZE / 2, SIZE - FOOTER_H + 94);
+
+            // -- Waktu --
+            const now     = new Date();
             const dateStr = now.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
             const timeStr = now.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' }).replace(/\./g, ':');
-            const name = config.userName || 'User';
-            
-            // Ambil alamat valid yang sudah di-fetch
-            const address = document.getElementById('geo-address').value || 'Lokasi GPS Tidak Terdeteksi';
-
-            ctx.textAlign = "center";
-            ctx.fillStyle = "#1f2937"; // Gray-800
-            
-            // Nama
-            ctx.font = "bold 40px sans-serif";
-            ctx.fillText(name, size/2, imgHeight + 60);
-
-            // Alamat Valid
-            ctx.fillStyle = "#4b5563"; // Gray-600
-            ctx.font = "italic 24px sans-serif";
-            
-            // Simple text wrapping untuk alamat panjang
-            let displayAddr = address;
-            if(address.length > 50) displayAddr = address.substring(0, 50) + "...";
-            ctx.fillText("📍 " + displayAddr, size/2, imgHeight + 100);
-
-            // Waktu
-            ctx.fillStyle = "#2563eb"; // Blue-600
-            ctx.font = "bold 32px monospace";
-            ctx.fillText(`${timeStr} WITA • ${dateStr}`, size/2, imgHeight + 150);
+            ctx.fillStyle = '#93c5fd'; // blue-300
+            ctx.font = 'bold 26px monospace';
+            ctx.fillText(timeStr + ' WITA  •  ' + dateStr, SIZE / 2, SIZE - FOOTER_H + 138);
 
             const dataUrl = canvasEl.toDataURL('image/jpeg', 0.9);
             resultImg.src = dataUrl; resultImg.classList.remove('hidden');
@@ -408,7 +419,14 @@ let html5QrCode = null;
             .then(data => {
                 showLoading(false);
                 if(data.status === 'success') {
-                    showModal('success', 'Berhasil', data.message, () => window.location.href = config.dashboardUrl);
+                    // [BARU – Tahap 35] Jika check-out, tampilkan modal logbook
+                    // sebelum kembali ke dashboard. Jika check-in atau modal
+                    // tidak tersedia, langsung redirect.
+                    if (type === 'check_out' && document.getElementById('logbookModal')) {
+                        showLogbookModal();
+                    } else {
+                        showModal('success', 'Berhasil', data.message, () => window.location.href = config.dashboardUrl);
+                    }
                 } else {
                     showModal('error', 'Gagal', data.message);
                 }
@@ -449,4 +467,66 @@ let html5QrCode = null;
             }
             m.classList.remove('hidden');
             btn.onclick = () => { m.classList.add('hidden'); if(onOk) onOk(); };
+        }
+
+        // [BARU – Tahap 35] Modal isi logbook setelah scan pulang
+        function showLogbookModal() {
+            const modal   = document.getElementById('logbookModal');
+            const textarea = document.getElementById('logbookActivity');
+            const charCnt = document.getElementById('logbookCharCount');
+            const skipBtn = document.getElementById('logbookSkipBtn');
+            const submitBtn = document.getElementById('logbookSubmitBtn');
+            if (!modal) { window.location.href = config.dashboardUrl; return; }
+
+            // Reset
+            textarea.value = '';
+            if (charCnt) charCnt.innerText = '0 karakter';
+            modal.classList.remove('hidden');
+
+            textarea.addEventListener('input', function () {
+                if (charCnt) charCnt.innerText = this.value.length + ' karakter';
+            });
+
+            // Lewati → langsung ke dashboard
+            skipBtn.onclick = function() {
+                modal.classList.add('hidden');
+                window.location.href = config.dashboardUrl;
+            };
+
+            // Submit logbook
+            submitBtn.onclick = function() {
+                const activity = textarea.value.trim();
+                if (!activity) {
+                    textarea.classList.add('ring-2','ring-red-300');
+                    textarea.placeholder = 'Aktivitas tidak boleh kosong!';
+                    return;
+                }
+                textarea.classList.remove('ring-2','ring-red-300');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+
+                const fd = new FormData();
+                fd.append('date',     new Date().toISOString().split('T')[0]);
+                fd.append('activity', activity);
+                fd.append('time',     new Date().toTimeString().slice(0,5));
+                fd.append('log_id',   '');
+
+                fetch(config.logbookUrl, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(function(data) {
+                    modal.classList.add('hidden');
+                    if (data.status === 'success') {
+                        showModal('success', 'Logbook Tersimpan!',
+                            'Aktivitas kamu hari ini sudah dicatat. Sampai jumpa!',
+                            () => window.location.href = config.dashboardUrl);
+                    } else {
+                        // Jika gagal simpan logbook, tetap redirect ke dashboard
+                        window.location.href = config.dashboardUrl;
+                    }
+                })
+                .catch(function() {
+                    modal.classList.add('hidden');
+                    window.location.href = config.dashboardUrl;
+                });
+            };
         }

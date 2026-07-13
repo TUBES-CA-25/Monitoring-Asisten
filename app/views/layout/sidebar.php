@@ -96,6 +96,11 @@
                 <p class="px-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 ml-1 sidebar-header">Laporan</p>
                 <?php renderMenuItem(BASE_URL . "/$role/monitorAttendance", 'fa-history', 'Rekap Presensi', 'monitorAttendance', $current_uri); ?>
             </div>
+
+            <div class="mb-6">
+                <p class="px-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 ml-1 sidebar-header">Backup</p>
+                <?php renderMenuItem(BASE_URL . "/$role/recycleBin", 'fa-trash-restore-alt', 'Recycle Bin', 'recycleBin', $current_uri); ?>
+            </div>
         <?php endif; ?>
 
         <?php if(in_array($_SESSION['role'] ?? '', ['Kepala Lab', 'Super Admin'])): ?>
@@ -116,10 +121,10 @@
     <?php if (($role ?? '') === 'admin'): ?>
     <!-- [BARU – Tahap 30] Tombol Reset Global — hanya Admin.
          Perlindungan: hover reveal → double-click confirm modal. -->
-    <!-- <div class="px-4 pb-2 shrink-0 sidebar-text">
-        <div class="group/reset relative"> -->
+    <div class="px-4 pb-2 shrink-0 sidebar-text">
+        <div class="group/reset relative">
             <!-- State default: tertutup - perlu hover/click untuk reveal -->
-            <!-- <button id="resetGlobalBtn"
+            <button id="resetGlobalBtn"
                     title="Reset Presensi – klik untuk membuka akses"
                     onclick="if(!this.dataset.unlocked){this.dataset.unlocked='1';this.classList.remove('bg-gray-100','text-gray-400','border-gray-200');this.classList.add('bg-red-50','text-red-600','border-red-200');this.querySelector('.reset-lock').classList.add('hidden');this.querySelector('.reset-label').classList.remove('hidden');return;}openGlobalResetModal();"
                     class="w-full flex items-center justify-center gap-2 py-2 rounded-xl border bg-gray-100 text-gray-400 border-gray-200 text-xs font-bold transition-all duration-200 hover:bg-red-50 hover:text-red-500 hover:border-red-200 overflow-hidden">
@@ -128,7 +133,7 @@
                 <span class="reset-label hidden whitespace-nowrap"><i class="fas fa-database mr-1"></i>Reset Presensi Semua</span>
             </button>
         </div>
-    </div> -->
+    </div>
     <?php endif; ?>
 
     <div class="p-4 border-t border-gray-100 shrink-0 bg-white">

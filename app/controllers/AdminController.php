@@ -615,6 +615,214 @@ class AdminController extends Controller {
         exit;
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       [BARU – Tahap 35] RECYCLE BIN — Reset presensi ke bin
+       ═══════════════════════════════════════════════════════════ */
+
+    /**
+     * Halaman Recycle Bin — daftar arsip data presensi yang di-reset.
+     */
+    public function recycleBin() {
+        $this->checkAccess(['Admin']);
+        require_once '../app/models/RecycleBinModel.php';
+        $binModel = new RecycleBinModel();
+
+        $filter = [
+            'scope'     => $_GET['scope']     ?? '',
+            'id_profil' => !empty($_GET['pid']) ? (int)$_GET['pid'] : null,
+        ];
+
+        $data['bin_entries']    = $binModel->getAll($filter);
+        $data['assistant_list'] = $binModel->getAssistantList();
+        $data['filter']         = $filter;
+        $data['judul']          = 'Recycle Bin Presensi';
+        $data['user']           = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+
+        $data['js_config'] = ['baseUrl' => rtrim(BASE_URL, '/')];
+        $data['page_js']   = [ASSET_URL . '/js/admin/recycle_bin.js'];
+
+        $this->view('layout/header', $data);
+        $this->view('layout/sidebar', $data);
+        $this->view('admin/recycle_bin', $data);
+        $this->view('layout/footer', $data);
+    }
+
+    /**
+     * Reset presensi ke recycle bin (menggantikan resetAttendance lama yang
+     * langsung menghapus + ZIP ke filesystem).
+     *
+     * GET ?scope=all               → arsipkan semua asisten
+     * GET ?scope=single&pid=N      → arsipkan satu asisten (id_profil=N)
+     * GET ?scope=single&uid=N      → arsipkan via id_user
+     */
+    public function resetToBin() {
+        $this->checkAccess(['Admin']);
+        ob_clean();
+        header('Content-Type: application/json');
+
+        require_once '../app/models/RecycleBinModel.php';
+        $binModel = new RecycleBinModel();
+        $adminId  = (int)($_SESSION['user_id'] ?? 0);
+        $scope    = $_GET['scope'] ?? 'all';
+
+        $idProfil = null;
+        if ($scope === 'single') {
+            if (!empty($_GET['pid'])) {
+                $idProfil = (int)$_GET['pid'];
+            } elseif (!empty($_GET['uid'])) {
+                $stmt = (new Database())->getConnection()->prepare(
+                    "SELECT id_profil FROM profile WHERE id_user=:uid"
+                );
+                $stmt->execute([':uid' => (int)$_GET['uid']]);
+                $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+                $idProfil = $row ? (int)$row['id_profil'] : null;
+            }
+        }
+
+        $result = $binModel->archiveAndDelete($idProfil, $adminId);
+
+        if (!$result['ok']) {
+            echo json_encode(['status' => 'error', 'message' => $result['error'] ?? 'Gagal.']);
+        } else {
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Data berhasil diarsipkan ke Recycle Bin.',
+                'count'   => count($result['id_bin_list'] ?? []),
+            ]);
+        }
+        exit;
+    }
+
+    /** Restore satu bin entry ke presensi & logbook */
+    public function recycleBinRestore() {
+        $this->checkAccess(['Admin']);
+        ob_clean();
+        header('Content-Type: application/json');
+
+        $idBin = (int)($_POST['id_bin'] ?? 0);
+        if (!$idBin) { echo json_encode(['status'=>'error','message'=>'ID tidak valid.']); exit; }
+
+        require_once '../app/models/RecycleBinModel.php';
+        $result = (new RecycleBinModel())->restore($idBin);
+
+        if (!$result['ok']) {
+            echo json_encode(['status'=>'error','message'=>$result['error']??'Gagal.']);
+        } else {
+            echo json_encode([
+                'status'    => 'success',
+                'restored'  => $result['restored'],
+                'conflicts' => $result['conflicts'],
+                'has_conflict' => !empty($result['conflicts']),
+            ]);
+        }
+        exit;
+    }
+
+    /** Hapus permanen satu bin entry */
+    public function recycleBinDelete() {
+        $this->checkAccess(['Admin']);
+        ob_clean();
+        header('Content-Type: application/json');
+
+        $idBin = (int)($_POST['id_bin'] ?? 0);
+        if (!$idBin) { echo json_encode(['status'=>'error','message'=>'ID tidak valid.']); exit; }
+
+        require_once '../app/models/RecycleBinModel.php';
+        $ok = (new RecycleBinModel())->deletePermanent($idBin);
+        echo json_encode($ok ? ['status'=>'success'] : ['status'=>'error','message'=>'Gagal menghapus.']);
+        exit;
+    }
+
+    /** Download CSV data dari satu bin entry */
+    public function recycleBinDownload() {
+        $this->checkAccess(['Admin']);
+        $idBin = (int)($_GET['id'] ?? 0);
+        if (!$idBin) { http_response_code(404); echo 'ID tidak valid.'; exit; }
+
+        require_once '../app/models/RecycleBinModel.php';
+        $entry = (new RecycleBinModel())->getById($idBin);
+        if (!$entry) { http_response_code(404); echo 'Data tidak ditemukan.'; exit; }
+
+        $presensi = json_decode($entry['data_presensi'] ?? '[]', true);
+        $logbook  = json_decode($entry['data_logbook']  ?? '[]', true);
+
+        // Buat ZIP
+        $label   = preg_replace('/[^a-zA-Z0-9_]/', '_', $entry['nama_asisten'] ?? 'SEMUA');
+        $ds      = str_replace('-', '', $entry['date_data_start'] ?? '');
+        $de      = str_replace('-', '', $entry['date_data_end']   ?? '');
+        $dr      = str_replace(['-',' ',':'], ['','_',''], substr($entry['date_reset'],0,16));
+        $zipName = "BIN_{$label}_{$ds}-{$de}_reset{$dr}.zip";
+        $zipPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $zipName;
+
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            http_response_code(500); echo 'Gagal membuat ZIP.'; exit;
+        }
+
+        // CSV helper
+        $toCsv = function(array $rows): string {
+            if (empty($rows)) return "Tidak ada data.\n";
+            $out = fopen('php://memory','r+');
+            fputcsv($out, array_keys($rows[0]));
+            foreach ($rows as $r) fputcsv($out, $r);
+            rewind($out);
+            $c = stream_get_contents($out);
+            fclose($out);
+            return $c;
+        };
+
+        $zip->addFromString('01_presensi.csv', $toCsv($presensi));
+        $zip->addFromString('02_logbook.csv',  $toCsv($logbook));
+        $zip->addFromString('README.txt',
+            "Nama Asisten : {$entry['nama_asisten']}\n" .
+            "Reset Scope  : {$entry['reset_scope']}\n" .
+            "Rentang Data : {$entry['date_data_start']} s/d {$entry['date_data_end']}\n" .
+            "Tanggal Reset: {$entry['date_reset']}\n"
+        );
+        $zip->close();
+
+        ob_clean();
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $zipName . '"');
+        header('Content-Length: ' . filesize($zipPath));
+        readfile($zipPath);
+        @unlink($zipPath);
+        exit;
+    }
+    public function qrPage() {
+        $this->checkAccess(['Admin']);
+
+        $qrModel = $this->model('QrModel');
+        $data['qr_in']  = json_encode([
+            'type'  => 'CHECK_IN',
+            'token' => $qrModel->getOrGenerateToken('check_in')
+        ]);
+        $data['qr_out'] = json_encode([
+            'type'  => 'CHECK_OUT',
+            'token' => $qrModel->getOrGenerateToken('check_out')
+        ]);
+
+        $data['judul'] = 'QR Presensi';
+        $data['user']  = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+
+        $data['js_config'] = [
+            'baseUrl'  => rtrim(BASE_URL, '/'),
+            'qrIn'     => $data['qr_in'],
+            'qrOut'    => $data['qr_out'],
+            'interval' => 175, // detik sebelum QR di-refresh di halaman (< 3 menit)
+        ];
+
+        $data['page_js'] = [
+            'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+            ASSET_URL . '/js/admin/qr_page.js',
+        ];
+
+        $this->view('layout/header', $data);
+        $this->view('layout/sidebar', $data);
+        $this->view('admin/qr_page', $data);
+        $this->view('layout/footer', $data);
+    }
+
     public function monitorAttendance() {
         $this->checkAccess(['Admin']);        
         
@@ -1184,6 +1392,39 @@ class AdminController extends Controller {
         $this->view('layout/footer', $data);
     }
     
+    /**
+     * [BARU – Tahap 35] Kembalikan statistik hadir/izin/alpa asisten secara live.
+     * Dipanggil oleh logbook.js dan dashboard.js setelah perubahan data agar
+     * angka di stats bar / detail modal ter-update tanpa reload halaman.
+     */
+    public function getAssistantStats() {
+        $this->checkAccess(['Admin']);
+        ob_clean();
+        header('Content-Type: application/json');
+
+        $userId = (int)($_POST['user_id'] ?? 0);
+        if (!$userId) { echo json_encode(['status'=>'error']); exit; }
+
+        $userModel = $this->model('UserModel');
+        $attModel  = $this->model('AttendanceModel');
+
+        $userObj = $userModel->getUserById($userId);
+        if (!$userObj) { echo json_encode(['status'=>'error']); exit; }
+
+        $pid = $userObj['id_profil'];
+        echo json_encode([
+            'status'      => 'success',
+            'total_hadir' => $attModel->getTotalHadir($pid),
+            'total_izin'  => $attModel->getTotalIzin($pid),
+            'total_alpa'  => $userModel->calculateRealAlpha(
+                $pid,
+                $userObj['created_at'],
+                $userObj['is_completed']
+            ),
+        ]);
+        exit;
+    }
+
     public function getLogsByUser() {
         $this->checkAccess(['Admin']);
         $userId = $_POST['user_id'] ?? 0;
@@ -1476,11 +1717,20 @@ class AdminController extends Controller {
     public function getQrAjax() {
         $this->checkAccess(['Admin']);    
 
-        $type = $_POST['type'] ?? 'check_in'; 
-        $token = $this->model('QrModel')->getOrGenerateToken($type);
+        $type  = $_POST['type'] ?? 'check_in';
+        $force = !empty($_POST['force']); // true saat "generate ulang" manual
+
+        $qrModel = $this->model('QrModel');
+
+        // Jika force=true, lewati token yang sudah ada dan buat baru
+        if ($force) {
+            $token = $qrModel->generateFreshToken($type);
+        } else {
+            $token = $qrModel->getOrGenerateToken($type);
+        }
         
         $qrString = json_encode([
-            'type' => ($type == 'check_in') ? 'CHECK_IN' : 'CHECK_OUT', 
+            'type'  => ($type == 'check_in') ? 'CHECK_IN' : 'CHECK_OUT', 
             'token' => $token
         ]);
         

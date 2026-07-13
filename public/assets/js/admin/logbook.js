@@ -3,6 +3,18 @@ let currentUserId = null;
     let currentResetId = null;
     let currentResetType = null;
 
+    // [BARU – Tahap 35] Update stats bar atas tabel setelah setiap renderTable()
+    function updateLiveStats(hadir, izin, alpha) {
+        const el = document.getElementById('liveStatsBar');
+        if (!el) return;
+        const ch = document.getElementById('countHadir');
+        const ci = document.getElementById('countIzin');
+        const ca = document.getElementById('countAlpha');
+        if (ch) ch.innerText = hadir;
+        if (ci) ci.innerText = izin;
+        if (ca) ca.innerText = alpha;
+    }
+
     document.getElementById('searchAssistant').addEventListener('keyup', function() {
         const key = this.value.toLowerCase();
         document.querySelectorAll('.assistant-card').forEach(card => {
@@ -36,6 +48,9 @@ let currentUserId = null;
         document.getElementById('inputUserId').value = userId;
         document.getElementById('emptyState').classList.add('hidden');
         document.getElementById('logContent').classList.remove('hidden');
+        // [BARU – Tahap 35] Tampilkan stats bar
+        const statsBar = document.getElementById('liveStatsBar');
+        if (statsBar) statsBar.classList.remove('hidden');
         setTimeout(() => document.getElementById('logContent').classList.remove('opacity-0'), 50);
 
         const fd = new FormData(); fd.append('user_id', userId);
@@ -50,8 +65,18 @@ let currentUserId = null;
 
         if(logs.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400 italic text-sm">Belum ada data.</td></tr>`;
+            updateLiveStats(0, 0, 0);
             return;
         }
+
+        // Hitung stats sebelum render
+        let cHadir = 0, cIzin = 0, cAlpha = 0;
+        logs.forEach(log => {
+            if (log.status === 'Hadir' || log.status === 'Terlambat') cHadir++;
+            else if (log.status === 'Izin' || log.status === 'Sakit')  cIzin++;
+            else cAlpha++;
+        });
+        updateLiveStats(cHadir, cIzin, cAlpha);
 
         logs.forEach(log => {
             const dateStr = new Date(log.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
@@ -154,6 +179,8 @@ let currentUserId = null;
                 closeLogModal();
                 const activeCard = document.querySelector('.assistant-card.active');
                 loadLogs(currentUserId, currentUserName, null, activeCard);
+                // [BARU – Tahap 35] Refresh stat di detail modal dashboard jika sedang terbuka
+                refreshDashboardStats(currentUserId);
             } else showCustomAlert('error', 'Gagal', data.message);
         });
     });
@@ -218,6 +245,8 @@ let currentUserId = null;
                 if (typeof loadLogs === "function" && typeof currentUserId !== 'undefined') {
                     const activeCard = document.querySelector('.assistant-card.active');
                     loadLogs(currentUserId, currentUserName, null, activeCard);
+                    // [BARU – Tahap 35] Refresh stat di detail modal dashboard jika sedang terbuka
+                    refreshDashboardStats(currentUserId);
                 } else {
                     location.reload(); // Fallback jika fungsi loadLogs tidak ada
                 }
@@ -275,3 +304,38 @@ let currentUserId = null;
             if (elTime) elTime.innerText = now.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':');
         }
         setInterval(updateClock, 1000); updateClock();
+
+    // [BARU – Tahap 35] Refresh angka stat di detail modal dashboard jika sedang
+    // terbuka. Dipanggil setelah setiap perubahan data logbook.
+    function refreshDashboardStats(userId) {
+        if (!userId) return;
+        // Hanya jalankan jika elemen stat ada di DOM (halaman dashboard)
+        const statHadir = document.getElementById('stat_hadir');
+        const statIzin  = document.getElementById('stat_izin');
+        const statAlpa  = document.getElementById('stat_alpa');
+        if (!statHadir || !statIzin || !statAlpa) return;
+
+        const fd = new FormData();
+        fd.append('user_id', userId);
+        fetch(`${window.APP_CONFIG.baseUrl}/admin/getAssistantStats`, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                statHadir.innerText = data.total_hadir;
+                statIzin.innerText  = data.total_izin;
+                statAlpa.innerText  = data.total_alpa;
+                // Perbarui grafik modal jika fungsi tersedia
+                if (typeof initModalChart === 'function' && typeof currentModalChartType !== 'undefined') {
+                    if (typeof currentStatsData !== 'undefined') {
+                        currentStatsData = {
+                            hadir: data.total_hadir,
+                            izin:  data.total_izin,
+                            alpa:  data.total_alpa
+                        };
+                    }
+                    initModalChart(currentModalChartType);
+                }
+            }
+        })
+        .catch(() => {}); // Fail silently — stats bar di logbook page sudah update
+    }

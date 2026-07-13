@@ -240,8 +240,11 @@ class UserModel {
 
 
     public function calculateRealAlpha($id_profil, $accountCreatedAt, $isCompleted) {
-        if ($isCompleted != 1) return 0;
-        
+        // [PERBAIKAN] Sebelumnya mengembalikan 0 jika is_completed != 1, sehingga
+        // asisten yang belum melengkapi profil tidak pernah memiliki catatan alpha.
+        // Sekarang alpha dihitung untuk semua akun User agar data kehadiran akurat.
+        // is_completed tetap diterima sebagai parameter agar signature tidak berubah.
+
         $this->db->query("SELECT tanggal FROM presensi WHERE id_profil = :pid AND status IN ('Hadir', 'Terlambat')");
         $this->db->bind(':pid', $id_profil);
         $presensiRaw = $this->db->resultSet();

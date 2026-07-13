@@ -52,7 +52,7 @@
 
         <div id="step-selfie" class="hidden absolute inset-0 z-20 bg-gray-900 animate-enter flex flex-col">
             <video id="selfie-video" autoplay playsinline class="w-full h-full object-cover transform scale-x-[-1]"></video>
-            <img id="selfie-result" class="hidden w-full h-full object-contain bg-gray-900 absolute top-0 left-0 z-30 p-4">
+            <img id="selfie-result" class="hidden w-full h-full object-cover absolute top-0 left-0 z-30">
             <canvas id="selfie-canvas" class="hidden"></canvas>
 
             <!-- [BARU - Modul 2 V3] Overlay ditampilkan jika kamera untuk foto
@@ -115,11 +115,39 @@
     <input type="hidden" id="geo-address" value="">
 
     <script type="application/json" id="scan-config"><?= json_encode([
-        'userName' => $_SESSION['name'] ?? 'User',
-        'submitUrl' => BASE_URL . '/user/submit_attendance',
-        'checkTypeUrl' => BASE_URL . '/user/check_qr_type',
-        'dashboardUrl' => BASE_URL . '/user/dashboard',
+        'userName'       => $_SESSION['name'] ?? 'User',
+        'submitUrl'      => BASE_URL . '/user/submit_attendance',
+        'checkTypeUrl'   => BASE_URL . '/user/check_qr_type',
+        'dashboardUrl'   => BASE_URL . '/user/dashboard',
+        'logbookUrl'     => BASE_URL . '/user/submit_logbook',
     ]) ?></script>
+
+    <!-- [BARU – Tahap 35] Modal isi logbook setelah scan pulang -->
+    <div id="logbookModal" class="hidden fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-6">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+        <div class="relative bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden z-10 flex flex-col">
+            <div class="bg-gradient-to-r from-blue-700 to-cyan-600 px-6 py-5 text-white">
+                <h3 class="font-extrabold text-lg leading-tight flex items-center gap-2">
+                    <i class="fas fa-book-open"></i> Isi Logbook Hari Ini
+                </h3>
+                <p class="text-blue-100 text-xs mt-1">Ceritakan aktivitas yang sudah kamu lakukan hari ini.</p>
+            </div>
+            <div class="p-5">
+                <textarea id="logbookActivity" rows="4" placeholder="Contoh: Membantu praktikum Algoritma & Pemrograman kelas B1, mendampingi 3 kelompok tugas akhir..."
+                          class="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"></textarea>
+                <p id="logbookCharCount" class="text-[10px] text-gray-400 mt-1 text-right">0 karakter</p>
+                <div class="flex gap-3 mt-4">
+                    <button id="logbookSkipBtn" class="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition">
+                        Lewati
+                    </button>
+                    <button id="logbookSubmitBtn" class="flex-2 flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold text-sm hover:opacity-90 transition">
+                        <i class="fas fa-paper-plane mr-2"></i>Kirim
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="<?= ASSET_URL ?>/js/user/scan.js"></script>
 </body>
 </html>

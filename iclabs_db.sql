@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost
--- Waktu pembuatan: 03 Jun 2026 pada 04.35
--- Versi server: 10.4.28-MariaDB
--- Versi PHP: 8.1.17
+-- Host: 127.0.0.1
+-- Generation Time: Jul 13, 2026 at 06:05 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.4.7
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -24,74 +24,128 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `dosen`
---
--- [BARU - Modul Dosen V3] Tabel master dosen pengampu, dipakai sebagai
--- sumber dropdown "Dosen Pengampu" di form Jadwal Kuliah & Jadwal Asisten
--- (lihat kolom id_dosen pada jadwal_kuliah/jadwal_asisten di bawah).
+-- Table structure for table `attendance_recycle_bin`
 --
 
-CREATE TABLE `dosen` (
-  `id_dosen` int(11) NOT NULL,
-  `nama_dosen` varchar(150) NOT NULL,
-  `nidn` varchar(20) DEFAULT NULL,
-  `email` varchar(100) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `attendance_recycle_bin` (
+  `id_bin` int(11) NOT NULL,
+  `reset_scope` enum('all','single') NOT NULL DEFAULT 'single' COMMENT '"all" = reset semua asisten, "single" = satu asisten',
+  `reset_label` varchar(255) NOT NULL COMMENT 'Nama tampilan: nama asisten (single) atau "Semua Asisten" (all)',
+  `id_profil` int(11) DEFAULT NULL COMMENT 'id_profil asisten (NULL jika scope=all)',
+  `nama_asisten` varchar(150) DEFAULT NULL,
+  `jabatan_asisten` varchar(100) DEFAULT NULL,
+  `date_data_start` date DEFAULT NULL COMMENT 'Tanggal presensi paling awal yang di-reset',
+  `date_data_end` date DEFAULT NULL COMMENT 'Tanggal presensi paling akhir yang di-reset',
+  `date_reset` datetime NOT NULL DEFAULT current_timestamp() COMMENT 'Waktu reset dilakukan',
+  `jumlah_presensi` int(11) DEFAULT 0,
+  `jumlah_logbook` int(11) DEFAULT 0,
+  `data_presensi` longtext DEFAULT NULL COMMENT 'JSON array seluruh baris presensi yang di-reset',
+  `data_logbook` longtext DEFAULT NULL COMMENT 'JSON array seluruh baris logbook yang di-reset',
+  `id_admin` int(11) NOT NULL COMMENT 'id_user Admin yang melakukan reset',
+  `status` enum('archived','restored','deleted') NOT NULL DEFAULT 'archived' COMMENT '"archived"=tersimpan di bin, "restored"=sudah dikembalikan, "deleted"=dihapus permanen'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Recycle bin untuk presensi & logbook yang di-reset';
 
 --
--- Dumping data untuk tabel `dosen`
+-- Dumping data for table `attendance_recycle_bin`
 --
 
-INSERT INTO `dosen` (`nama_dosen`, `nidn`, `email`) VALUES
-('Dr. Ir. Purnawansyah, M.Kom', '0919027301', 'purnawansyah@umi.ac.id'),
-('Ir. Yulita Salim, S.Kom., M.T., MTA', '0922078101', 'yulita.salim@umi.ac.id'),
-('Dr. Ir. Harlinda L, S.Kom., M.M., M.Kom., MTA', '0114000775', 'harlinda@umi.ac.id'),
-('Poetri Lestari LB, S.Kom., M.T., MTA', '0916108403', 'poetrilestari@umi.ac.id'),
-('Dr. Andi Sumardin, S.Ag., M.A', '0915087302', NULL),
-('Dr. Tasrif Hasanuddin, S.T., M.Cs', '0910126901', 'tasrif.hasanuddin@umi.ac.id'),
-('Dr. Ir. Dolly Indra, S.Kom., M.M.SI., MTA', '0428077401', 'dolly.indra@umi.ac.id'),
-('Herman, S.Kom., M.Cs., MTA', '0913038506', 'herman@umi.ac.id'),
-('Ir. Abdul Rachman Manga'', S.Kom., M.T., MTA', '0931018001', 'abdulrachman.manga@umi.ac.id'),
-('Ir. Huzain Azis, S.Kom., M.Cs., MTA', '0920098801', 'huzain.azis@umi.ac.id'),
-('Ir. Dedy Atmajaya, S.Kom., M.Eng., MTA', '0917068601', 'dedy.atmajaya@umi.ac.id'),
-('Ir. Farniwati Fattah, S.T., M.T., MTA', '0911098601', 'farniwati.fattah@umi.ac.id'),
-('Mardiyyah Hasnawi, S.Kom., M.T., MTA', '0906078701', 'mardiyyah.hasnawi@umi.ac.id'),
-('Lilis Nur Hayati, S.Kom., M.Eng., MTA', '0906048205', 'lilis.nurhayati@umi.ac.id'),
-('Siska Anraeni, S.Kom., M.T., MCF.', '0922088701', 'siska.anraeni@umi.ac.id'),
-('Dr. Ramdan Satra, S.Kom., M.Kom., MTA', '0919056501', 'ramdan@umi.ac.id'),
-('Muh. Aliyazid Mude, S.Kom., M.Kom.', '0920107601', 'aliyazid.mude@umi.ac.id'),
-('Irawati, S.Kom., M.T., MTA', '0915028503', 'irawan2801@gmail.com'),
-('Ir. St. Hajrah Mansyur, S.Kom., M.Cs., MTA', '0919018501', 'hajrah.mansyur@umi.ac.id'),
-('Syahrul Mubarak, S.Kom., M.Kom., MTA', '0926048704', 'syahrul.mubarak@umi.ac.id'),
-('Ir. Nia Kurniati, M.Kom., MTA', '0915068601', 'nia.kurniati@umi.ac.id'),
-('Sugiarti, S.Kom., M.Kom., MTA', '0924048501', 'sugiarti.sugiarti@umi.ac.id'),
-('Ir. Erick Irawadi Alwi, S.Kom., M.Eng., MTA', '0906128504', 'erick.alwi@umi.ac.id'),
-('Lutfi Budi Ilmawan, S.Kom., M.Cs., MTA', '0921018902', 'lutfibudi.ilmawan@umi.ac.id'),
-('Herdianti, S.Si., M.Eng., MTA', '0924069001', 'herdianti.darwis@umi.ac.id'),
-('Fitriyani Umar, S.Si., M.Eng., MTA', '0922078801', 'fitryani.umar@umi.ac.id'),
-('Ir. Lukman Syafie, S.Si., M.Si., MTA', '0922118003', 'lukman.syafie@umi.ac.id'),
-('Wistiani Astuti, S.Kom., M.T., MTA', '0907018602', 'wistiani.astuti@umi.ac.id'),
-('A Ulfa Tenripada Syahar, S.Kom., M.Kom., MTA', '0908089202', 'a.ulfah@umi.ac.id'),
-('Ihwana Asad S.Ag., M.Sc. P.hD., MTA', '2107057202', 'ihwana.asad@umi.ac.id'),
-('Andi Widya Mufila Gaffar, S.T., M.Kom., MTA', '0908099401', 'widya.mufila@umi.ac.id'),
-('Ramdaniah, S.Kom., M.T., MTA', '0911039301', 'ramdaniah@umi.ac.id'),
-('Muhammad Arfah Asis, S.Kom., M.T., MTA', '0909029203', 'muh.arfah.asis@umi.ac.id'),
-('Amaliah Faradibah, S.Kom., M.Kom., MTA., MCF', '0924049303', 'amaliah.faradibah@umi.ac.id'),
-('Sitti Rahmah Jabir, S.M., M.Sc., MTA., MCF', '0918109501', 'rahmahjabir@umi.ac.id'),
-('Dewi Widyawati, S.Kom., M.Kom., MTA., MCF', '0901019302', 'dewiwidyawati@umi.ac.id'),
-('Hadriana Iddas, S.T., M.T., Ph.D', '0922067801', 'hadriana.iddas@umi.ac.id'),
-('Syariful Mujaddid, S.Kom., M.T', NULL, NULL),
-('Fahmi, S.Kom., M.T', NULL, NULL),
-('Fadly Kasim, S.T., M.Kom', NULL, NULL),
-('Rabiatul Adawiyah, S.Si., M.Si', NULL, NULL),
-('Suwito Pomalingo, S.Kom., M.Kom., MTA', NULL, NULL),
-('Muhammad Nasry Ashar, S.Kom., M.Kom', NULL, NULL);
+INSERT INTO `attendance_recycle_bin` (`id_bin`, `reset_scope`, `reset_label`, `id_profil`, `nama_asisten`, `jabatan_asisten`, `date_data_start`, `date_data_end`, `date_reset`, `jumlah_presensi`, `jumlah_logbook`, `data_presensi`, `data_logbook`, `id_admin`, `status`) VALUES
+(1, 'all', 'Semua Asisten', 47, 'Ahmad Fadyl Sapri', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(2, 'all', 'Semua Asisten', 45, 'Andi Ahsan Ashuri', 'Asisten 2', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(3, 'all', 'Semua Asisten', 46, 'Andi Ikhlas Mallomo', 'Asisten 2', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(4, 'all', 'Semua Asisten', 48, 'Andi Rifqi Aunur Rahman', 'Asisten 2', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(5, 'all', 'Semua Asisten', 38, 'Arya Bintang Kusuma Wijaya', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(6, 'all', 'Semua Asisten', 51, 'Dewi Ernita Rahma', 'Asisten 1', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(7, 'all', 'Semua Asisten', 50, 'Fadia Syakinah Amalia', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(8, 'all', 'Semua Asisten', 32, 'Ghiffary Agys Al Baihaqy', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(9, 'all', 'Semua Asisten', 37, 'Karima', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(10, 'all', 'Semua Asisten', 40, 'Kharisma Suchy Aisyah', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(11, 'all', 'Semua Asisten', 31, 'M Rivaldi Juliadin', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(12, 'all', 'Semua Asisten', 43, 'MEKAR WANGI. R', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(13, 'all', 'Semua Asisten', 34, 'Muh. Fahmi Ashar', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(14, 'all', 'Semua Asisten', 36, 'Muhammad Nabil Bassalam', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(15, 'all', 'Semua Asisten', 49, 'Muhammad Sa\'Ad Wahid', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(16, 'all', 'Semua Asisten', 41, 'NAJIYAH N. NGABITO', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(17, 'all', 'Semua Asisten', 56, 'Nendra Rizkullah Izzatul Ibad', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(18, 'all', 'Semua Asisten', 54, 'Nur Alisa', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(19, 'all', 'Semua Asisten', 3, 'Nurfajri Mukmin Saputra', 'Asisten 2', '2026-07-13', '2026-07-13', '2026-07-13 21:48:50', 1, 1, '[{\"id_presensi\":59,\"id_profil\":3,\"tanggal\":\"2026-07-13\",\"waktu_presensi\":\"07:00:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"19:00:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":16,\"detail_aktivitas\":\"\",\"is_verified\":1}]', '[{\"id_presensi\":59,\"id_profil\":3,\"tanggal\":\"2026-07-13\",\"waktu_presensi\":\"07:00:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"19:00:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":16,\"detail_aktivitas\":\"\",\"is_verified\":1}]', 2, 'archived'),
+(20, 'all', 'Semua Asisten', 53, 'Nurul Aulia Badawi', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(21, 'all', 'Semua Asisten', 39, 'Nurul Qamri Ramadhina', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(22, 'all', 'Semua Asisten', 55, 'Rahmat Setiawan Rahman', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(23, 'all', 'Semua Asisten', 44, 'Rahmawati', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(24, 'all', 'Semua Asisten', 35, 'Rayhan Firrizqi', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(25, 'all', 'Semua Asisten', 42, 'Rendi Pratama', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(26, 'all', 'Semua Asisten', 33, 'Saefullah Ahmad Ariiq. Sr', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
+(27, 'all', 'Semua Asisten', 52, 'Tiara Mulya Pratiwi', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `izin`
+-- Table structure for table `dosen`
+--
+
+CREATE TABLE `dosen` (
+  `id_dosen` int(11) NOT NULL,
+  `nidn` varchar(20) DEFAULT NULL,
+  `nama_dosen` varchar(150) NOT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `no_hp` varchar(20) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `dosen`
+--
+
+INSERT INTO `dosen` (`id_dosen`, `nidn`, `nama_dosen`, `email`, `no_hp`, `created_at`) VALUES
+(44, '0919027301', 'Dr. Ir. Purnawansyah, M.Kom', 'purnawansyah@umi.ac.id', '08114190273', '2026-06-14 22:31:10'),
+(45, '0922078101', 'Ir. Yulita Salim, S.Kom., M.T., MTA', 'yulita.salim@umi.ac.id', '08114111289', '2026-06-14 22:31:10'),
+(46, '0114000775', 'Dr. Ir. Harlinda L, S.Kom., M.M., M.Kom., MTA', 'harlinda@umi.ac.id', '081355471144', '2026-06-14 22:31:10'),
+(47, '0916108403', 'Poetri Lestari LB, S.Kom., M.T., MTA', 'poetrilestari@umi.ac.id', '081355001102', '2026-06-14 22:31:10'),
+(48, '0915087302', 'Dr. Andi Sumardin, S.Ag., M.A', NULL, '081342153027', '2026-06-14 22:31:10'),
+(49, '0910126901', 'Dr. Tasrif Hasanuddin, S.T., M.Cs', 'tasrif.hasanuddin@umi.ac.id', '085241519190', '2026-06-14 22:31:10'),
+(50, '0428077401', 'Dr. Ir. Dolly Indra, S.Kom., M.M.SI., MTA', 'dolly.indra@umi.ac.id', '081343720253', '2026-06-14 22:31:10'),
+(51, '0913038506', 'Herman, S.Kom., M.Cs., MTA', 'herman@umi.ac.id', '085242515346', '2026-06-14 22:31:10'),
+(52, '0931018001', 'Ir. Abdul Rachman Manga\', S.Kom., M.T., MTA', 'abdulrachman.manga@umi.ac.id', '081355196209', '2026-06-14 22:31:10'),
+(53, '0920098801', 'Ir. Huzain Azis, S.Kom., M.Cs., MTA', 'huzain.azis@umi.ac.id', '08114484875', '2026-06-14 22:31:10'),
+(54, '0917068601', 'Ir. Dedy Atmajaya, S.Kom., M.Eng., MTA', 'dedy.atmajaya@umi.ac.id', '082393165687', '2026-06-14 22:31:10'),
+(55, '0911098601', 'Ir. Farniwati Fattah, S.T., M.T., MTA', 'farniwati.fattah@umi.ac.id', '08981109756', '2026-06-14 22:31:10'),
+(56, '0906078701', 'Mardiyyah Hasnawi, S.Kom., M.T., MTA', 'mardiyyah.hasnawi@umi.ac.id', '0895339494747', '2026-06-14 22:31:10'),
+(57, '0906048205', 'Lilis Nur Hayati, S.Kom., M.Eng., MTA', 'lilis.nurhayati@umi.ac.id', '0895323999757', '2026-06-14 22:31:10'),
+(58, '0922088701', 'Siska Anraeni, S.Kom., M.T., MCF.', 'siska.anraeni@umi.ac.id', '0811446400', '2026-06-14 22:31:10'),
+(59, '0919056501', 'Dr. Ramdan Satra, S.Kom., M.Kom., MTA', 'ramdan@umi.ac.id', '085255680963', '2026-06-14 22:31:10'),
+(60, '0920107601', 'Muh. Aliyazid Mude, S.Kom., M.Kom.', 'aliyazid.mude@umi.ac.id', '085244802842', '2026-06-14 22:31:10'),
+(61, '0915028503', 'Irawati, S.Kom., M.T., MTA', 'irawan2801@gmail.com', '085255372151', '2026-06-14 22:31:10'),
+(62, '0919018501', 'Ir. St. Hajrah Mansyur, S.Kom., M.Cs., MTA', 'hajrah.mansyur@umi.ac.id', '082187200036', '2026-06-14 22:31:10'),
+(63, '0926048704', 'Syahrul Mubarak, S.Kom., M.Kom., MTA', 'syahrul.mubarak@umi.ac.id', '085242750931', '2026-06-14 22:31:10'),
+(64, '0915068601', 'Ir. Nia Kurniati, M.Kom., MTA', 'nia.kurniati@umi.ac.id', '085242850385', '2026-06-14 22:31:10'),
+(65, '0924048501', 'Sugiarti, S.Kom., M.Kom., MTA', 'sugiarti.sugiarti@umi.ac.id', '085298565844', '2026-06-14 22:31:10'),
+(66, '0906128504', 'Ir. Erick Irawadi Alwi, S.Kom., M.Eng., MTA', 'erick.alwi@umi.ac.id', '081341588887', '2026-06-14 22:31:10'),
+(67, '0921018902', 'Lutfi Budi Ilmawan, S.Kom., M.Cs., MTA', 'lutfibudi.ilmawan@umi.ac.id', '082333888571', '2026-06-14 22:31:10'),
+(68, '0924069001', 'Herdianti, S.Si., M.Eng., MTA', 'herdianti.darwis@umi.ac.id', '081355801732', '2026-06-14 22:31:10'),
+(69, '0922078801', 'Fitriyani Umar, S.Si., M.Eng., MTA', 'fitryani.umar@umi.ac.id', '085243853522', '2026-06-14 22:31:10'),
+(70, '0922118003', 'Ir. Lukman Syafie, S.Si., M.Si., MTA', 'lukman.syafie@umi.ac.id', '085242809809', '2026-06-14 22:31:10'),
+(71, '0907018602', 'Wistiani Astuti, S.Kom., M.T., MTA', 'wistiani.astuti@umi.ac.id', '085255837113', '2026-06-14 22:31:10'),
+(72, '0908089202', 'A Ulfa Tenripada Syahar, S.Kom., M.Kom., MTA', 'a.ulfah@umi.ac.id', '082246813008', '2026-06-14 22:31:10'),
+(73, '2107057202', 'Ihwana Asad S.Ag., M.Sc. P.hD., MTA', 'ihwana.asad@umi.ac.id', '081264187451', '2026-06-14 22:31:10'),
+(74, '0908099401', 'Andi Widya Mufila Gaffar, S.T., M.Kom., MTA', 'widya.mufila@umi.ac.id', '081340386432', '2026-06-14 22:31:10'),
+(75, '0911039301', 'Ramdaniah, S.Kom., M.T., MTA', 'ramdaniah@umi.ac.id', '085341666232', '2026-06-14 22:31:10'),
+(76, '0909029203', 'Muhammad Arfah Asis, S.Kom., M.T., MTA', 'muh.arfah.asis@umi.ac.id', '082192777092', '2026-06-14 22:31:10'),
+(77, '0924049303', 'Amaliah Faradibah, S.Kom., M.Kom., MTA., MCF', 'amaliah.faradibah@umi.ac.id', '085342466535', '2026-06-14 22:31:10'),
+(78, '0918109501', 'Sitti Rahmah Jabir, S.M., M.Sc., MTA., MCF', 'rahmahjabir@umi.ac.id', '081214614662', '2026-06-14 22:31:10'),
+(79, '0901019302', 'Dewi Widyawati, S.Kom., M.Kom., MTA., MCF', 'dewiwidyawati@umi.ac.id', '085338545458', '2026-06-14 22:31:10'),
+(80, '0922067801', 'Hadriana Iddas, S.T., M.T., Ph.D', 'hadriana.iddas@umi.ac.id', '+818027786706', '2026-06-14 22:31:10'),
+(81, NULL, 'Syariful Mujaddid, S.Kom., M.T', NULL, '081243166371', '2026-06-14 22:31:10'),
+(82, NULL, 'Fahmi, S.Kom., M.T', NULL, '081242370123', '2026-06-14 22:31:10'),
+(83, NULL, 'Fadly Kasim, S.T., M.Kom', NULL, '082191101213', '2026-06-14 22:31:10'),
+(84, NULL, 'Rabiatul Adawiyah, S.Si., M.Si', NULL, '0895806750326', '2026-06-14 22:31:10'),
+(85, NULL, 'Suwito Pomalingo, S.Kom., M.Kom., MTA', NULL, '08112651713', '2026-06-14 22:31:10'),
+(86, NULL, 'Muhammad Nasry Ashar, S.Kom., M.Kom', NULL, '082348742304', '2026-06-14 22:31:10');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `izin`
 --
 
 CREATE TABLE `izin` (
@@ -105,22 +159,10 @@ CREATE TABLE `izin` (
   `status_approval` enum('Pending','Approved','Rejected') DEFAULT 'Pending'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data untuk tabel `izin`
---
-
-INSERT INTO `izin` (`id_izin`, `id_profil`, `tipe`, `start_date`, `end_date`, `deskripsi`, `file_bukti`, `status_approval`) VALUES
-(2, 3, 'Sakit', '2026-01-26', '2026-01-26', 'Sakit', 'sakit_3_1769357537.pdf', 'Approved'),
-(3, 3, 'Izin', '2026-01-27', '2026-01-27', 'Nge-date', 'izin_3_1769488811.pdf', 'Approved'),
-(4, 17, 'Izin', '2026-05-29', '2026-05-29', 'Pengajuan izin absensi praktikum via aplikasi mobile.', 'izin_17_1780063361.jpg', 'Approved'),
-(5, 3, 'Izin', '2026-05-29', '2026-05-29', 'Pengajuan izin absensi praktikum via aplikasi mobile.', 'izin_3_1780063849.jpg', 'Rejected'),
-(6, 10, 'Izin', '2026-05-29', '2026-05-29', 'Pengajuan izin absensi praktikum via aplikasi mobile.', 'izin_10_1780063937.jpg', 'Approved'),
-(7, 17, 'Izin', '2026-05-30', '2026-05-30', 'Pengajuan izin absensi praktikum via aplikasi mobile.', 'izin_17_1780096406.jpg', 'Approved');
-
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `jadwal_asisten`
+-- Table structure for table `jadwal_asisten`
 --
 
 CREATE TABLE `jadwal_asisten` (
@@ -142,16 +184,19 @@ CREATE TABLE `jadwal_asisten` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `jadwal_asisten`
+-- Dumping data for table `jadwal_asisten`
 --
 
 INSERT INTO `jadwal_asisten` (`id_jadwal_asisten`, `id_profil`, `prodi`, `mata_kuliah`, `dosen`, `id_dosen`, `kelas_lab`, `frekuensi`, `ruangan_lab`, `hari`, `tanggal`, `tanggal_selesai`, `model_perulangan`, `start_time`, `end_time`) VALUES
-(22, 3, NULL, 'Jaringan', NULL, NULL, NULL, NULL, 'Lab Terpadu', 5, '2026-01-02', '2026-02-27', 'mingguan', '07:15:00', '09:30:00');
+(22, 3, NULL, 'Jaringan', NULL, NULL, NULL, NULL, 'Lab Terpadu', 5, '2026-01-02', '2026-02-27', 'mingguan', '07:15:00', '09:30:00'),
+(23, 3, NULL, 'Analisis Visualisasi Data', 'Suwito Pomalingo, S.Kom., M.Kom., MTA', 85, 'A1', NULL, 'Laboratorium Computer Vision', 2, '2026-06-16', '2026-06-16', 'sekali', '07:30:00', '10:00:00'),
+(24, 46, NULL, 'Pemrograman Web', 'Irawati, S.Kom., M.T., MTA', 61, 'B2', NULL, 'Laboratorium Data Science', 2, '2026-06-16', '2026-06-16', 'sekali', '15:40:00', '18:10:00'),
+(25, 51, NULL, 'UI/UX', 'Dewi Widyawati, S.Kom., M.Kom., MTA., MCF', 79, 'A1', NULL, 'Laboratorium Multimedia', 1, '2026-06-22', '2026-06-22', 'sekali', '09:40:00', '12:10:00');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `jadwal_full`
+-- Table structure for table `jadwal_full`
 --
 
 CREATE TABLE `jadwal_full` (
@@ -166,17 +211,21 @@ CREATE TABLE `jadwal_full` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `jadwal_full`
+-- Dumping data for table `jadwal_full`
 --
 
-INSERT INTO `jadwal_full` (`id_jadwal`, `id_jadwal_lab`, `id_jadwal_kuliah`, `id_jadwal_piket`, `id_jadwal_asisten`, `google_event_id`, `created_at`) VALUES
-(2, NULL, 1, NULL, NULL, NULL, '2026-01-23 07:28:46'),
-(3, NULL, 2, NULL, NULL, NULL, '2026-01-23 07:33:59');
+INSERT INTO `jadwal_full` (`id_jadwal`, `id_jadwal_lab`, `id_jadwal_kuliah`, `id_jadwal_piket`, `id_jadwal_asisten`, `google_event_id`, `sync_status`, `created_at`) VALUES
+(6, NULL, NULL, NULL, 23, NULL, 'skipped', '2026-06-14 22:41:45'),
+(7, NULL, NULL, NULL, 24, NULL, 'skipped', '2026-06-15 03:27:54'),
+(9, NULL, NULL, 6, NULL, NULL, 'skipped', '2026-06-15 04:09:15'),
+(10, NULL, 21, NULL, NULL, NULL, 'skipped', '2026-06-15 04:13:16'),
+(11, 4, NULL, NULL, NULL, NULL, 'skipped', '2026-06-15 04:40:44'),
+(12, NULL, NULL, NULL, 25, NULL, 'skipped', '2026-06-15 04:47:19');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `jadwal_kuliah`
+-- Table structure for table `jadwal_kuliah`
 --
 
 CREATE TABLE `jadwal_kuliah` (
@@ -197,22 +246,16 @@ CREATE TABLE `jadwal_kuliah` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `jadwal_kuliah`
+-- Dumping data for table `jadwal_kuliah`
 --
 
 INSERT INTO `jadwal_kuliah` (`id_jadwal_kuliah`, `id_profil`, `matkul`, `tipe`, `dosen`, `id_dosen`, `kelas`, `ruangan`, `hari`, `tanggal`, `tanggal_selesai`, `model_perulangan`, `start_time`, `end_time`) VALUES
-(1, 3, 'Pemrograman Berorientasi Objek', 'Teori', 'Lutfi Budi Ilmawan, S.Kom., M.Cs., MTA', 24, 'A1', 'Lab Startup', 4, '2026-01-01', '2026-02-05', 'mingguan', '07:00:00', '09:30:00'),
-(2, 3, 'Pemrograman Web', 'Teori', 'A Ulfah Tenripada Syahar, S.Kom.,M.Kom., MTA', NULL, 'A1', 'Lab IoT', 2, '2026-01-06', '2026-01-27', 'mingguan', '09:40:00', '00:10:00'),
-(16, 17, 'Pemrograman Berorientasi Objek ', 'Teori', 'Lutfi Budiawan', NULL, 'B2', 'Lab IoT', 1, '2026-02-02', '2026-06-29', 'mingguan', '13:00:00', '15:40:00'),
-(17, 17, 'Sistem Kendali', 'Teori', 'Dr. Ir. Dolly Indra, S.Kom.,M.MSi.,MTA.', NULL, 'A2', '408', 1, '2026-02-02', '2026-06-29', 'mingguan', '09:40:00', '11:20:00'),
-(18, 17, 'Pengenalan Pola', 'Teori', 'Wistiani Astuti, S.Kom.,MT.,MTA', NULL, 'C2', '305', 2, '2026-02-03', '2026-06-30', 'mingguan', '09:40:00', '12:10:00'),
-(19, 17, 'Manajemen Resiko', 'Teori', 'Ir. Nia Kurniawati, S.Kom.,M.Kom.,MTA.', NULL, 'C2', '304', 2, '2026-02-03', '2026-07-01', 'mingguan', '13:00:00', '14:40:00'),
-(20, 17, 'Sistem Pakar', 'Teori', 'Siska Angreani', NULL, 'C3', '304', 3, '2026-02-04', '2026-07-01', 'mingguan', '10:30:00', '12:10:00');
+(21, 3, 'Pemrograman Mobile', 'Teori', 'Muhammad Arfah Asis, S.Kom., M.T., MTA', 76, 'A1', 'Laboratorium Compute', 2, '2026-06-16', '2026-06-16', 'sekali', '07:00:00', '09:40:00');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `jadwal_lab`
+-- Table structure for table `jadwal_lab`
 --
 
 CREATE TABLE `jadwal_lab` (
@@ -229,21 +272,16 @@ CREATE TABLE `jadwal_lab` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `jadwal_lab`
+-- Dumping data for table `jadwal_lab`
 --
 
 INSERT INTO `jadwal_lab` (`id_jadwal_lab`, `nama_kegiatan`, `lokasi`, `tanggal`, `tanggal_selesai`, `hari`, `jam_mulai`, `jam_selesai`, `model_perulangan`, `created_at`) VALUES
-(1, 'Test', 'Lab Terpadu', '2026-01-29', '2026-01-29', 4, '11:00:00', '12:00:00', 'sekali', '2026-01-22 15:08:01'),
-(2, 'Tes Polisi', 'Lab Terpadu', '2026-01-27', '2026-01-27', 2, '07:00:00', '17:00:00', 'sekali', '2026-01-22 15:18:38');
+(4, 'Jalan Sehat HUT UMI', 'Kampus II UMI', '2026-06-16', '2026-06-16', 2, '07:00:00', '10:00:00', 'sekali', '2026-06-15 04:40:44');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `jadwal_lab_sync`
---
--- [BARU - Modul 5 lanjutan V3] Melacak status sinkronisasi Google Calendar
--- PER ASISTEN untuk setiap Jadwal Lab/Umum (satu jadwal -> banyak salinan
--- event, satu per asisten yang sudah menghubungkan akun Google).
+-- Table structure for table `jadwal_lab_sync`
 --
 
 CREATE TABLE `jadwal_lab_sync` (
@@ -254,10 +292,43 @@ CREATE TABLE `jadwal_lab_sync` (
   `sync_status` enum('synced','failed','skipped') NOT NULL DEFAULT 'skipped'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `jadwal_lab_sync`
+--
+
+INSERT INTO `jadwal_lab_sync` (`id_sync`, `id_jadwal_lab`, `id_user`, `google_event_id`, `sync_status`) VALUES
+(28, 4, 3, NULL, 'skipped'),
+(29, 4, 55, NULL, 'skipped'),
+(30, 4, 56, NULL, 'skipped'),
+(31, 4, 57, NULL, 'skipped'),
+(32, 4, 58, NULL, 'skipped'),
+(33, 4, 59, NULL, 'skipped'),
+(34, 4, 60, NULL, 'skipped'),
+(35, 4, 61, NULL, 'skipped'),
+(36, 4, 62, NULL, 'skipped'),
+(37, 4, 63, NULL, 'skipped'),
+(38, 4, 64, NULL, 'skipped'),
+(39, 4, 65, NULL, 'skipped'),
+(40, 4, 66, NULL, 'skipped'),
+(41, 4, 67, NULL, 'skipped'),
+(42, 4, 68, NULL, 'skipped'),
+(43, 4, 69, NULL, 'skipped'),
+(44, 4, 70, NULL, 'skipped'),
+(45, 4, 71, NULL, 'skipped'),
+(46, 4, 72, NULL, 'skipped'),
+(47, 4, 73, NULL, 'skipped'),
+(48, 4, 74, NULL, 'skipped'),
+(49, 4, 75, NULL, 'skipped'),
+(50, 4, 76, NULL, 'skipped'),
+(51, 4, 77, NULL, 'skipped'),
+(52, 4, 78, NULL, 'skipped'),
+(53, 4, 79, NULL, 'skipped'),
+(54, 4, 80, NULL, 'skipped');
+
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `jadwal_piket`
+-- Table structure for table `jadwal_piket`
 --
 
 CREATE TABLE `jadwal_piket` (
@@ -273,16 +344,16 @@ CREATE TABLE `jadwal_piket` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `jadwal_piket`
+-- Dumping data for table `jadwal_piket`
 --
 
 INSERT INTO `jadwal_piket` (`id_jadwal_piket`, `id_profil`, `subjek`, `hari`, `tanggal`, `tanggal_selesai`, `model_perulangan`, `jam_mulai`, `jam_selesai`) VALUES
-(5, 3, 'Piket Harian', 2, '2026-01-06', '2026-02-24', 'mingguan', '07:00:00', '23:59:00');
+(6, 38, 'Monitoring Laboratorium', 2, '2026-06-16', '2026-06-16', 'sekali', '07:00:00', '18:20:00');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `lab`
+-- Table structure for table `lab`
 --
 
 CREATE TABLE `lab` (
@@ -293,7 +364,7 @@ CREATE TABLE `lab` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `lab`
+-- Dumping data for table `lab`
 --
 
 INSERT INTO `lab` (`id_lab`, `nama_lab`, `deskripsi`, `lokasi`) VALUES
@@ -303,12 +374,13 @@ INSERT INTO `lab` (`id_lab`, `nama_lab`, `deskripsi`, `lokasi`) VALUES
 (4, 'Laboratorium Data Science', 'Laboratorium Data Science', 'Fakultas Ilmu Komputer UMI'),
 (5, 'Laboratorium Multimedia', 'Laboratorium Multimedia', 'Fakultas Ilmu Komputer UMI'),
 (6, 'Laboratorium Microcontroller', 'Laboratorium Microcontroller', 'Fakultas Ilmu Komputer UMI'),
-(7, 'Laboratorium Computer Networking', 'Laboratorium Computer Networking', 'Fakultas Ilmu Komputer UMI');
+(7, 'Laboratorium Computer Networking', 'Laboratorium Computer Networking', 'Fakultas Ilmu Komputer UMI'),
+(8, 'Laboratorium Terpadu Fakultas Ilmu Komputer Universitas Muslim Indonesia', 'Lokasi umum/terpadu untuk kegiatan piket', 'Fakultas Ilmu Komputer UMI');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `logbook`
+-- Table structure for table `logbook`
 --
 
 CREATE TABLE `logbook` (
@@ -321,26 +393,17 @@ CREATE TABLE `logbook` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `logbook`
+-- Dumping data for table `logbook`
 --
 
 INSERT INTO `logbook` (`id_logbook`, `id_profil`, `id_presensi`, `detail_aktivitas`, `keterangan`, `is_verified`) VALUES
-(2, 3, 6, 'Belajar Mandiri', NULL, 1),
-(3, 27, 40, 'Belajar Mandiri', NULL, 0),
-(4, 18, 41, 'Bersihkan Lab Iot dan Startup', NULL, 0),
-(7, 3, 44, 'Hello StartUp', NULL, 0),
-(9, 17, 49, 'Hello bruh', NULL, 0),
-(10, 17, 50, 'Hello Brother', NULL, 0),
-(11, 17, 51, 'Hello Kak Farid', NULL, 0),
-(12, 3, 52, 'Hello bruh', NULL, 0),
-(13, 17, 53, 'Belajar Mandiri', NULL, 0),
-(14, 10, 56, 'Hello brouh', NULL, 0),
-(15, 17, 58, 'Hello Juni', NULL, 0);
+(17, 3, 60, '', NULL, 1),
+(18, 46, 61, '', NULL, 1);
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `presensi`
+-- Table structure for table `presensi`
 --
 
 CREATE TABLE `presensi` (
@@ -357,69 +420,17 @@ CREATE TABLE `presensi` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `presensi`
+-- Dumping data for table `presensi`
 --
 
-INSERT INTO `presensi` (`id_presensi`, `id_profil`, `tanggal`, `waktu_presensi`, `foto_presensi`, `waktu_pulang`, `foto_pulang`, `status`) VALUES
-(3, 3, '2026-01-23', '18:07:59', 'att_3_1769162879.jpg', NULL, NULL, 'Hadir'),
-(4, 3, '2026-01-24', '18:47:59', 'in_3_1769251679.jpg', '18:48:37', 'out_3_1769251717.jpg', 'Hadir'),
-(5, 4, '2026-01-27', '12:38:40', 'in_4_1769488720.jpg', '12:45:33', 'out_4_1769489133.jpg', 'Hadir'),
-(6, 3, '2026-01-22', '07:00:00', 'admin_edit_1769667528.png', '16:30:00', NULL, 'Hadir'),
-(7, 3, '2026-01-29', '14:32:11', 'in_3_1769668331.jpg', NULL, NULL, 'Hadir'),
-(8, 4, '2026-01-30', '13:44:26', 'in_4_1769751866.jpg', '13:45:32', 'out_4_1769751932.jpg', 'Hadir'),
-(9, 8, '2026-01-30', '18:14:47', 'in_8_1769768087.jpg', '18:18:58', 'out_8_1769768338.jpg', 'Hadir'),
-(10, 4, '2026-01-31', '13:29:17', 'in_4_1769837357.jpg', '14:41:37', 'out_4_1769841697.jpg', 'Hadir'),
-(11, 4, '2026-02-01', '20:19:36', '4_1769948376.png', NULL, NULL, 'Hadir'),
-(12, 4, '2026-02-01', '20:38:51', '4_1769949531.png', NULL, NULL, 'Hadir'),
-(13, 4, '2026-02-01', '20:55:41', '4_1769950541.png', NULL, NULL, 'Hadir'),
-(14, 4, '2026-02-01', '20:56:12', '4_1769950572.png', NULL, NULL, 'Hadir'),
-(15, 3, '2026-05-15', '02:59:06', NULL, '10:42:28', NULL, 'Hadir'),
-(16, 17, '2026-05-15', '10:43:41', NULL, '10:51:55', NULL, 'Hadir'),
-(17, 4, '2026-05-15', '10:53:39', NULL, NULL, NULL, 'Hadir'),
-(18, 8, '2026-05-15', '10:57:04', NULL, '11:09:38', NULL, 'Hadir'),
-(19, 9, '2026-05-15', '11:11:01', NULL, NULL, NULL, 'Hadir'),
-(20, 10, '2026-05-15', '16:09:47', NULL, '16:09:57', NULL, 'Hadir'),
-(21, 3, '2026-05-16', '07:22:03', NULL, '10:59:54', NULL, 'Hadir'),
-(22, 17, '2026-05-16', '11:09:17', NULL, '11:09:31', NULL, 'Hadir'),
-(23, 8, '2026-05-16', '11:12:56', NULL, '11:13:11', NULL, 'Hadir'),
-(24, 10, '2026-05-16', '11:19:49', NULL, '11:20:03', NULL, 'Hadir'),
-(25, 9, '2026-05-16', '14:44:28', NULL, '14:44:35', NULL, 'Hadir'),
-(26, 18, '2026-05-16', '14:50:45', NULL, '14:59:11', NULL, 'Hadir'),
-(27, 21, '2026-05-16', '15:08:36', NULL, '15:10:45', NULL, 'Hadir'),
-(28, 17, '2026-05-17', '14:03:07', NULL, NULL, NULL, 'Hadir'),
-(29, 3, '2026-05-17', '14:05:14', NULL, '14:05:30', NULL, 'Hadir'),
-(30, 29, '2026-05-17', '22:15:17', 'absen_1779027317_6a09cd758711d.jpg', '22:21:32', 'absen_1779027692_6a09ceece4927.jpg', 'Hadir'),
-(31, 11, '2026-05-17', '22:27:07', 'absen_1779028027_6a09d03b948ba.jpg', NULL, NULL, 'Hadir'),
-(32, 3, '2026-05-18', '06:59:30', '3_1779058770.png', '07:05:30', '3_1779059130.png', 'Hadir'),
-(33, 17, '2026-05-18', '07:27:32', '17_1779060452.png', NULL, NULL, 'Hadir'),
-(34, 10, '2026-05-18', '08:09:57', '10_1779062997.png', '08:22:22', '10_1779063742.png', 'Hadir'),
-(35, 17, '2026-05-19', '15:10:01', '17_1779174601.png', '15:49:28', '17_1779176968.png', 'Hadir'),
-(36, 17, '2026-05-21', '17:29:16', '17_1779355756.png', '17:30:15', '17_1779355815.png', 'Hadir'),
-(37, 3, '2026-05-21', '17:46:10', '3_1779356770.png', '17:46:27', '3_1779356787.png', 'Hadir'),
-(38, 10, '2026-05-21', '18:30:47', '10_1779359447.png', '18:30:58', '10_1779359458.png', 'Hadir'),
-(39, 29, '2026-05-21', '18:48:10', '29_1779360490.png', '18:48:44', '29_1779360524.png', 'Hadir'),
-(40, 27, '2026-05-21', '18:53:47', '27_1779360827.png', '18:54:08', '27_1779360848.png', 'Hadir'),
-(41, 18, '2026-05-21', '19:37:33', '18_1779363453.png', '19:38:17', '18_1779363497.png', 'Hadir'),
-(42, 17, '2026-05-22', '04:36:00', '17_1779395816.png', '04:37:00', '17_1779395837.png', 'Hadir'),
-(44, 3, '2026-05-22', '14:48:53', '3_1779432533.png', '14:49:17', '3_1779432557.png', 'Hadir'),
-(46, 17, '2026-05-24', '01:20:44', '17_1779556844.png', NULL, NULL, 'Hadir'),
-(47, 3, '2026-05-24', '12:45:25', '3_1779597925.png', NULL, NULL, 'Hadir'),
-(48, 3, '2026-05-25', '12:19:29', '3_1779682769.png', NULL, NULL, 'Hadir'),
-(49, 17, '2026-05-25', '12:30:49', '17_1779683449.png', '12:50:49', '17_1779684649.png', 'Hadir'),
-(50, 17, '2026-05-26', '13:01:13', '17_1779771673.png', '13:02:26', '17_1779771746.png', 'Hadir'),
-(51, 17, '2026-05-27', '15:26:03', '17_1779866763.png', '17:59:40', '17_1779875980.png', 'Hadir'),
-(52, 3, '2026-05-27', '18:28:27', '3_1779877707.png', '18:28:59', '3_1779877739.png', 'Hadir'),
-(53, 17, '2026-05-29', '08:48:14', '17_1780015694.png', '21:12:21', '17_1780060341.png', 'Hadir'),
-(54, 3, '2026-05-29', '09:21:05', '3_1780017665.png', NULL, NULL, 'Hadir'),
-(55, 3, '2026-05-30', '15:55:05', '3_1780127705.png', NULL, NULL, 'Hadir'),
-(56, 10, '2026-05-30', '17:10:47', '10_1780132247.png', '17:34:37', '10_1780133677.png', 'Hadir'),
-(57, 17, '2026-06-01', '13:37:32', '17_1780292252.png', NULL, NULL, 'Hadir'),
-(58, 17, '2026-06-02', '14:04:59', '17_1780380299.png', '17:53:19', '17_1780393999.png', 'Hadir');
+INSERT INTO `presensi` (`id_presensi`, `id_profil`, `tanggal`, `waktu_presensi`, `foto_presensi`, `waktu_pulang`, `foto_pulang`, `status`, `late_minutes`, `work_duration`) VALUES
+(60, 3, '2026-07-13', '09:54:00', 'admin_manual.jpg', '21:54:00', NULL, 'Hadir', NULL, NULL),
+(61, 46, '2026-07-13', '11:51:00', 'admin_manual.jpg', '23:51:00', NULL, 'Hadir', NULL, NULL);
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `profile`
+-- Table structure for table `profile`
 --
 
 CREATE TABLE `profile` (
@@ -441,40 +452,44 @@ CREATE TABLE `profile` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `profile`
+-- Dumping data for table `profile`
 --
 
-INSERT INTO `profile` (`id_profil`, `id_user`, `id_lab`, `nim`, `nama`, `kelas`, `prodi`, `alamat`, `no_telp`, `jenis_kelamin`, `jabatan`, `peminatan`, `photo_profile`, `is_completed`) VALUES
-(1, 1, NULL, NULL, ' Ir. Huzain Azis, S.Kom., M.Cs., MTA.', NULL, NULL, 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08114484875', 'L', 'Kepala Lab', NULL, '1769533666_6978f0e27cab8.jpeg', 1),
-(2, 2, NULL, NULL, 'Fatimah AR. Tuasamu, S.Kom., MTA, MCF', NULL, '', 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08534186497', 'P', 'Laboran', NULL, '1768721611_696c8ccb66f2c.jpeg', 1),
-(3, 3, 1, '13120230033', 'Nurfajri Mukmin Saputra', 'A1', 'Sistem Informasi', 'Kabupaten Bantaeng, Provinsi Sulawesi Selatan', '0853332084', 'L', 'Asisten 2', 'Multimedia', '1768722382_696c8fceac85d.jpeg', 1),
-(4, 4, NULL, '13020230241', 'Firly Anastasya Hafid', 'B4', 'Teknik Informatika', 'Kota Makassar, Provinsi Sulawesi Selatan', '085954464608', 'P', 'Asisten 2', 'RPL', '1769488030_69783e9e20d73.jpeg', 1),
-(8, 8, NULL, NULL, 'Tasya', NULL, NULL, NULL, NULL, NULL, 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(9, 9, NULL, NULL, 'Muhammad Nur Fuad', 'A1', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(10, 10, NULL, NULL, 'Ichwal', 'A2', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(11, 11, NULL, NULL, 'Aan Maulana Sampe ', 'A3', 'Teknik Informatika', NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(12, 19, NULL, NULL, 'M. Rizwan ', 'A3', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(13, 33, NULL, NULL, 'Nahwa Kaka Saputra Anggareksa ', 'A6', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(15, 35, NULL, NULL, 'Muhammad Rifky Saputra Scania ', 'A6', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(16, 37, NULL, NULL, 'Laode Muhammad Dhaifan Kasyfillah ', 'A7', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(17, 38, NULL, '13020230253', 'Zaki Falihin Ayyubi', 'A7', 'Teknik Informatika', 'JL.H.Kalla Perumahan Bumi Panaikang Mas Blok C11', '08875295115', 'L', 'Asisten 2', 'Mobile Developer', '1779557015_foto.png', 1),
-(18, 39, NULL, NULL, 'Muhammad Rafli', 'A6', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(19, 40, NULL, NULL, 'Raihan Nur Rizqillah ', 'A8', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(20, 41, NULL, NULL, 'Muh. Fatwah Fajriansyah M. ', 'A9', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(21, 42, NULL, NULL, 'Hendrawan ', 'A9', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(23, 47, NULL, NULL, 'Farah Tsabitaputri Az Zahra ', 'B4', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, '1769938614_697f1eb6f2937.jpeg', 0),
-(24, 48, NULL, NULL, 'Thalita Sherly Putri Jasmin ', 'B2', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, '1769939000_697f20383e9f1.jpeg', 0),
-(25, 49, NULL, NULL, 'Siti Safira Tawetubun', 'B3', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, '1769939883_697f23ab84128.jpeg', 0),
-(26, 50, NULL, NULL, 'Sitti Lutfia ', 'B4', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(27, 51, NULL, NULL, 'Firli Anastasya Hafid', 'B4', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(28, 52, NULL, NULL, 'Sitti Nurhalimah', 'B4', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, '1769940060_697f245c980bd.jpeg', 0),
-(29, 53, NULL, NULL, 'Rizqi Ananda Jalil ', 'B4', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0),
-(30, 54, NULL, NULL, 'Nurfajri Mukmin Saputra ', 'A1', NULL, NULL, NULL, NULL, 'Asisten 2', NULL, 'default.jpg', 0);
+INSERT INTO `profile` (`id_profil`, `id_user`, `id_lab`, `nim`, `nama`, `kelas`, `angkatan`, `prodi`, `alamat`, `no_telp`, `jenis_kelamin`, `jabatan`, `peminatan`, `photo_profile`, `is_completed`) VALUES
+(1, 1, NULL, NULL, ' Ir. Huzain Azis, S.Kom., M.Cs., MTA.', NULL, NULL, NULL, 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08114484875', 'L', 'Kepala Lab', NULL, '1769533666_6978f0e27cab8.jpeg', 1),
+(2, 2, NULL, NULL, 'Fatimah AR. Tuasamu, S.Kom., MTA, MCF', NULL, NULL, '', 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08534186497', 'P', 'Laboran', NULL, '1768721611_696c8ccb66f2c.jpeg', 1),
+(3, 3, 1, '13120230033', 'Nurfajri Mukmin Saputra', 'A1', NULL, 'Sistem Informasi', 'Kabupaten Bantaeng, Provinsi Sulawesi Selatan', '0853332084', 'L', 'Asisten 2', 'Multimedia', '1768722382_696c8fceac85d.jpeg', 1),
+(31, 55, NULL, '13020240021', 'M Rivaldi Juliadin', NULL, NULL, NULL, 'Jln. Pampang 5', '081282575933', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(32, 56, NULL, '13020240331', 'Ghiffary Agys Al Baihaqy', NULL, NULL, NULL, 'Jl. Bung Perumahan Pesona Bukit Maghfirah F/9', '082346950561', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(33, 57, NULL, '13020240012', 'Saefullah Ahmad Ariiq. Sr', NULL, NULL, NULL, 'Jln. Daya raya Perum Graha Cendekia blok C No.20', '088704259516', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(34, 58, NULL, '13020240333', 'Muh. Fahmi Ashar', NULL, NULL, NULL, 'jl. Yusuf Bauty, Manggarupi Kab. Gowa', '088242980774', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(35, 59, NULL, '13020240014', 'Rayhan Firrizqi', NULL, NULL, NULL, 'Jl. Sukaria Raya, lorong 8', '082397851510', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(36, 60, NULL, '13020240060', 'Muhammad Nabil Bassalam', NULL, NULL, NULL, 'Telkomas', '085953707203', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(37, 61, NULL, '13120240038', 'Karima', NULL, NULL, NULL, 'Kec. Moncongloe', '081944264168', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(38, 62, NULL, '13020240263', 'Arya Bintang Kusuma Wijaya', NULL, NULL, NULL, 'Paccerakkang', '081245588197', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(39, 63, NULL, '13020240028', 'Nurul Qamri Ramadhina', NULL, NULL, NULL, 'Jl. Timah 3 Blok A27 No12 Ballaparang, Rappocini', '085754534342', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(40, 64, NULL, '13020240009', 'Kharisma Suchy Aisyah', NULL, NULL, NULL, 'Jl. Swadaya No.6, Masale, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231', '082199153095', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(41, 65, NULL, '13020240041', 'NAJIYAH N. NGABITO', NULL, NULL, NULL, 'Jalan Pampang V No. 5, Pampang, Panakkukang, Makassar', '085342009360', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(42, 66, NULL, '13020240184', 'Rendi Pratama', NULL, NULL, NULL, 'Cozy Living, Jl. Perintis Kemerdekaan 8 Lrg. 3, Kec. Tamalanrea, Kota Makassar, Sulawesi Selatan, Kamar', '081241456546', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(43, 67, NULL, '13020240206', 'MEKAR WANGI. R', 'B4', NULL, NULL, 'Bumi Antang Permai', '081289026799', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(44, 68, NULL, '13020240048', 'Rahmawati', 'B1', NULL, NULL, 'Maros Tanralili', '082140700737', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(45, 69, NULL, '13020230224', 'Andi Ahsan Ashuri', 'A7', NULL, NULL, 'Pettarani, Makassar', '085657376669', 'L', 'Asisten 2', NULL, 'default.jpg', 0),
+(46, 70, NULL, '13020230251', 'Andi Ikhlas Mallomo', 'A7', NULL, NULL, 'Jl. Printis Kemerdekaan 3', '0882019450791', 'L', 'Asisten 2', NULL, 'default.jpg', 0),
+(47, 71, NULL, '13020240237', 'Ahmad Fadyl Sapri', 'A6', NULL, NULL, 'Jl. Inspeksi PAM timur', '082393172077', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(48, 72, NULL, '13020230219', 'Andi Rifqi Aunur Rahman', 'A7', NULL, NULL, 'Perumnas BTP Blok H.lama No.509, Tamalanrea, Kec. Tamalanrea, Kota Makassar, Sulawesi Selatan 90245', '088246700573', 'L', 'Asisten 2', NULL, 'default.jpg', 0),
+(49, 73, NULL, '13020240203', 'Muhammad Sa\'Ad Wahid', 'A6', '2024', 'Teknik Informatika', 'Jl. Urip Sumoharjo no.86', '082288873939', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(50, 74, NULL, '13020240338', 'Fadia Syakinah Amalia', 'B1', NULL, NULL, 'Jl. Racing Sinri Jala No.27b, Karampuang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231', '082298470695', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(51, 75, NULL, '13020220323', 'Dewi Ernita Rahma', 'B5', NULL, NULL, 'Jl. Kakatua II, Lr 3 No. 29 D, RT 007/RW 004, Kel. Parang, Kec. Mamajang, Kota Makassar, Sulawesi Selatan 90133', '085216090040', 'P', 'Asisten 1', NULL, 'default.jpg', 0),
+(52, 76, NULL, '13020240152', 'Tiara Mulya Pratiwi', 'B3', NULL, NULL, 'Jl. Moh. Jufri X, Tammua, Kec. Tallo, Kota Makassar, Sulawesi Selatan.', '082193739474', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(53, 77, NULL, '13020240004', 'Nurul Aulia Badawi', 'B1-Ti', NULL, NULL, 'Perumahan Bumi Findaria Mas 2 Blok K No. 118 Jl. Poros Pammajengan Moncongloe, Kec. Moncongloe, Kab. Maros, Sulawesi Selatan', '082136293919', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(54, 78, NULL, '13020240161', 'Nur Alisa', 'B3', NULL, NULL, 'Maros, jl.Damai Ongkoe', '0882022416033', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(55, 79, NULL, '13020240305', 'Rahmat Setiawan Rahman', 'A4', NULL, NULL, 'Jalan Baji Ampe 1, Kecamatan Mamajang, Kota Makassar', '089637457854', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
+(56, 80, NULL, '13020240036', 'Nendra Rizkullah Izzatul Ibad', 'A1', NULL, NULL, 'Makassar, Makassar City, South Sulawesi, Indonesia', '081244960404', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0);
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `qr_code`
+-- Table structure for table `qr_code`
 --
 
 CREATE TABLE `qr_code` (
@@ -482,21 +497,59 @@ CREATE TABLE `qr_code` (
   `tipe` enum('Presensi','Pulang') NOT NULL,
   `token_code` varchar(255) NOT NULL,
   `generated_at` datetime DEFAULT current_timestamp(),
-  `valid_until` datetime NOT NULL
+  `valid_until` datetime NOT NULL,
+  `used_by_user_id` int(11) DEFAULT NULL COMMENT 'id_user yang pertama kali meng-scan token ini. NULL = belum terpakai.',
+  `used_at` datetime DEFAULT NULL COMMENT 'Waktu pertama kali token di-scan.'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `qr_code`
+-- Dumping data for table `qr_code`
 --
 
-INSERT INTO `qr_code` (`id_qr`, `tipe`, `token_code`, `generated_at`, `valid_until`) VALUES
-(217, 'Presensi', 'eec1ef3ec81bf0fb0a9110a86effc155', '2026-06-02 13:57:14', '2026-06-03 13:57:14'),
-(218, 'Pulang', 'bf592570f6e241e21ac94b66017b63dd', '2026-06-02 13:57:14', '2026-06-03 13:57:14');
+INSERT INTO `qr_code` (`id_qr`, `tipe`, `token_code`, `generated_at`, `valid_until`, `used_by_user_id`, `used_at`) VALUES
+(338, 'Presensi', '42d0f99717cb1b7e236c3aafb001635c', '2026-07-14 00:00:00', '2026-07-14 00:03:00', NULL, NULL),
+(339, 'Pulang', '24fa8ba1c218066303ae9c1e0107c70f', '2026-07-14 00:00:00', '2026-07-14 00:03:00', NULL, NULL),
+(340, 'Presensi', 'e9156542f817965919df0ff658d01fb1', '2026-07-14 00:02:48', '2026-07-14 00:05:48', NULL, NULL),
+(341, 'Pulang', 'f56bad5823ce5b4b41acc168380977a3', '2026-07-14 00:02:48', '2026-07-14 00:05:48', NULL, NULL);
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `user`
+-- Table structure for table `recycle_bin_conflicts`
+--
+
+CREATE TABLE `recycle_bin_conflicts` (
+  `id_conflict` int(11) NOT NULL,
+  `id_bin` int(11) NOT NULL,
+  `id_profil` int(11) NOT NULL,
+  `nama_asisten` varchar(150) DEFAULT NULL,
+  `tanggal` date NOT NULL COMMENT 'Tanggal yang bermasalah (sudah ada data baru di presensi)',
+  `conflict_type` varchar(50) DEFAULT 'presensi_overlap' COMMENT 'Jenis konflik: presensi_overlap, logbook_duplicate',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `reset_log`
+--
+
+CREATE TABLE `reset_log` (
+  `id_reset` int(11) NOT NULL,
+  `id_admin` int(11) NOT NULL COMMENT 'id_user Admin yang melakukan reset',
+  `scope` enum('all','single') NOT NULL DEFAULT 'all',
+  `id_profil` int(11) DEFAULT NULL COMMENT 'terisi jika scope=single',
+  `nama_asisten` varchar(150) DEFAULT NULL,
+  `jumlah_presensi` int(11) DEFAULT 0 COMMENT 'baris presensi yang dihapus',
+  `jumlah_logbook` int(11) DEFAULT 0 COMMENT 'baris logbook yang dihapus',
+  `zip_filename` varchar(255) DEFAULT NULL COMMENT 'nama file ZIP yang diunduh',
+  `reset_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user`
 --
 
 CREATE TABLE `user` (
@@ -504,44 +557,49 @@ CREATE TABLE `user` (
   `email` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
   `role` enum('Admin','User','Kepala Lab') NOT NULL DEFAULT 'User',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `status_account` varchar(20) DEFAULT 'ACTIVE'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `user`
+-- Dumping data for table `user`
 --
 
-INSERT INTO `user` (`id_user`, `email`, `password`, `role`, `created_at`) VALUES
-(1, 'super@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Kepala Lab', '2026-01-03 05:23:53'),
-(2, 'admin@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', '2026-01-03 05:23:53'),
-(3, 'user@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-01-03 05:23:53'),
-(4, 'firly@iclabs.com', '$2y$12$lFHuRuoExW9RSSBUZm4QgeZMom7v5iLKJfBAtJB68d7qPEOH1gRCm', 'User', '2026-01-27 03:37:51'),
-(8, 'tasya@gmail.com', '$2y$10$FrIG2OhNk62WfTMDizJrmeF.BQU.YmZ19205mRlfqMtbCKEbIUr0u', 'User', '2026-01-30 10:12:55'),
-(9, '13020230030@student.umi.ac.id', '$2y$10$q9kGmvEEf6uAMJ91aFPDWONhLwONdpYUbbCKbMtN7pgMvRO7CFZ5m', 'User', '2026-02-01 04:57:53'),
-(10, '13020230049@student.umi.ac.id', '$2y$10$QyMQNxnOoftbzz5.x8MVB.2ZnTcwxGacG0pJstdLKz69GBCMMAY02', 'User', '2026-02-01 04:58:52'),
-(11, '13020230081@student.umi.ac.id', '$2y$10$SJDVzEEr5P2K3PNrjUBj3uQXFDVTj4iv/ZLhGniqRT8eV5ZA.RtJi', 'User', '2026-02-01 05:01:41'),
-(19, '13020230100@student.umi.ac.id', '$2y$10$rm4yLUk0/iV.2nN.Tlp8nuHBuN.GO8TSUyyER.3PBF2adUvqD40SG', 'User', '2026-02-01 05:54:57'),
-(33, '13020230187@student.umi.ac.id', '$2y$10$4zT8rlhAnc8pHquvg4YC7efuBQUlQli4ni3rSibOT.9V4rDI3f4Ga', 'User', '2026-02-01 07:10:27'),
-(35, '13020230193@student.umi.ac.id', '$2y$10$NFvx02lWowjrNMpfqQEG/OwWQr9WJTGp9bbBPhWXNuB/tnIJQEN2G', 'User', '2026-02-01 07:12:49'),
-(37, '13020230232@student.umi.ac.id', '$2y$10$vWqCfRRXRJL.ikWsgTcr2OQGQZAahZejqvvyG6483ggH4FMXsse6q', 'User', '2026-02-01 07:44:17'),
-(38, '13020230253@student.umi.ac.id', '$2y$10$aTQex..iDPoEmQiwrCn0iezgyGB1HC7i8eRDyOz1WtrObgQPuIu/O', 'User', '2026-02-01 07:59:46'),
-(39, '13020230290@student.umi.ac.id', '$2y$10$nlGgwsUchs1Bp0yuLVpE5OjP3X5X7TGX6lkAvDCpitQoyq9eMuP6O', 'User', '2026-02-01 08:01:17'),
-(40, '13020230306@student.umi.ac.id', '$2y$10$xXBeox3.rzXf9K1d1wf4juq0us8hg/TQoNMECMLa6fOYGpMOxLRU2', 'User', '2026-02-01 08:02:30'),
-(41, '13020230319@student.umi.ac.id', '$2y$10$02mMjh.v3HRmc/4eFfCot.BFKmcVyvzh/3dBKMfded0b/T9/.a5Sa', 'User', '2026-02-01 08:03:12'),
-(42, '13020230309@student.umi.ac.id', '$2y$10$BZa3BeZSoA4Ul7EWm9s31O4q1ozwm5R3nZO9QZzscUrAr/HBuZBW6', 'User', '2026-02-01 08:04:06'),
-(47, '13020230268@student.umi.ac.id', '$2y$10$8u06kLLKpdst8a87F8x/KucwntC7Kg4jOczKy6DOt3.PE9wWIpbL6', 'User', '2026-02-01 09:36:55'),
-(48, '13020230096@student.umi.ac.id', '$2y$10$L86Qk6Z/3Nkr9cRy0dbSouOS8k4q5wJrhgLm2/CmImIyGJIWVihAO', 'User', '2026-02-01 09:43:20'),
-(49, '13020230217@student.umi.ac.id', '$2y$10$TsPoSH/wm.5gg4oSyolEQuvTs0G0b6EoBKWr146j3V8hSP8qq/Q2K', 'User', '2026-02-01 09:58:03'),
-(50, '13020230255@student.umi.ac.id', '$2y$10$kPeLjXXEEk4BuulF.5tUJugoaALORSrLPLeTIcwcKFeMekZnns8i2', 'User', '2026-02-01 09:59:02'),
-(51, '13020230241@student.umi.ac.id', '$2y$10$56L78F05Mtx0hOhBSl/00u.dUqcKOn9ZEITnEXZfZCVttYFS.fgC.', 'User', '2026-02-01 10:00:02'),
-(52, '13020230297@student.umi.ac.id', '$2y$10$Y8USa.xFrfgYafzSLtU37.w.WZysJmxmfCpwGHUHQTTpSFxFmOCxS', 'User', '2026-02-01 10:01:00'),
-(53, '13020230244@student.umi.ac.id', '$2y$10$EO..kSWasJ30zJnXWokw4.vpT2rUKmLCbyisuieo69xkWi3LIxW4G', 'User', '2026-02-01 10:02:09'),
-(54, '13120230033@student.umi.ac.id', '$2y$10$eLjv4r62WzhnFt9UnYxQqeKPt2W2PAy5w0DjFGOiM1TFhYu2PD4Ze', 'User', '2026-02-01 10:04:18');
+INSERT INTO `user` (`id_user`, `email`, `password`, `role`, `created_at`, `status_account`) VALUES
+(1, 'super@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Kepala Lab', '2026-01-03 05:23:53', 'ACTIVE'),
+(2, 'admin@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', '2026-01-03 05:23:53', 'ACTIVE'),
+(3, 'user@iclabs.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-01-03 05:23:53', 'ACTIVE'),
+(55, '13020240021@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(56, '13020240331@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(57, 'ariiqsaefullah@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(58, '13020240333@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(59, '13020240014@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(60, '13020240060@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(61, 'karima51rima@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(62, '13020240263@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(63, '13020240028@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(64, '13020240009@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(65, '13020240041@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(66, '13020240184@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(67, '13020240206@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(68, '13020240048@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(69, '13020230224@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(70, '13020230251@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(71, '13020240237@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(72, '13020230219@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(73, '13020240203@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(74, '13020240338@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(75, 'dewiernitarahma.iclabs@umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(76, '13020240152@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(77, '13020240004@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(78, '13020240161@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(79, '13020240305@student.umi.ac.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE'),
+(80, 'nendrarizkullah@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', '2026-06-14 22:32:42', 'ACTIVE');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `user_google_token`
+-- Table structure for table `user_google_token`
 --
 
 CREATE TABLE `user_google_token` (
@@ -558,21 +616,31 @@ CREATE TABLE `user_google_token` (
 --
 
 --
--- Indeks untuk tabel `dosen`
+-- Indexes for table `attendance_recycle_bin`
+--
+ALTER TABLE `attendance_recycle_bin`
+  ADD PRIMARY KEY (`id_bin`),
+  ADD KEY `idx_bin_profil` (`id_profil`),
+  ADD KEY `idx_bin_scope` (`reset_scope`),
+  ADD KEY `idx_bin_status` (`status`),
+  ADD KEY `idx_bin_date` (`date_reset`);
+
+--
+-- Indexes for table `dosen`
 --
 ALTER TABLE `dosen`
   ADD PRIMARY KEY (`id_dosen`),
-  ADD UNIQUE KEY `nama_dosen` (`nama_dosen`);
+  ADD UNIQUE KEY `nidn` (`nidn`);
 
 --
--- Indeks untuk tabel `izin`
+-- Indexes for table `izin`
 --
 ALTER TABLE `izin`
   ADD PRIMARY KEY (`id_izin`),
   ADD KEY `id_profil` (`id_profil`);
 
 --
--- Indeks untuk tabel `jadwal_asisten`
+-- Indexes for table `jadwal_asisten`
 --
 ALTER TABLE `jadwal_asisten`
   ADD PRIMARY KEY (`id_jadwal_asisten`),
@@ -580,7 +648,7 @@ ALTER TABLE `jadwal_asisten`
   ADD KEY `id_dosen` (`id_dosen`);
 
 --
--- Indeks untuk tabel `jadwal_full`
+-- Indexes for table `jadwal_full`
 --
 ALTER TABLE `jadwal_full`
   ADD PRIMARY KEY (`id_jadwal`),
@@ -589,7 +657,7 @@ ALTER TABLE `jadwal_full`
   ADD KEY `id_jadwal_asisten` (`id_jadwal_asisten`);
 
 --
--- Indeks untuk tabel `jadwal_kuliah`
+-- Indexes for table `jadwal_kuliah`
 --
 ALTER TABLE `jadwal_kuliah`
   ADD PRIMARY KEY (`id_jadwal_kuliah`),
@@ -597,33 +665,33 @@ ALTER TABLE `jadwal_kuliah`
   ADD KEY `id_dosen` (`id_dosen`);
 
 --
--- Indeks untuk tabel `jadwal_lab`
+-- Indexes for table `jadwal_lab`
 --
 ALTER TABLE `jadwal_lab`
   ADD PRIMARY KEY (`id_jadwal_lab`);
 
 --
--- Indeks untuk tabel `jadwal_lab_sync`
+-- Indexes for table `jadwal_lab_sync`
 --
 ALTER TABLE `jadwal_lab_sync`
   ADD PRIMARY KEY (`id_sync`),
-  ADD UNIQUE KEY `uniq_jadwal_user` (`id_jadwal_lab`, `id_user`);
+  ADD UNIQUE KEY `uniq_jadwal_user` (`id_jadwal_lab`,`id_user`);
 
 --
--- Indeks untuk tabel `jadwal_piket`
+-- Indexes for table `jadwal_piket`
 --
 ALTER TABLE `jadwal_piket`
   ADD PRIMARY KEY (`id_jadwal_piket`),
   ADD KEY `id_profil` (`id_profil`);
 
 --
--- Indeks untuk tabel `lab`
+-- Indexes for table `lab`
 --
 ALTER TABLE `lab`
   ADD PRIMARY KEY (`id_lab`);
 
 --
--- Indeks untuk tabel `logbook`
+-- Indexes for table `logbook`
 --
 ALTER TABLE `logbook`
   ADD PRIMARY KEY (`id_logbook`),
@@ -631,14 +699,14 @@ ALTER TABLE `logbook`
   ADD KEY `id_presensi` (`id_presensi`);
 
 --
--- Indeks untuk tabel `presensi`
+-- Indexes for table `presensi`
 --
 ALTER TABLE `presensi`
   ADD PRIMARY KEY (`id_presensi`),
   ADD KEY `id_profil` (`id_profil`);
 
 --
--- Indeks untuk tabel `profile`
+-- Indexes for table `profile`
 --
 ALTER TABLE `profile`
   ADD PRIMARY KEY (`id_profil`),
@@ -647,139 +715,171 @@ ALTER TABLE `profile`
   ADD KEY `id_lab` (`id_lab`);
 
 --
--- Indeks untuk tabel `qr_code`
+-- Indexes for table `qr_code`
 --
 ALTER TABLE `qr_code`
   ADD PRIMARY KEY (`id_qr`),
   ADD KEY `token_code` (`token_code`);
 
 --
--- Indeks untuk tabel `user`
+-- Indexes for table `recycle_bin_conflicts`
+--
+ALTER TABLE `recycle_bin_conflicts`
+  ADD PRIMARY KEY (`id_conflict`),
+  ADD KEY `id_bin` (`id_bin`);
+
+--
+-- Indexes for table `reset_log`
+--
+ALTER TABLE `reset_log`
+  ADD PRIMARY KEY (`id_reset`),
+  ADD KEY `id_admin` (`id_admin`);
+
+--
+-- Indexes for table `user`
 --
 ALTER TABLE `user`
   ADD PRIMARY KEY (`id_user`),
   ADD UNIQUE KEY `email` (`email`);
 
 --
--- Indeks untuk tabel `user_google_token`
+-- Indexes for table `user_google_token`
 --
 ALTER TABLE `user_google_token`
   ADD PRIMARY KEY (`id_token`),
   ADD UNIQUE KEY `id_user` (`id_user`);
 
 --
--- AUTO_INCREMENT untuk tabel yang dibuang
+-- AUTO_INCREMENT for dumped tables
 --
 
 --
--- AUTO_INCREMENT untuk tabel `dosen`
+-- AUTO_INCREMENT for table `attendance_recycle_bin`
+--
+ALTER TABLE `attendance_recycle_bin`
+  MODIFY `id_bin` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+
+--
+-- AUTO_INCREMENT for table `dosen`
 --
 ALTER TABLE `dosen`
-  MODIFY `id_dosen` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `id_dosen` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=87;
 
 --
--- AUTO_INCREMENT untuk tabel `izin`
+-- AUTO_INCREMENT for table `izin`
 --
 ALTER TABLE `izin`
   MODIFY `id_izin` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT untuk tabel `jadwal_asisten`
+-- AUTO_INCREMENT for table `jadwal_asisten`
 --
 ALTER TABLE `jadwal_asisten`
-  MODIFY `id_jadwal_asisten` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+  MODIFY `id_jadwal_asisten` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
--- AUTO_INCREMENT untuk tabel `jadwal_full`
+-- AUTO_INCREMENT for table `jadwal_full`
 --
 ALTER TABLE `jadwal_full`
-  MODIFY `id_jadwal` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id_jadwal` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
--- AUTO_INCREMENT untuk tabel `jadwal_kuliah`
+-- AUTO_INCREMENT for table `jadwal_kuliah`
 --
 ALTER TABLE `jadwal_kuliah`
-  MODIFY `id_jadwal_kuliah` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id_jadwal_kuliah` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
--- AUTO_INCREMENT untuk tabel `jadwal_lab`
+-- AUTO_INCREMENT for table `jadwal_lab`
 --
 ALTER TABLE `jadwal_lab`
-  MODIFY `id_jadwal_lab` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id_jadwal_lab` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT untuk tabel `jadwal_lab_sync`
+-- AUTO_INCREMENT for table `jadwal_lab_sync`
 --
 ALTER TABLE `jadwal_lab_sync`
-  MODIFY `id_sync` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_sync` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
 
 --
--- AUTO_INCREMENT untuk tabel `jadwal_piket`
+-- AUTO_INCREMENT for table `jadwal_piket`
 --
 ALTER TABLE `jadwal_piket`
-  MODIFY `id_jadwal_piket` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id_jadwal_piket` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
--- AUTO_INCREMENT untuk tabel `lab`
+-- AUTO_INCREMENT for table `lab`
 --
 ALTER TABLE `lab`
-  MODIFY `id_lab` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id_lab` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
--- AUTO_INCREMENT untuk tabel `logbook`
+-- AUTO_INCREMENT for table `logbook`
 --
 ALTER TABLE `logbook`
-  MODIFY `id_logbook` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id_logbook` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
--- AUTO_INCREMENT untuk tabel `presensi`
+-- AUTO_INCREMENT for table `presensi`
 --
 ALTER TABLE `presensi`
-  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=59;
+  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
 
 --
--- AUTO_INCREMENT untuk tabel `profile`
+-- AUTO_INCREMENT for table `profile`
 --
 ALTER TABLE `profile`
-  MODIFY `id_profil` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id_profil` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=57;
 
 --
--- AUTO_INCREMENT untuk tabel `qr_code`
+-- AUTO_INCREMENT for table `qr_code`
 --
 ALTER TABLE `qr_code`
-  MODIFY `id_qr` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=219;
+  MODIFY `id_qr` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=342;
 
 --
--- AUTO_INCREMENT untuk tabel `user`
+-- AUTO_INCREMENT for table `recycle_bin_conflicts`
+--
+ALTER TABLE `recycle_bin_conflicts`
+  MODIFY `id_conflict` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `reset_log`
+--
+ALTER TABLE `reset_log`
+  MODIFY `id_reset` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
+  MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
 
 --
--- AUTO_INCREMENT untuk tabel `user_google_token`
+-- AUTO_INCREMENT for table `user_google_token`
 --
 ALTER TABLE `user_google_token`
   MODIFY `id_token` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- Ketidakleluasaan untuk tabel pelimpahan (Dumped Tables)
+-- Constraints for dumped tables
 --
 
 --
--- Ketidakleluasaan untuk tabel `izin`
+-- Constraints for table `izin`
 --
 ALTER TABLE `izin`
   ADD CONSTRAINT `izin_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `jadwal_asisten`
+-- Constraints for table `jadwal_asisten`
 --
 ALTER TABLE `jadwal_asisten`
-  ADD CONSTRAINT `jadwal_asisten_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_jadwal_asisten_dosen` FOREIGN KEY (`id_dosen`) REFERENCES `dosen` (`id_dosen`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_jadwal_asisten_dosen` FOREIGN KEY (`id_dosen`) REFERENCES `dosen` (`id_dosen`) ON DELETE SET NULL,
+  ADD CONSTRAINT `jadwal_asisten_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `jadwal_full`
+-- Constraints for table `jadwal_full`
 --
 ALTER TABLE `jadwal_full`
   ADD CONSTRAINT `jadwal_full_ibfk_1` FOREIGN KEY (`id_jadwal_kuliah`) REFERENCES `jadwal_kuliah` (`id_jadwal_kuliah`) ON DELETE CASCADE,
@@ -787,40 +887,52 @@ ALTER TABLE `jadwal_full`
   ADD CONSTRAINT `jadwal_full_ibfk_3` FOREIGN KEY (`id_jadwal_asisten`) REFERENCES `jadwal_asisten` (`id_jadwal_asisten`) ON DELETE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `jadwal_kuliah`
+-- Constraints for table `jadwal_kuliah`
 --
 ALTER TABLE `jadwal_kuliah`
-  ADD CONSTRAINT `jadwal_kuliah_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_jadwal_kuliah_dosen` FOREIGN KEY (`id_dosen`) REFERENCES `dosen` (`id_dosen`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_jadwal_kuliah_dosen` FOREIGN KEY (`id_dosen`) REFERENCES `dosen` (`id_dosen`) ON DELETE SET NULL,
+  ADD CONSTRAINT `jadwal_kuliah_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `jadwal_piket`
+-- Constraints for table `jadwal_piket`
 --
 ALTER TABLE `jadwal_piket`
   ADD CONSTRAINT `jadwal_piket_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `logbook`
+-- Constraints for table `logbook`
 --
 ALTER TABLE `logbook`
   ADD CONSTRAINT `logbook_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE,
   ADD CONSTRAINT `logbook_ibfk_2` FOREIGN KEY (`id_presensi`) REFERENCES `presensi` (`id_presensi`) ON DELETE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `presensi`
+-- Constraints for table `presensi`
 --
 ALTER TABLE `presensi`
   ADD CONSTRAINT `presensi_ibfk_1` FOREIGN KEY (`id_profil`) REFERENCES `profile` (`id_profil`) ON DELETE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `profile`
+-- Constraints for table `profile`
 --
 ALTER TABLE `profile`
   ADD CONSTRAINT `profile_ibfk_1` FOREIGN KEY (`id_user`) REFERENCES `user` (`id_user`) ON DELETE CASCADE,
   ADD CONSTRAINT `profile_ibfk_2` FOREIGN KEY (`id_lab`) REFERENCES `lab` (`id_lab`) ON DELETE SET NULL;
 
 --
--- Ketidakleluasaan untuk tabel `user_google_token`
+-- Constraints for table `recycle_bin_conflicts`
+--
+ALTER TABLE `recycle_bin_conflicts`
+  ADD CONSTRAINT `recycle_bin_conflicts_ibfk_1` FOREIGN KEY (`id_bin`) REFERENCES `attendance_recycle_bin` (`id_bin`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `reset_log`
+--
+ALTER TABLE `reset_log`
+  ADD CONSTRAINT `reset_log_ibfk_1` FOREIGN KEY (`id_admin`) REFERENCES `user` (`id_user`);
+
+--
+-- Constraints for table `user_google_token`
 --
 ALTER TABLE `user_google_token`
   ADD CONSTRAINT `user_google_token_ibfk_1` FOREIGN KEY (`id_user`) REFERENCES `user` (`id_user`) ON DELETE CASCADE;
@@ -829,5 +941,3 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-
-ALTER TABLE users ADD COLUMN IF NOT EXISTS status_account VARCHAR(20) DEFAULT 'ACTIVE';

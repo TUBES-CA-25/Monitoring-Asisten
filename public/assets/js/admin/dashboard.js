@@ -383,12 +383,22 @@ window.executeSingleReset = function() {
     const base = ((window.APP_CONFIG && (window.APP_CONFIG.baseUrl || window.APP_CONFIG.BASE_URL)) || '').replace(/\/$/, '');
     const uid  = window._currentDetailUser.id_user || window._currentDetailUser.id || '';
     if (!uid) { console.warn('[ICLABS] uid kosong, obj:', window._currentDetailUser); return; }
-    const url  = base + '/admin/resetAttendance?scope=single&uid=' + uid;
-    // Buka di tab baru agar download ZIP tidak mengganggu halaman saat ini
-    window.open(url, '_blank');
-    if (typeof showCustomAlert === 'function') {
-        showCustomAlert('info', 'Mereset Data Presensi...', 'File ZIP rekap akan terunduh di tab baru.');
-    }
+    // [DIUBAH – Tahap 35] Data masuk recycle bin, bukan langsung dihapus + ZIP
+    fetch(base + '/admin/resetToBin?scope=single&uid=' + uid, { method: 'GET' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (typeof showCustomAlert === 'function')
+                    showCustomAlert('success', 'Reset Berhasil', 'Data asisten diarsipkan ke Recycle Bin.');
+            } else {
+                if (typeof showCustomAlert === 'function')
+                    showCustomAlert('error', 'Gagal', data.message || 'Terjadi kesalahan.');
+            }
+        })
+        .catch(() => {
+            if (typeof showCustomAlert === 'function')
+                showCustomAlert('error', 'Gagal', 'Koneksi ke server terputus.');
+        });
 };
 
 // ── Toggle Status Akun ───────────────────────────────────────────

@@ -74,7 +74,8 @@ class QrModel {
     
     public function getTokenData($code) {
         $cleanCode = trim($code);
-        $this->db->query("SELECT * FROM qr_code WHERE token_code = :c AND valid_until >= NOW()");
+        // [BARU – Tahap 35] Token valid jika: belum expired DAN belum dipakai user lain
+        $this->db->query("SELECT * FROM qr_code WHERE token_code = :c AND valid_until >= NOW() AND used_by_user_id IS NULL");
         $this->db->bind(':c', $cleanCode);
         return $this->db->single(); 
     }
@@ -85,6 +86,39 @@ class QrModel {
         
         $dbType = ($typeInput == 'check_in') ? 'Presensi' : 'Pulang';
         return $res['tipe'] === $dbType;
+    }
+
+    /**
+     * [BARU – Tahap 35] Selalu buat token baru, abaikan token lama
+     * yang belum expired. Dipakai saat admin menekan "Generate Ulang"
+     * atau saat timer halaman QR habis.
+     */
+    public function generateFreshToken($type) {
+        $dbType   = ($type == 'check_in') ? 'Presensi' : 'Pulang';
+        $code     = md5(uniqid(rand(), true));
+        $interval = '3 MINUTE';
+
+        // Bersihkan token lama (expired atau sudah dipakai)
+        $this->db->query("DELETE FROM qr_code WHERE tipe = :t AND (valid_until < NOW() OR used_by_user_id IS NOT NULL)");
+        $this->db->bind(':t', $dbType);
+        $this->db->execute();
+
+        $this->db->query("INSERT INTO qr_code (tipe, token_code, generated_at, valid_until) VALUES (:t, :c, NOW(), DATE_ADD(NOW(), INTERVAL $interval))");
+        $this->db->bind(':t', $dbType);
+        $this->db->bind(':c', $code);
+        $this->db->execute();
+
+        return $code;
+    }
+
+    public function markTokenUsed($code, $userId) {
+        $this->db->query(
+            "UPDATE qr_code SET used_by_user_id = :uid, used_at = NOW()
+             WHERE token_code = :c AND used_by_user_id IS NULL"
+        );
+        $this->db->bind(':uid', $userId);
+        $this->db->bind(':c', $code);
+        return $this->db->execute();
     }
 }
 ?>

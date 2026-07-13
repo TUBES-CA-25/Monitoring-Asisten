@@ -716,6 +716,12 @@ class UserController extends Controller {
             }
 
             if ($result) {
+                // [BARU – Tahap 35] Single-use QR: tandai token sebagai
+                // sudah dipakai oleh user ini. Scan berikutnya oleh user
+                // lain akan menemukan token ini sudah terpakai dan
+                // getOrGenerateToken() akan menghasilkan token baru.
+                $this->model('QrModel')->markTokenUsed($token, $_SESSION['user_id']);
+
                 // [BARU] Field tambahan bersifat ADDITIVE (attendance_status,
                 // late_minutes saat check-in; work_duration, is_early_checkout
                 // saat check-out) — tidak mengubah field {status, message} yang

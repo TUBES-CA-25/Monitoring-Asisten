@@ -278,7 +278,10 @@ class LogbookModel {
                     $this->db->execute();
                 }
             } 
-            elseif ($type == 'Izin') {
+            // [PERBAIKAN – Tahap 35] Sebelumnya hanya handle 'Izin', sehingga
+            // tipe 'Sakit' melewati kedua kondisi tanpa menghapus data.
+            // Akibatnya alpha count tidak berubah saat entri Sakit dihapus.
+            elseif (in_array($type, ['Izin', 'Sakit'])) {
                 $this->db->query("DELETE FROM izin WHERE id_izin = :id");
                 $this->db->bind(':id', $idRef);
                 $this->db->execute();

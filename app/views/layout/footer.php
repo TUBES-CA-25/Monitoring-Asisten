@@ -97,11 +97,25 @@ window.executeGlobalReset = window.executeGlobalReset || function() {
     var base=(window.APP_CONFIG&&(window.APP_CONFIG.baseUrl||window.APP_CONFIG.BASE_URL))||'';
     base = base.replace(/\/$/, '');
     closeGlobalResetModal();
-    var f=document.createElement('iframe');f.style.display='none';
-    f.src=base+'/admin/resetAttendance?scope=all';
-    document.body.appendChild(f);
-    setTimeout(function(){try{document.body.removeChild(f);}catch(e){}},120000);
-    if(typeof showCustomAlert==='function') showCustomAlert('info','Memproses Reset...','File ZIP akan terunduh otomatis. Harap tunggu.');
+
+    // [DIUBAH – Tahap 35] Gunakan resetToBin: data masuk recycle bin,
+    // bukan langsung dihapus + ZIP. Lebih aman, bisa di-restore.
+    fetch(base + '/admin/resetToBin?scope=all', { method: 'GET' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'success') {
+                if (typeof showCustomAlert === 'function')
+                    showCustomAlert('success', 'Reset Berhasil',
+                        'Data presensi semua asisten telah diarsipkan ke Recycle Bin. Anda bisa lihat, unduh, pulihkan, atau hapus permanen di menu Recycle Bin.');
+            } else {
+                if (typeof showCustomAlert === 'function')
+                    showCustomAlert('error', 'Gagal', data.message || 'Terjadi kesalahan.');
+            }
+        })
+        .catch(function() {
+            if (typeof showCustomAlert === 'function')
+                showCustomAlert('error', 'Gagal', 'Koneksi ke server terputus.');
+        });
 };
 </script>
 <?php endif; ?>

@@ -9,10 +9,9 @@
     <style>
         body { background: #0f172a; }
         .circuit-bg {
-            background-image: url("<?= BASE_URL ?>/assets/img/Logo_ICLABS.webp");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cg fill='none' stroke='%23334155' stroke-width='1.5'%3E%3Ccircle cx='14' cy='14' r='3'/%3E%3Cpath d='M17 14 H46 V46 H66'/%3E%3Ccircle cx='66' cy='46' r='3'/%3E%3Cpath d='M14 17 V40 H40'/%3E%3Ccircle cx='40' cy='40' r='2'/%3E%3C/g%3E%3C/svg%3E");
             background-repeat: repeat;
             background-size: 80px 80px;
-            background-blend-mode:soft-light;;
         }
         @keyframes pulse-slow { 0%,100%{opacity:.6} 50%{opacity:1} }
         .pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
@@ -23,11 +22,8 @@
     <div class="max-w-md w-full">
         <!-- Logo -->
         <div class="flex justify-center mb-8">
-            <!-- <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30"> -->
-            <div class="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 p-[5px] flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <div class="w-full h-full bg-white rounded-2xl flex items-center justify-center">
-                    <img src="<?= BASE_URL ?>/assets/img/Logo_ICLABS.webp" alt="ICLABS Logo" class="w-12 h-12 object-contain animate-pulse filter drop-shadow-lg shadow-cyan-400">
-                </div>
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <i class="fas fa-microchip text-white text-2xl pulse-slow"></i>
             </div>
         </div>
 

@@ -88,6 +88,23 @@
                     </button>
                 </div>
 
+                <!-- [BARU – Tahap 35] Live stats bar: dihitung ulang setiap renderTable() -->
+                <div id="liveStatsBar" class="hidden px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-3 text-xs shrink-0">
+                    <span class="text-gray-400 font-bold uppercase tracking-wide text-[10px]">30 Hari:</span>
+                    <span class="flex items-center gap-1 font-bold text-green-600">
+                        <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                        Hadir: <span id="countHadir" class="tabular-nums">0</span>
+                    </span>
+                    <span class="flex items-center gap-1 font-bold text-yellow-600">
+                        <span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>
+                        Izin/Sakit: <span id="countIzin" class="tabular-nums">0</span>
+                    </span>
+                    <span class="flex items-center gap-1 font-bold text-red-600">
+                        <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                        Alpha: <span id="countAlpha" class="tabular-nums">0</span>
+                    </span>
+                </div>
+
                 <!-- Table -->
                 <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar min-h-0">
                     <table class="w-full text-left border-collapse text-sm">

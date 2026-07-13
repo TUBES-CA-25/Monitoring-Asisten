@@ -25,9 +25,9 @@
                 <h1 class="text-3xl font-extrabold">Halo, <?= htmlspecialchars($displayName) ?> ! 👋</h1>
                 <p class="text-blue-100 mt-2 text-sm">Kelola operasional lab dan pantau presensi real-time.</p>
                 
-                <button onclick="openQRModal()" class="mt-6 bg-white text-blue-600 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition transform hover:scale-105 flex items-center gap-2 mx-auto md:mx-0">
+                <a href="<?= BASE_URL ?>/admin/qrPage" class="mt-6 bg-white text-blue-600 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition transform hover:scale-105 flex items-center gap-2 mx-auto md:mx-0 w-fit">
                     <i class="fas fa-qrcode"></i> Buka QR Presensi
-                </button>
+                </a>
             </div>
         <div class="text-center md:text-right bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
             <p class="text-[10px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
@@ -358,11 +358,11 @@
                         <i class="fas fa-calendar-alt mr-2"></i> Jadwal Lengkap
                     </a>
                     <!-- [BARU – Tahap 30] Reset presensi individu -->
-                    <!-- <button id="btnResetSingle"
+                    <button id="btnResetSingle"
                             onclick="openSingleResetModal()"
                             class="flex items-center justify-center w-full py-2.5 rounded-xl border border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white font-bold text-xs uppercase tracking-wider transition-all">
                         <i class="fas fa-rotate-right mr-2"></i> Reset Data Presensi
-                    </button> -->
+                    </button>
                 </div>
 
             </div>
@@ -628,9 +628,24 @@
         window.closeSingleResetModal();
         var uid = u.id_user || u.id || '';
         if (!uid) { console.warn('[ICLABS] uid kosong, user obj:', u); return; }
-        window.open(_BASE + '/admin/resetAttendance?scope=single&uid=' + uid, '_blank');
-        if (typeof showCustomAlert === 'function')
-            showCustomAlert('info', 'Mereset Data...', 'File ZIP akan terunduh di tab baru.');
+
+        // [DIUBAH – Tahap 35] Gunakan resetToBin: data masuk recycle bin
+        fetch(_BASE + '/admin/resetToBin?scope=single&uid=' + uid, { method: 'GET' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.status === 'success') {
+                    if (typeof showCustomAlert === 'function')
+                        showCustomAlert('success', 'Reset Berhasil',
+                            'Data presensi asisten telah diarsipkan ke Recycle Bin.');
+                } else {
+                    if (typeof showCustomAlert === 'function')
+                        showCustomAlert('error', 'Gagal', data.message || 'Terjadi kesalahan.');
+                }
+            })
+            .catch(function() {
+                if (typeof showCustomAlert === 'function')
+                    showCustomAlert('error', 'Gagal', 'Koneksi ke server terputus.');
+            });
     };
 
     /* ── Toggle Status Akun ── */
