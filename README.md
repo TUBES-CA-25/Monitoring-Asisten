@@ -75,6 +75,40 @@ iclabs_v2/
 └── vendor/
 ```
 ---
+
+## 🚀 Deployment / Sinkronisasi Database (Update ke Sistem Lama)
+
+Setiap perubahan struktur database (tabel/kolom baru) dicatat sebagai file
+migrasi terurut di folder `migrations/*.sql`. Untuk menyesuaikan sistem yang
+sudah pernah di-deploy (production/server lama) agar strukturnya mengikuti
+kode terbaru, devops **tidak perlu menyusun perubahan satu per satu secara
+manual** — cukup jalankan satu perintah dari root project:
+
+```bash
+php migrate.php --status    # lihat migrasi mana yang masih tertunda (aman, tidak mengubah apa pun)
+php migrate.php --dry-run   # sama seperti --status, daftar migrasi yang AKAN dijalankan
+php migrate.php             # terapkan semua migrasi yang tertunda
+```
+
+**Cara kerja singkat:**
+- Membaca kredensial database yang sama dengan aplikasi (dari `.env` / `app/config/config.php`) — tidak perlu input ulang.
+- Menjalankan setiap `migrations/*.sql` yang **belum** diterapkan (dilacak di tabel `schema_migrations`), berurutan sesuai nama file.
+- Aman dijalankan berulang kali — file yang sudah diterapkan otomatis dilewati, dan setiap file migrasi sendiri idempotent (mengecek `information_schema` sebelum mengubah struktur).
+- Seluruh migrasi bersifat **additive only** (tabel/kolom/nilai enum baru, tidak pernah menghapus/mengganti tipe kolom lama), sehingga endpoint REST API di `app/api/*.php` yang dipakai aplikasi mobile tetap kompatibel dengan versi mobile app yang lebih lama setelah migrasi dijalankan.
+
+**Sebelum menjalankan di server production yang belum pernah menerapkan
+migrasi ini: backup database terlebih dahulu.** Skrip akan berhenti dan
+melakukan rollback otomatis jika ada migrasi yang gagal di tengah jalan,
+tanpa menandainya sebagai selesai — cukup perbaiki masalahnya lalu jalankan
+`php migrate.php` lagi.
+
+> Catatan: `migrate.php` hanya menyesuaikan **struktur database**. Jika ada
+> perubahan pada kontrak/response endpoint API (bukan struktur tabel) yang
+> membuat versi aplikasi mobile lama tidak kompatibel, itu perlu penanganan
+> terpisah (versioning endpoint atau update aplikasi mobile) — di luar
+> cakupan skrip ini.
+
+---
 ## LINK [FLOWCHART](https://app.diagrams.net/?src=about#G1UnRBj-WlMVfPQSxdHRfsSCjT8DFKX0oz#%7B%22pageId%22%3A%22hbGYuj2Pi25B7b6xom5o%22%7D)
 ## LINK [ERD](https://app.diagrams.net/?src=about#G1CLHcQsatMvsAwDfnKUA-MYQ1wnAP3Ldv#%7B%22pageId%22%3A%22xvckEQKs8oghxl2EZW2P%22%7D)
 ## LINK [WIREFRAME](https://www.figma.com/design/tiJHZlwOKuYbbNkx7Aqb76/web-anti-ninja?node-id=0-1&m=dev&t=6QWWBSl43Ls9HrYw-1)
