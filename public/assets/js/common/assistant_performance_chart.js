@@ -6,6 +6,10 @@
   const canvasEl = document.getElementById("assistantPerfChart");
   if (!canvasEl) return;
 
+  // Plugin ornamen (angka langsung di ujung bar / dalam slice) - dimuat via
+  // vendor_js sebagai window.ChartDataLabels, didaftarkan sekali di sini.
+  if (window.Chart && window.ChartDataLabels) { Chart.register(window.ChartDataLabels); }
+
   const BASE_URL = (window.APP_CONFIG && window.APP_CONFIG.baseUrl) || "";
   const ROLE_SEGMENT = (window.APP_CONFIG && window.APP_CONFIG.roleSegment) || "";
 
@@ -181,11 +185,16 @@
             label: meta.label,
             data: vals,
             backgroundColor: bg,
+            hoverBackgroundColor: currentType === "pie" ? PIE_COLORS : "#4338ca",
             borderColor: border,
-            borderWidth: currentType === "pie" ? 2 : 1,
+            borderWidth: currentType === "pie" ? 3 : 1,
             borderRadius: currentType === "bar" ? 6 : 0,
+            maxBarThickness: currentType === "bar" ? 22 : undefined,
             fill: currentType === "line",
+            pointBackgroundColor: "#6366f1",
+            pointRadius: currentType === "line" ? 3 : 0,
             tension: 0.35,
+            hoverOffset: currentType === "pie" ? 10 : 0,
           },
         ],
       },
@@ -193,31 +202,47 @@
         indexAxis: currentType === "bar" ? "y" : "x",
         responsive: true,
         maintainAspectRatio: false,
+        animation: { duration: 450, easing: "easeOutQuart" },
+        // Padding kanan agar label nilai (datalabels, anchor "end") pada bar
+        // yang mentok/dekat nilai maksimum tidak terpotong di tepi canvas.
+        layout: { padding: { right: currentType === "bar" ? 36 : 0 } },
         scales:
           currentType === "pie"
             ? {}
             : currentType === "bar"
             ? {
-                x: { beginAtZero: true, grid: { display: false }, ticks: valueAxisTicks },
+                x: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: valueAxisTicks },
                 y: { grid: { display: false } },
               }
             : {
-                y: { beginAtZero: true, grid: { display: false }, ticks: valueAxisTicks },
+                y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: valueAxisTicks },
                 x: { grid: { display: false }, ticks: { maxRotation: 60, minRotation: 30 } },
               },
         plugins: {
           legend: {
             display: currentType === "pie",
             position: "right",
-            labels: { boxWidth: 10, font: { size: 10 } },
+            labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 10, font: { size: 10, weight: "600" } },
           },
           tooltip: {
+            backgroundColor: "#1e293b",
+            padding: 10,
+            cornerRadius: 8,
+            titleFont: { weight: "700" },
             callbacks: {
               label: (ctx) => {
                 const raw = ctx.parsed.x ?? ctx.parsed.y ?? ctx.parsed;
                 return `${ctx.label}: ${formatValue(metric, raw)}`;
               },
             },
+          },
+          datalabels: currentType === "line" ? false : {
+            color: currentType === "pie" ? "#fff" : "#475569",
+            anchor: currentType === "bar" ? "end" : "center",
+            align: currentType === "bar" ? "end" : "center",
+            offset: 4,
+            font: { weight: "700", size: 10 },
+            formatter: (v) => formatValue(metric, v),
           },
         },
       },

@@ -6,8 +6,24 @@
   const rankings = (window.APP_CONFIG && window.APP_CONFIG.RANKINGS) || {};
   const isUserRole = (window.APP_CONFIG && window.APP_CONFIG.IS_USER_ROLE) || false;
 
+  // [BARU] Plugin ornamen (menampilkan nilai langsung di atas/di dalam
+  // chart) - dimuat via vendor_js/page_js sebagai window.ChartDataLabels.
+  // Didaftarkan sekali di sini, dipakai oleh semua chart di halaman ini.
+  if (window.Chart && window.ChartDataLabels) {
+    Chart.register(window.ChartDataLabels);
+  }
+
   let demoChart = null;
   let demoType = "bar";
+
+  const CATEGORY_ICONS = {
+    gender: { L: "fa-mars", P: "fa-venus" },
+    class: {},
+    interest: {},
+  };
+  function iconForLabel(key, label) {
+    return (CATEGORY_ICONS[key] && CATEGORY_ICONS[key][label]) || "fa-tag";
+  }
 
   document.addEventListener("DOMContentLoaded", () => {
     if (!isUserRole) {
@@ -28,6 +44,7 @@
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
+    const total = (stats.hadir || 0) + (stats.izin || 0) + (stats.alpa || 0);
 
     new Chart(ctx, {
       type: "doughnut",
@@ -37,14 +54,35 @@
           {
             data: [stats.hadir, stats.izin, stats.alpa],
             backgroundColor: ["#22c55e", "#eab308", "#ef4444"],
-            borderWidth: 0,
+            hoverBackgroundColor: ["#16a34a", "#ca8a04", "#dc2626"],
+            borderWidth: 3,
+            borderColor: "#fff",
+            hoverOffset: 8,
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: "right" } },
+        cutout: "68%",
+        animation: { animateScale: true, animateRotate: true },
+        plugins: {
+          legend: {
+            position: "right",
+            labels: { usePointStyle: true, pointStyle: "circle", padding: 16, font: { size: 12, weight: "600" } },
+          },
+          tooltip: {
+            backgroundColor: "#1e293b",
+            padding: 10,
+            cornerRadius: 8,
+            titleFont: { weight: "700" },
+          },
+          datalabels: total > 0 ? {
+            color: "#fff",
+            font: { weight: "700", size: 11 },
+            formatter: (value) => (value > 0 ? Math.round((value / total) * 100) + "%" : ""),
+          } : false,
+        },
       },
     });
   }
@@ -130,10 +168,12 @@
 
     const labels = dataGroup.map((item) => item[colName] || "Tidak Diketahui");
     const counts = dataGroup.map((item) => item.count);
+    const total = counts.reduce((a, b) => a + b, 0);
 
     if (demoChart) demoChart.destroy();
 
     const colors = ["#6366f1", "#ec4899", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4"];
+    const barColors = labels.map((_, i) => colors[i % colors.length]);
 
     demoChart = new Chart(ctx, {
       type: demoType,
@@ -143,24 +183,77 @@
           {
             label: "Jumlah Asisten",
             data: counts,
-            backgroundColor: demoType === "line" ? "rgba(99,102,241,0.2)" : colors,
-            borderColor: demoType === "pie" ? "#fff" : "#4f46e5",
-            borderWidth: 2,
+            backgroundColor: demoType === "line" ? "rgba(99,102,241,0.15)" : barColors,
+            hoverBackgroundColor: demoType === "pie" ? barColors : "#4f46e5",
+            borderColor: demoType === "line" ? "#6366f1" : (demoType === "pie" ? "#fff" : barColors),
+            borderWidth: demoType === "pie" ? 3 : 2,
+            pointBackgroundColor: "#6366f1",
+            pointRadius: demoType === "line" ? 4 : 0,
             fill: demoType === "line",
             tension: 0.4,
-            borderRadius: 6,
+            borderRadius: demoType === "bar" ? 8 : 0,
+            maxBarThickness: 56,
+            hoverOffset: demoType === "pie" ? 10 : 0,
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: demoType === "pie" ? {} : { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        animation: { duration: 500, easing: "easeOutQuart" },
+        scales: demoType === "pie" ? {} : {
+          y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#f1f5f9" } },
+          x: { grid: { display: false } },
+        },
         plugins: {
-          legend: { display: demoType === "pie", position: "right" },
+          legend: {
+            display: demoType === "pie",
+            position: "right",
+            labels: { usePointStyle: true, pointStyle: "circle", padding: 14, font: { size: 11, weight: "600" } },
+          },
+          tooltip: {
+            backgroundColor: "#1e293b",
+            padding: 10,
+            cornerRadius: 8,
+            titleFont: { weight: "700" },
+          },
+          datalabels: total > 0 ? {
+            color: demoType === "pie" ? "#fff" : "#475569",
+            anchor: demoType === "bar" ? "end" : "center",
+            align: demoType === "bar" ? "top" : "center",
+            offset: 4,
+            font: { weight: "700", size: 11 },
+            formatter: (value) => (value > 0 ? value : ""),
+          } : false,
         },
       },
     });
+
+    renderDemographicLegend(key, labels, counts, barColors, total);
+  }
+
+  // [BARU] Ornamen legend di bawah chart - dot warna + ikon + jumlah,
+  // menggantikan ketergantungan pada legend bawaan Chart.js (yang hanya
+  // muncul untuk tipe pie) sehingga jenis kategori tetap jelas di semua
+  // tipe grafik (bar/line/pie).
+  function renderDemographicLegend(key, labels, counts, colors, total) {
+    const container = document.getElementById("demographicLegend");
+    if (!container) return;
+
+    if (!labels.length) {
+      container.innerHTML = `<span class="text-xs text-gray-400 italic">Tidak ada data untuk kategori ini.</span>`;
+      return;
+    }
+
+    container.innerHTML = labels.map((label, i) => {
+      const pct = total > 0 ? Math.round((counts[i] / total) * 100) : 0;
+      return `
+        <span class="chart-legend-badge" style="color:${colors[i]};border-color:${colors[i]}33;background:${colors[i]}14">
+          <i class="fas ${iconForLabel(key, label)}"></i>
+          <span class="chart-legend-dot" style="background:${colors[i]}"></span>
+          ${label}: ${counts[i]} <span style="opacity:.6">(${pct}%)</span>
+        </span>`;
+    }).join("");
   }
 
   window.setChartType = function (type) {

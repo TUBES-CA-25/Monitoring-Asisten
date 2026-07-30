@@ -151,6 +151,15 @@ define('DB_NAME', env('DB_NAME', 'iclabs_db'));
 //   php -r "echo bin2hex(random_bytes(32));"
 define('JWT_SECRET', env('JWT_SECRET', 'kunci_rahasia_kamu_123'));
 
+// [Item 7] Gagal keras jika produksi masih pakai secret default.
+// Ini mencegah JWT yang mudah dipalsukan di environment production.
+if (defined('APP_ENV') && APP_ENV === 'production'
+    && JWT_SECRET === 'kunci_rahasia_kamu_123') {
+    error_log('[ICLABS SECURITY] FATAL: JWT_SECRET belum dikonfigurasi di .env!');
+    http_response_code(500);
+    die('Server configuration error. Please contact administrator.');
+}
+
 // Default 86400 detik (24 jam) - selaras dengan dokumentasi API.
 define('JWT_EXPIRATION', (int) env('JWT_EXPIRATION', 86400));
 
@@ -162,6 +171,15 @@ define('JWT_EXPIRATION', (int) env('JWT_EXPIRATION', 86400));
 define('GOOGLE_CLIENT_ID', env('GOOGLE_CLIENT_ID', ''));
 define('GOOGLE_CLIENT_SECRET', env('GOOGLE_CLIENT_SECRET', ''));
 define('GOOGLE_REDIRECT_URI', env('GOOGLE_REDIRECT_URI', BASE_URL . '/google/callback'));
+
+// ---------------------------------------------------------------
+// 8b. HASH ID — Obfuscation salt untuk URL (Hashids-like)
+// ---------------------------------------------------------------
+// Digunakan oleh HashHelper::encode/decode agar ID integer tidak
+// tampil secara eksplisit di URL (mis. ?id=3 → ?id=mZ4kQ9).
+// Ganti nilai ini di .env sebelum deploy ke produksi:
+//   HASH_SALT=your-unique-random-string-here
+define('HASH_SALT', env('HASH_SALT', 'iclabs-fikom-umi-2026-xK9pQ'));
 
 // ---------------------------------------------------------------
 // 9. ERROR REPORTING (mengikuti APP_ENV / APP_DEBUG)

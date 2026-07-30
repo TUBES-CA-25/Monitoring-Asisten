@@ -38,6 +38,14 @@
 </script>
 <?php endif; ?>
 
+<?php if (!empty($vendor_js)): ?>
+    <?php /* vendor_js: library pihak ketiga (Chart.js, QRCode.js, dll.)
+             Dimuat SEBELUM page_js agar tersedia saat page script dijalankan */ ?>
+    <?php foreach ($vendor_js as $vendorFile): ?>
+        <script src="<?= $vendorFile ?>"></script>
+    <?php endforeach; ?>
+<?php endif; ?>
+
 <?php if (!empty($page_js)): ?>
     <?php foreach ($page_js as $jsFile): ?>
         <script src="<?= $jsFile ?>"></script>

@@ -3,6 +3,10 @@
 
     const BASE_URL = window.APP_CONFIG?.BASE_URL || "";
     let currentUserId = null;
+    let currentUserName = "";
+    let currentUserPhoto = "";
+    let currentLogPage = 1;
+    let currentPerPage = 30;
 
     const $ = (id) => document.getElementById(id);
     const $$ = (selector) => document.querySelectorAll(selector);
@@ -25,6 +29,9 @@
         }
 
         currentUserId = userId;
+        currentUserName = name;
+        currentUserPhoto = photo;
+        currentLogPage = 1;
 
         $$(".assistant-card").forEach(c => c.classList.remove("active"));
         element.classList.add("active");
@@ -39,28 +46,91 @@
             ? `${BASE_URL}/uploads/profile/${photo}`
             : `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
+        fetchLogs();
+    };
+
+    window.loadUserLogsPage = function (page) {
+        currentLogPage = page;
+        fetchLogs();
+    };
+
+    function fetchLogs() {
         const fd = new FormData();
-        fd.append("user_id", userId);
+        fd.append("user_id", currentUserId);
+        fd.append("page", currentLogPage);
+        fd.append("per_page", currentPerPage);
 
         fetch(`${BASE_URL}/kepalalab/getLogsByUser`, {
             method: "POST",
             body: fd
         })
             .then(res => res.json())
-            .then(data => renderTable(data))
+            .then(resp => {
+                // resp = { logs, total, hadir, izin, alpha, page, per_page, total_pages }
+                updateLiveStats(resp.hadir || 0, resp.izin || 0, resp.alpha || 0);
+                renderTable(resp.logs || []);
+                renderLogbookPagination(resp.total_pages || 1, resp.page || 1, resp.total || 0);
+            })
             .catch(err => {
                 console.error("Error fetching logs:", err);
                 renderError();
             });
-    };
+    }
+
+    function updateLiveStats(hadir, izin, alpha) {
+        const bar = $("liveStatsBar");
+        if (!bar) return;
+        bar.classList.remove("hidden");
+        const ch = $("countHadir"), ci = $("countIzin"), ca = $("countAlpha");
+        if (ch) ch.innerText = hadir;
+        if (ci) ci.innerText = izin;
+        if (ca) ca.innerText = alpha;
+    }
+
+    function renderLogbookPagination(totalPages, currentPage, totalItems) {
+        const container = $("logPaginationBar");
+        if (!container) return;
+        if (totalPages <= 1) { container.innerHTML = ""; container.classList.add("hidden"); return; }
+
+        container.classList.remove("hidden");
+        let html = `<div class="flex items-center gap-2 flex-wrap justify-center py-2 text-xs">`;
+        html += `<span class="text-gray-400">${totalItems} entri</span>`;
+        html += `<div class="flex gap-1">`;
+
+        if (currentPage > 1)
+            html += `<button onclick="loadUserLogsPage(${currentPage-1})" class="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 font-bold text-gray-600"><i class="fas fa-chevron-left text-[10px]"></i></button>`;
+
+        const maxButtons = 7;
+        let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+        if (endPage - startPage < maxButtons - 1) startPage = Math.max(1, endPage - maxButtons + 1);
+
+        if (startPage > 1) html += `<button onclick="loadUserLogsPage(1)" class="px-3 py-1.5 rounded-lg bg-gray-100 font-bold text-gray-600">1</button><span class="px-1 text-gray-400">…</span>`;
+        for (let p = startPage; p <= endPage; p++) {
+            const active = p === currentPage ? "bg-blue-600 text-white shadow" : "bg-gray-100 hover:bg-gray-200 text-gray-600";
+            html += `<button onclick="loadUserLogsPage(${p})" class="px-3 py-1.5 rounded-lg ${active} font-bold">${p}</button>`;
+        }
+        if (endPage < totalPages) html += `<span class="px-1 text-gray-400">…</span><button onclick="loadUserLogsPage(${totalPages})" class="px-3 py-1.5 rounded-lg bg-gray-100 font-bold text-gray-600">${totalPages}</button>`;
+
+        if (currentPage < totalPages)
+            html += `<button onclick="loadUserLogsPage(${currentPage+1})" class="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 font-bold text-gray-600"><i class="fas fa-chevron-right text-[10px]"></i></button>`;
+
+        html += `</div></div>`;
+        container.innerHTML = html;
+    }
 
     function resetView() {
         currentUserId = null;
+        currentLogPage = 1;
 
         $$(".assistant-card").forEach(c => c.classList.remove("active"));
 
         const emptyState = $("emptyState");
         const logContent = $("logContent");
+        const statsBar = $("liveStatsBar");
+        const pagination = $("logPaginationBar");
+        if (statsBar) statsBar.classList.add("hidden");
+        if (pagination) { pagination.innerHTML = ""; pagination.classList.add("hidden"); }
 
         logContent.classList.add("opacity-0");
         setTimeout(() => {
@@ -129,8 +199,18 @@
                         </span>
                     </td>
                     <td class="p-5 text-center text-xs font-mono">
-                        <div class="text-blue-600 font-bold">IN: ${log.time_in || "-"}</div>
-                        <div class="text-orange-500 font-bold">OUT: ${log.time_out || "-"}</div>
+                        <div class="text-blue-600 font-bold">IN: ${log.time_in || "-"}${
+                            (log.time_in && log.time_in !== "-")
+                                ? (log.late_minutes > 0
+                                    ? `<i class="fas fa-clock text-red-500 text-[9px] ml-1" title="Terlambat ${log.late_minutes} menit"></i>`
+                                    : `<i class="fas fa-check-circle text-green-500 text-[9px] ml-1" title="Tepat Waktu"></i>`)
+                                : ""
+                        }</div>
+                        <div class="text-orange-500 font-bold">OUT: ${log.time_out || "-"}${
+                            (log.time_out && log.time_out !== "-" && log.is_early_checkout)
+                                ? `<i class="fas fa-door-open text-yellow-500 text-[9px] ml-1" title="Pulang Lebih Cepat"></i>`
+                                : ""
+                        }</div>
                     </td>
                     <td class="p-5 text-center">${proofInBtn}</td>
                     <td class="p-5 text-center">${proofOutBtn}</td>

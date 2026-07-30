@@ -44,13 +44,13 @@
                     <?php foreach($assistants as $ast): ?>
                     <div onclick="loadLogs(<?= $ast['id'] ?>, '<?= htmlspecialchars($ast['name'], ENT_QUOTES) ?>', '<?= $ast['photo_profile'] ?? '' ?>', this)" 
                          class="assistant-card p-3 rounded-xl cursor-pointer flex items-center justify-between group hover:bg-blue-50 hover:border-blue-200 transition border border-transparent" 
-                         data-name="<?= strtolower($ast['name']) ?>">
+                         data-name="<?= htmlspecialchars(strtolower($ast['name']), ENT_QUOTES, 'UTF-8') ?>">
                         <div class="flex items-center gap-3 flex-1 min-w-0">
                             <img src="<?= !empty($ast['photo_profile']) ? BASE_URL.'/uploads/profile/'.$ast['photo_profile'] : 'https://ui-avatars.com/api/?name='.urlencode($ast['name']).'&background=random' ?>" 
                                  class="w-9 h-9 rounded-full object-cover border border-gray-200 shadow-sm flex-shrink-0">
                             <div class="min-w-0">
-                                <h4 class="font-bold text-gray-800 text-sm leading-tight truncate"><?= $ast['name'] ?></h4>
-                                <p class="text-[10px] text-gray-500 font-medium mt-0.5"><?= $ast['position'] ?? 'Asisten' ?></p>
+                                <h4 class="font-bold text-gray-800 text-sm leading-tight truncate"><?= htmlspecialchars($ast['name'], ENT_QUOTES, 'UTF-8') ?></h4>
+                                <p class="text-[10px] text-gray-500 font-medium mt-0.5"><?= htmlspecialchars($ast['position'] ?? 'Asisten', ENT_QUOTES, 'UTF-8') ?></p>
                             </div>
                         </div>
                         <i class="fas fa-chevron-right text-gray-300 icon-arrow flex-shrink-0 ml-2"></i>
@@ -83,14 +83,14 @@
                             <h2 id="headerName" class="text-base font-extrabold text-white"></h2>
                         </div>
                     </div>
-                    <button onclick="openEditModal(null, 'add')" class="bg-white hover:bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-bold text-xs shadow-md transition transform hover:scale-105 flex items-center gap-2 whitespace-nowrap">
+                    <!-- <button onclick="openEditModal(null, 'add')" class="bg-white hover:bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-bold text-xs shadow-md transition transform hover:scale-105 flex items-center gap-2 whitespace-nowrap">
                         <i class="fas fa-plus text-xs"></i> Tambah
-                    </button>
+                    </button> -->
                 </div>
 
                 <!-- [BARU – Tahap 35] Live stats bar: dihitung ulang setiap renderTable() -->
                 <div id="liveStatsBar" class="hidden px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-3 text-xs shrink-0">
-                    <span class="text-gray-400 font-bold uppercase tracking-wide text-[10px]">30 Hari:</span>
+                    <span class="text-gray-400 font-bold uppercase tracking-wide text-[10px]">Ringkasan:</span>
                     <span class="flex items-center gap-1 font-bold text-green-600">
                         <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
                         Hadir: <span id="countHadir" class="tabular-nums">0</span>
@@ -121,6 +121,8 @@
                         </thead>
                         <tbody id="logsTableBody" class="divide-y divide-gray-100"></tbody>
                     </table>
+                    <!-- Pagination logbook — hanya muncul saat data lebih dari 1 halaman -->
+                    <div id="logPaginationBar" class="hidden border-t border-gray-100 bg-gray-50 px-4"></div>
                 </div>
             </div>
         </div>
@@ -148,7 +150,7 @@
                         <option value="Hadir">Hadir</option>
                         <option value="Izin">Izin</option>
                         <option value="Sakit">Sakit</option>
-                        <option value="Alpha">Alpha (Hapus)</option>
+                        <option value="Alpha">Tidak Hadir</option>
                     </select>
                 </div>
             </div>

@@ -5,12 +5,50 @@ class AuthController extends Controller {
 
     public function login() {
         if (isset($_SESSION['role'])) {
-            header("Location: " . BASE_URL . $this->getRoleUrl($_SESSION['role']));
+            // Jika ada URL yang disimpan sebelum redirect ke login (mis. dari scan QR eksternal),
+            // kembalikan user ke sana setelah login berhasil.
+            $afterLogin = $_SESSION['redirect_after_login'] ?? null;
+            unset($_SESSION['redirect_after_login']);
+            header("Location: " . ($afterLogin ?: BASE_URL . $this->getRoleUrl($_SESSION['role'])));
             exit;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Content-Type: application/json');
+
+            // [Item 1] Validasi CSRF untuk form login
+            $this->validateCsrf();
+
+            // ── [Item 9] Rate Limiting — Sistem Lockout Bertahap ─────────────
+            // Setiap 3 percobaan salah = 1 ronde. Durasi lockout bertambah
+            // 10 detik per ronde. Ronde ke-5 (15 total) → pesan hubungi admin.
+            if (!isset($_SESSION['login_security'])) {
+                $_SESSION['login_security'] = [
+                    'failed_count' => 0,
+                    'lockout_until' => 0,
+                    'current_round' => 0,
+                ];
+            }
+            $sec  = &$_SESSION['login_security'];
+            $now  = time();
+
+            // Cek apakah sedang dalam lockout
+            if ($sec['lockout_until'] > $now) {
+                $remaining     = $sec['lockout_until'] - $now;
+                $contactAdmin  = $sec['current_round'] >= 5;
+                echo json_encode([
+                    'status'         => 'locked',
+                    'remaining'      => $remaining,
+                    'round'          => $sec['current_round'],
+                    'contact_admin'  => $contactAdmin,
+                ]);
+                exit;
+            }
+
+            // Jika lockout sudah lewat, reset (tapi failed_count tetap untuk riwayat)
+            if ($sec['lockout_until'] > 0 && $sec['lockout_until'] <= $now) {
+                $sec['lockout_until'] = 0;
+            }
 
             try {
                 $email = trim($_POST['email'] ?? '');
@@ -29,6 +67,11 @@ class AuthController extends Controller {
                 $user = $userModel->login($email);
 
                 if ($user && password_verify($password, $user['password'])) {
+                    // [Item 3] Regenerasi session ID setelah login berhasil
+                    session_regenerate_id(true);
+                    // [Item 9] Reset rate limit setelah login berhasil
+                    unset($_SESSION['login_security']);
+
                     $profile = $userModel->getUserById($user['id']);
 
                     $_SESSION['user_id']       = $user['id'];
@@ -39,12 +82,20 @@ class AuthController extends Controller {
                     $_SESSION['photo']         = $profile['photo_profile'] ?? null;
                     $_SESSION['status_account'] = $user['status_account'] ?? 'ACTIVE';
 
-                    // [BARU - Tahap 30] Akun nonaktif: bisa login, tapi
-                    // langsung diarahkan ke halaman "suspended" - bukan
-                    // dashboard normal.
+                    // [BARU] Jika ada redirect tersimpan (mis. user datang dari scan QR
+                    // eksternal sebelum login), kembalikan ke sana setelah login.
+                    $afterLogin = $_SESSION['redirect_after_login'] ?? null;
+                    unset($_SESSION['redirect_after_login']);
+
                     $redirect = ($_SESSION['status_account'] === 'INACTIVE')
                         ? BASE_URL . '/auth/suspended'
-                        : BASE_URL . $this->getRoleUrl($_SESSION['role']);
+                        : ($afterLogin ?: BASE_URL . $this->getRoleUrl($_SESSION['role']));
+
+                    // session_write_close() memastikan session tertulis ke disk
+                    // sebelum browser redirect ke halaman berikutnya.
+                    // Tanpa ini ada race condition: browser bisa sampai di halaman
+                    // dashboard sebelum PHP menulis session → checkAccess gagal.
+                    session_write_close();
 
                     echo json_encode([
                         'status'   => 'success',
@@ -60,6 +111,22 @@ class AuthController extends Controller {
                     'title' => 'Login Gagal',
                     'message' => 'Email atau password salah.'
                 ]);
+                // [Item 9] Tambah counter percobaan gagal & trigger lockout per 3 gagal
+                $sec['failed_count']++;
+                if ($sec['failed_count'] % 3 === 0) {
+                    $sec['current_round']  = (int)($sec['failed_count'] / 3);
+                    $lockDuration          = $sec['current_round'] * 10; // 10, 20, 30, 40, 50 detik
+                    $sec['lockout_until']  = $now + $lockDuration;
+                    $contactAdmin          = $sec['current_round'] >= 5;
+                    // Override dengan respons lockout
+                    ob_clean();
+                    echo json_encode([
+                        'status'        => 'locked',
+                        'remaining'     => $lockDuration,
+                        'round'         => $sec['current_round'],
+                        'contact_admin' => $contactAdmin,
+                    ]);
+                }
                 exit;
             } catch (Exception $e) {
                 http_response_code(500);
@@ -72,8 +139,13 @@ class AuthController extends Controller {
             }
         }
 
+        // [Item 9] Kirim status lockout ke view agar modal tampil ulang saat refresh
+        $sec = $_SESSION['login_security'] ?? ['lockout_until' => 0, 'current_round' => 0, 'failed_count' => 0];
         $data['js_config'] = [
-            'BASE_URL' => BASE_URL
+            'BASE_URL'        => BASE_URL,
+            'lockout_until'   => (int)$sec['lockout_until'],
+            'lockout_round'   => (int)$sec['current_round'],
+            'failed_count'    => (int)$sec['failed_count'],
         ];
 
         $this->view('auth/login', $data);

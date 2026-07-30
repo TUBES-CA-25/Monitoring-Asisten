@@ -1,4 +1,7 @@
-let logIdToReset = null;
+// [PENTING] var (bukan let): script ini dimuat ulang setiap kali halaman
+// logbook dikunjungi via AJAX navigation — let top-level akan melempar
+// "Identifier ... has already been declared" pada kunjungan kedua.
+var logIdToReset = null;
 
 // --- Modal Form ---
 function openLogModal(dateStr, activity, timeIn, logId) {

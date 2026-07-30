@@ -1,5 +1,3 @@
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <div class="max-w-7xl mx-auto space-y-6 animate-enter pb-10">
     
     <div class="flex items-center gap-4 mb-2">
@@ -28,23 +26,35 @@
                             $avatarUrl = "https://ui-avatars.com/api/?name=" . urlencode($assistant['name']) . "&background=random&size=500";
                         }
                     ?>
-                    <img src="<?= $avatarUrl ?>" class="w-full h-full rounded-full object-cover shadow-lg">
+                    <img src="<?= $avatarUrl ?>" class="w-full h-full rounded-full object-cover shadow-lg <?= (($assistant['status_account'] ?? 'ACTIVE') === 'INACTIVE') ? 'grayscale opacity-60' : '' ?>">
                 </div>
             </div>
 
             <div class="text-center mb-6">
-                <h2 class="text-xl font-extrabold text-gray-800 leading-tight"><?= $assistant['name'] ?></h2>
-                <div class="flex items-center justify-center gap-2 mt-2">
+                <h2 class="text-xl font-extrabold text-gray-800 leading-tight"><?= htmlspecialchars($assistant['name'], ENT_QUOTES, 'UTF-8') ?></h2>
+                <div class="flex items-center justify-center gap-2 mt-2 flex-wrap">
                     <span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold uppercase tracking-wider border border-blue-100">
                         <?= $assistant['position'] ?? 'Asisten Lab' ?>
                     </span>
                     <?php if($assistant['kelas']): ?>
                     <span class="px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-[10px] font-bold uppercase tracking-wider border border-purple-100">
-                        Kelas <?= $assistant['kelas'] ?>
+                        Kelas <?= htmlspecialchars($assistant['kelas'], ENT_QUOTES, 'UTF-8') ?>
+                    </span>
+                    <?php endif; ?>
+                    <?php if (($assistant['status_account'] ?? 'ACTIVE') === 'INACTIVE'): ?>
+                    <span class="px-3 py-1 bg-gray-200 text-gray-600 rounded-full text-[10px] font-bold uppercase tracking-wider border border-gray-300">
+                        <i class="fas fa-user-slash mr-1"></i>Nonaktif
                     </span>
                     <?php endif; ?>
                 </div>
             </div>
+
+            <?php if (($assistant['status_account'] ?? 'ACTIVE') === 'INACTIVE'): ?>
+            <div class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3 flex items-center gap-3 text-left">
+                <i class="fas fa-info-circle text-gray-400"></i>
+                <p class="text-xs text-gray-500">Akun asisten ini telah <span class="font-bold text-gray-700">dinonaktifkan</span> oleh Admin.</p>
+            </div>
+            <?php endif; ?>
 
             <div class="w-full space-y-3 text-left">
                 <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
@@ -117,20 +127,25 @@
                 </div>
             </div>
 
-            <div class="flex-1 relative w-full h-full min-h-[400px] flex items-center justify-center bg-gray-50/50 rounded-2xl border border-gray-100 border-dashed p-4">
-                <canvas id="assistantChart"></canvas>
+            <div class="relative w-full bg-gray-50/50 rounded-2xl border border-gray-100 border-dashed p-4">
+                <div class="chart-box chart-box-lg">
+                    <canvas id="assistantChart"></canvas>
+                </div>
             </div>
 
             <div class="grid grid-cols-3 gap-4 mt-8">
                 <div class="text-center p-4 bg-green-50 rounded-2xl border border-green-100">
+                    <i class="fas fa-check-circle text-green-500 text-lg mb-1"></i>
                     <span class="block text-3xl font-extrabold text-green-600"><?= $stats['hadir'] ?></span>
                     <span class="text-xs font-bold text-green-800 uppercase">Hadir</span>
                 </div>
                 <div class="text-center p-4 bg-yellow-50 rounded-2xl border border-yellow-100">
+                    <i class="fas fa-file-signature text-yellow-500 text-lg mb-1"></i>
                     <span class="block text-3xl font-extrabold text-yellow-600"><?= $stats['izin'] ?></span>
                     <span class="text-xs font-bold text-yellow-800 uppercase">Izin</span>
                 </div>
                 <div class="text-center p-4 bg-red-50 rounded-2xl border border-red-100">
+                    <i class="fas fa-times-circle text-red-500 text-lg mb-1"></i>
                     <span class="block text-3xl font-extrabold text-red-600"><?= $stats['alpa'] ?></span>
                     <span class="text-xs font-bold text-red-800 uppercase">Tidak Hadir</span>
                 </div>

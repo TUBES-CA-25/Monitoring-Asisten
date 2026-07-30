@@ -286,12 +286,14 @@ class ResetAttendanceModel
         if (!$row) return ['ok' => false, 'error' => 'Profil user tidak ditemukan.'];
         $idProfil = (int) $row['id_profil'];
 
-        // Jika dinonaktifkan, reset data dulu (supaya data lama ter-archive)
-        $zipResult = null;
+        // [PERBAIKAN v7] Nonaktifkan akun → data masuk ke Recycle Bin (bukan
+        // lagi ekspor ZIP sementara). Konsisten dengan fitur Reset Presensi.
         if ($status === 'INACTIVE') {
-            $zipResult = $this->exportAndDelete($idProfil, $adminId);
-            if (!empty($zipResult['error'])) {
-                return ['ok' => false, 'error' => $zipResult['error']];
+            require_once '../app/models/RecycleBinModel.php';
+            $binModel = new RecycleBinModel();
+            $result   = $binModel->archiveAndDelete($idProfil, $adminId);
+            if (!$result['ok']) {
+                return ['ok' => false, 'error' => $result['error'] ?? 'Gagal mengarsipkan data ke Recycle Bin.'];
             }
         }
 
@@ -299,12 +301,7 @@ class ResetAttendanceModel
         $this->conn->prepare("UPDATE `user` SET status_account = :st WHERE id_user = :uid")
                    ->execute([':st' => $status, ':uid' => $userId]);
 
-        $result = ['ok' => true];
-        if ($zipResult) {
-            $result['zip_path'] = $zipResult['zip_path'];
-            $result['filename'] = $zipResult['filename'];
-        }
-        return $result;
+        return ['ok' => true];
     }
 
     /** Cek apakah akun user aktif */

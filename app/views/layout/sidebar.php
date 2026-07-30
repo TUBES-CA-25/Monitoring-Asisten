@@ -1,4 +1,10 @@
-<aside id="sidebar" class="fixed top-0 left-0 z-50 h-screen transition-all duration-300 bg-white border-r border-gray-200 shadow-2xl flex flex-col font-sans w-64 -translate-x-full md:translate-x-0">
+<!-- [BARU] z-40 (bukan z-50) - sebelumnya sidebar SAMA PERSIS z-50 dengan
+     banyak modal di berbagai halaman (users.php, schedule.php, dashboard.php,
+     dll), sehingga urutan tumpang-tindih di antara keduanya ambigu/rapuh
+     tergantung struktur DOM tiap halaman - kadang sidebar tampak menimpa
+     sebagian modal, membingungkan. z-40 dijamin selalu di BAWAH seluruh
+     modal di situs ini (modal terendah memakai z-50). -->
+<aside id="sidebar" class="fixed top-0 left-0 z-40 h-screen transition-all duration-300 bg-white border-r border-gray-200 shadow-2xl flex flex-col font-sans w-64 -translate-x-full md:translate-x-0">
     
     <div id="logoHeader" class="h-20 flex items-center justify-between px-4 border-b border-gray-100 bg-gradient-to-r from-blue-700 to-cyan-600 shrink-0 relative transition-all duration-300">
         <div class="flex items-center gap-3 text-white overflow-hidden transition-all duration-300" id="logoContainer">
@@ -52,12 +58,12 @@
             function renderMenuItem($url, $icon, $label, $keyword, $currentUri) {
                 $isActive = strpos($currentUri, $keyword) !== false;
                 $activeClass = $isActive 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 border-transparent' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 border-transparent hover:shadow-sm';
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 hover:shadow-sm';
                 $iconColor = $isActive ? 'text-white' : 'text-gray-400 group-hover:text-blue-600';
                 
                 echo '
-                <a href="'.$url.'" title="'.$label.'" class="flex items-center px-3 py-3 rounded-xl border transition-all duration-200 group relative overflow-visible '.$activeClass.'">
+                <a href="'.$url.'" title="'.$label.'" class="flex items-center px-3 py-3 rounded-xl transition-all duration-200 group relative overflow-visible '.$activeClass.'">
                     <i class="fas '.$icon.' w-6 text-center text-sm transition-colors duration-200 shrink-0 '.$iconColor.'"></i>
                     <span class="font-semibold text-sm ml-3 sidebar-text opacity-100 transition-all duration-200 whitespace-nowrap">'.$label.'</span>
                     <div class="sidebar-tooltip">'.$label.'</div>
@@ -95,11 +101,7 @@
             <div class="mb-6">
                 <p class="px-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 ml-1 sidebar-header">Laporan</p>
                 <?php renderMenuItem(BASE_URL . "/$role/monitorAttendance", 'fa-history', 'Rekap Presensi', 'monitorAttendance', $current_uri); ?>
-            </div>
-
-            <div class="mb-6">
-                <p class="px-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 ml-1 sidebar-header">Backup</p>
-                <?php renderMenuItem(BASE_URL . "/$role/recycleBin", 'fa-trash-restore-alt', 'Recycle Bin', 'recycleBin', $current_uri); ?>
+                <?php renderMenuItem(BASE_URL . "/$role/recycleBin", 'fa-trash-restore-alt', 'Restore Data', 'recycleBin', $current_uri); ?>
             </div>
         <?php endif; ?>
 
@@ -140,7 +142,7 @@
         <a href="<?= BASE_URL ?>/auth/logout" class="flex items-center justify-center w-full py-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-500 hover:text-white transition-all duration-200 text-sm font-bold gap-2 shadow-sm group border border-red-100 relative overflow-visible">
             <i class="fas fa-sign-out-alt group-hover:-translate-x-1 transition-transform"></i> 
             <span class="sidebar-text opacity-100 transition-all duration-200 whitespace-nowrap">Keluar</span>
-            <div class="sidebar-tooltip bg-red-600">Keluar</div>
+            <div class="sidebar-tooltip">Keluar</div>
         </a>
     </div>
 </aside>
@@ -155,4 +157,4 @@
         </button>
     </header>
 
-    <main class="flex-1 p-4 md:p-8 overflow-x-hidden">
+    <main class="flex-1 p-4 md:p-8 overflow-x-clip">

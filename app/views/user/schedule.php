@@ -1,4 +1,4 @@
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+<!-- FullCalendar loaded via vendor_js in controller -->
 
 <div class="max-w-7xl mx-auto space-y-6 animate-enter pb-12">
 
@@ -24,12 +24,14 @@
         <div class="w-full lg:w-72 space-y-5 flex flex-col h-full">
 
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 shrink-0">
-                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide mb-4">Kategori</h3>
-                <div class="space-y-3 text-sm font-medium text-gray-600">
-                    <div class="flex items-center"><span class="legend-dot bg-gray-800"></span> Umum (Lab)</div>
-                    <div class="flex items-center"><span class="legend-dot bg-blue-500"></span> Asisten Lab</div>
-                    <div class="flex items-center"><span class="legend-dot bg-orange-500"></span> Piket</div>
-                    <div class="flex items-center"><span class="legend-dot bg-green-500"></span> Kuliah Asisten</div>
+                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide mb-4 flex items-center gap-2">
+                    <i class="fas fa-palette text-blue-500"></i> Kategori
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="legend-chip bg-gray-800 text-white"><i class="fas fa-building"></i><span>Umum</span></div>
+                    <div class="legend-chip bg-blue-50 text-blue-600 border-blue-100"><i class="fas fa-user-tie"></i><span>Asisten</span></div>
+                    <div class="legend-chip bg-orange-50 text-orange-600 border-orange-100"><i class="fas fa-broom"></i><span>Piket</span></div>
+                    <div class="legend-chip bg-green-50 text-green-600 border-green-100"><i class="fas fa-graduation-cap"></i><span>Kuliah</span></div>
                 </div>
             </div>
             
@@ -141,7 +143,7 @@
                                         'B1', 'B2', 'B3', 'B4', 'B5', 'C1', 'C2', 'C3', 'C4', 'C5'];
                         foreach ($listKelas as $k): 
                         ?>
-                            <option value="<?= $k ?>">Kelas <?= $k ?></option>
+                            <option value="<?= htmlspecialchars($k, ENT_QUOTES, 'UTF-8') ?>">Kelas <?= htmlspecialchars($k, ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -161,7 +163,7 @@
                             ];
 
                             foreach($listRuangan as $r):?>
-                            <option value="<?= $r ?>">Ruang <?= $r ?></option>
+                            <option value="<?= htmlspecialchars($r, ENT_QUOTES, 'UTF-8') ?>">Ruang <?= htmlspecialchars($r, ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
                         </optgroup>
 

@@ -9,6 +9,10 @@
     const BASE_URL = window.APP_CONFIG.baseUrl;
     const chartData = window.APP_CONFIG.chartData;
 
+    // Plugin ornamen (angka langsung di atas/di dalam chart) - dimuat via
+    // vendor_js sebagai window.ChartDataLabels, didaftarkan sekali di sini.
+    if (window.Chart && window.ChartDataLabels) { Chart.register(window.ChartDataLabels); }
+
     let chartInstance = null;
     let modalChartInstance = null;
     let currentType = 'bar';
@@ -45,16 +49,13 @@
         const ctx = canvas.getContext('2d');
         const filter = document.getElementById('chartFilter').value;
         const dataSet = chartData[filter];
+        const total = (dataSet.data || []).reduce((a, b) => a + b, 0);
 
         if (chartInstance) chartInstance.destroy();
 
-        const bgColors = currentType === 'pie'
-            ? ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
-            : '#6366f1';
-
-        const borderColor = currentType === 'pie'
-            ? '#ffffff'
-            : '#4f46e5';
+        const pieColors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+        const bgColors = currentType === 'pie' ? pieColors : '#6366f1';
+        const borderColor = currentType === 'pie' ? '#ffffff' : '#4f46e5';
 
         chartInstance = new Chart(ctx, {
             type: currentType,
@@ -64,21 +65,40 @@
                     label: 'Kehadiran',
                     data: dataSet.data,
                     backgroundColor: bgColors,
+                    hoverBackgroundColor: currentType === 'pie' ? pieColors : '#4338ca',
                     borderColor: borderColor,
                     borderWidth: 2,
-                    borderRadius: currentType === 'pie' ? 0 : 6,
+                    borderRadius: currentType === 'pie' ? 0 : 8,
+                    maxBarThickness: 46,
                     tension: 0.4,
-                    fill: currentType === 'line'
+                    fill: currentType === 'line',
+                    pointBackgroundColor: '#6366f1',
+                    pointRadius: currentType === 'line' ? 4 : 0,
+                    hoverOffset: currentType === 'pie' ? 10 : 0
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: { duration: 500, easing: 'easeOutQuart' },
                 scales: currentType === 'pie'
                     ? {}
-                    : { y: { beginAtZero: true } },
+                    : { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } },
                 plugins: {
-                    legend: { display: currentType === 'pie' }
+                    legend: {
+                        display: currentType === 'pie',
+                        position: 'right',
+                        labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 11, weight: '600' } }
+                    },
+                    tooltip: { backgroundColor: '#1e293b', padding: 10, cornerRadius: 8, titleFont: { weight: '700' } },
+                    datalabels: total > 0 ? {
+                        color: currentType === 'pie' ? '#fff' : '#475569',
+                        anchor: currentType === 'bar' ? 'end' : 'center',
+                        align: currentType === 'bar' ? 'top' : 'center',
+                        offset: 4,
+                        font: { weight: '700', size: 11 },
+                        formatter: (v) => (v > 0 ? v : '')
+                    } : false
                 }
             }
         });
@@ -121,25 +141,39 @@
                 datasets: [{
                     data: chartValues,
                     backgroundColor: bgColors,
-                    borderWidth: 0,
-                    hoverOffset: 4
+                    borderWidth: type === 'doughnut' ? 3 : 0,
+                    borderColor: '#fff',
+                    borderRadius: type === 'bar' ? 6 : 0,
+                    maxBarThickness: 40,
+                    hoverOffset: 6
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: { duration: 450, easing: 'easeOutQuart' },
                 plugins: {
                     legend: {
                         display: type !== 'bar',
-                        position: 'right'
+                        position: 'right',
+                        labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, font: { size: 10, weight: '600' } }
                     },
                     tooltip: {
-                        enabled: total > 0
-                    }
+                        enabled: total > 0,
+                        backgroundColor: '#1e293b', padding: 8, cornerRadius: 8
+                    },
+                    datalabels: total > 0 ? {
+                        color: type === 'bar' ? '#475569' : '#fff',
+                        anchor: type === 'bar' ? 'end' : 'center',
+                        align: type === 'bar' ? 'top' : 'center',
+                        offset: 4,
+                        font: { weight: '700', size: 10 },
+                        formatter: (v) => (v > 0 ? v : '')
+                    } : false
                 },
                 scales: type === 'bar'
                     ? {
-                        y: { beginAtZero: true, grid: { display: false } },
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
                         x: { grid: { display: false } }
                     }
                     : {
@@ -233,7 +267,7 @@
 
         const btnSchedule = document.getElementById('btnSchedule');
         if (btnSchedule) {
-            btnSchedule.href = `${BASE_URL}/kepalalab/assistantSchedule/${user.id_user || user.id}`;
+            btnSchedule.href = `${BASE_URL}/kepalalab/assistantSchedule/${user.id_hash || user.id_user || user.id}`;
         }
 
         // [BARU – Tahap 30] Inactive account overlay
@@ -246,7 +280,7 @@
                 btnSchedule.removeAttribute('href');
                 btnSchedule.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
             } else {
-                btnSchedule.href = `${BASE_URL}/kepalalab/assistantSchedule/${user.id_user || user.id}`;
+                btnSchedule.href = `${BASE_URL}/kepalalab/assistantSchedule/${user.id_hash || user.id_user || user.id}`;
                 btnSchedule.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
             }
         }
@@ -287,7 +321,10 @@
 // dikirim ke endpoint Admin (butuh session Admin). Umumnya Kepala Lab
 // hanya akan melihat overlay "Akun Dinonaktifkan" tanpa tombol aksi.
 // ================================================================
-let _currentDetailUser = null;
+// [PENTING] var (bukan let): script ini dimuat ulang setiap kali halaman
+// dashboard dikunjungi via AJAX navigation — let top-level akan melempar
+// "Identifier ... has already been declared" pada kunjungan kedua.
+var _currentDetailUser = null;
 
 function openSingleResetModal() {
     if (!_currentDetailUser) return;

@@ -118,7 +118,7 @@
 
                         <div class="flex items-center gap-2 mb-1">
                             <h4 class="font-extrabold text-gray-800 text-lg <?= $style['text_hover'] ?> transition">
-                                <?= $sch['title'] ?>
+                                <?= htmlspecialchars($sch['title'], ENT_QUOTES, 'UTF-8') ?>
                             </h4>
                             <span class="hidden md:inline-block text-[10px] <?= $style['badge_bg'] ?> <?= $style['badge_text'] ?> px-2 py-0.5 rounded-full font-bold border <?= $style['badge_border'] ?> align-middle">
                                 <i class="fas <?= $style['icon'] ?> mr-1"></i> <?= $style['label'] ?>
@@ -128,7 +128,7 @@
                         <?php if(!empty($sch['dosen'])): ?>
                             <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
                                 <i class="fas fa-chalkboard-teacher w-4 text-center"></i>
-                                <span class="font-medium"><?= $sch['dosen'] ?></span>
+                                <span class="font-medium"><?= htmlspecialchars($sch['dosen'], ENT_QUOTES, 'UTF-8') ?></span>
                             </div>
                         <?php endif; ?>
 
@@ -155,11 +155,11 @@
                         <div class="text-center w-full">
                             <div class="py-2 px-4 bg-gray-50 text-gray-600 rounded-lg text-xs font-bold uppercase truncate border border-gray-200 group-hover:border-gray-300 transition">
                                 <i class="fas fa-map-marker-alt mr-1 text-red-400"></i>
-                                <?= $sch['location'] ?? 'Lab Komputer' ?>
+                                <?= htmlspecialchars($sch['location'] ?? 'Lab Komputer', ENT_QUOTES, 'UTF-8') ?>
                             </div>
                             <?php if(!empty($sch['kelas'])): ?>
                                 <p class="text-[10px] text-gray-400 mt-2 font-mono bg-gray-50 inline-block px-2 py-0.5 rounded border border-gray-100">
-                                    Kelas: <?= $sch['kelas'] ?>
+                                    Kelas: <?= htmlspecialchars($sch['kelas'], ENT_QUOTES, 'UTF-8') ?>
                                 </p>
                             <?php endif; ?>
                         </div>

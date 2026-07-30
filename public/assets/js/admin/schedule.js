@@ -1,9 +1,16 @@
-const BASE_URL = window.APP_CONFIG.baseUrl;
-    const rawEvents = window.APP_CONFIG.rawEvents || [];
-    
-    let calendar;
-    let selectedDateStr = new Date().toISOString().split('T')[0];
-    let currentFilter = 'all';
+// [BARU] Halaman ini dimuat ulang lewat navigasi AJAX (SPA-like) di global.js,
+// yang mempertahankan JS realm yang sama antar halaman. Deklarasi top-level
+// dengan const/let TIDAK BISA dieksekusi dua kali dalam realm yang sama
+// (SyntaxError: Identifier '...' has already been declared) - begitu pengguna
+// meninggalkan halaman Jadwal lalu kembali lagi, seluruh script ini gagal
+// jalan dari baris pertama, sehingga kalender & titik warna penanda jenis
+// jadwal "hilang" tanpa pesan apapun. var aman didekralasikan ulang.
+var BASE_URL = window.APP_CONFIG.baseUrl;
+    var rawEvents = window.APP_CONFIG.rawEvents || [];
+
+    var calendar;
+    var selectedDateStr = new Date().toISOString().split('T')[0];
+    var currentFilter = 'all';
 
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
@@ -61,9 +68,9 @@ const BASE_URL = window.APP_CONFIG.baseUrl;
                 }
             },
 
-            datesSet: function() { renderCustomLayers(); }
+            datesSet: function() { _iclabsFadeCalendar(calendarEl); renderCustomLayers(); }
         });
-        
+
         calendar.render();
 
         const filterInput = document.getElementById('searchFilterInput');
@@ -71,13 +78,27 @@ const BASE_URL = window.APP_CONFIG.baseUrl;
             filterInput.addEventListener('keyup', function() {
                 const key = this.value.toLowerCase();
                 const items = document.querySelectorAll('#filterListContainer .assistant-card[data-name]');
+                let visibleCount = 0;
                 items.forEach(item => {
                     const name = item.getAttribute('data-name');
-                    item.style.display = name.includes(key) ? 'flex' : 'none';
+                    if (name.includes(key)) { item.style.display = 'flex'; visibleCount++; } else { item.style.display = 'none'; }
                 });
+                const noResult = document.getElementById('noResultFilter');
+                if (noResult) noResult.classList.toggle('hidden', visibleCount > 0);
             });
         }
     });
+
+    // [BARU] Transisi fade halus setiap kali tampilan kalender berganti
+    // (bulan baru / filter baru) - murni kosmetik, tidak menyentuh render FullCalendar.
+    function _iclabsFadeCalendar(calendarEl) {
+        var harness = calendarEl.querySelector('.fc-view-harness');
+        if (!harness) return;
+        harness.classList.add('fc-fade-init');
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () { harness.classList.remove('fc-fade-init'); });
+        });
+    }
 
     // --- 2. LOGIC TANGGAL ---
     function isEventOnDate(evt, checkDateStr) {
@@ -564,7 +585,7 @@ const BASE_URL = window.APP_CONFIG.baseUrl;
     function showCustomAlert(type, title, message) { const modal = document.getElementById('customAlertModal'); const iconBg = document.getElementById('alertIconBg'); const icon = document.getElementById('alertIcon'); const btn = document.getElementById('alertBtn'); document.getElementById('alertTitle').innerText = title; document.getElementById('alertMessage').innerText = message; if (type === 'success') { iconBg.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-green-100 text-green-600'; icon.className = 'fas fa-check text-3xl'; btn.className = 'w-full py-3 rounded-xl font-bold text-white shadow-lg transition transform hover:scale-[1.02] bg-green-600 hover:bg-green-700 shadow-green-500/30'; } else { iconBg.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-100 text-red-600'; icon.className = 'fas fa-times text-3xl'; btn.className = 'w-full py-3 rounded-xl font-bold text-white shadow-lg transition transform hover:scale-[1.02] bg-red-600 hover:bg-red-700 shadow-red-500/30'; } modal.classList.remove('hidden'); setTimeout(() => { document.getElementById('alertBackdrop').classList.remove('opacity-0'); document.getElementById('alertContent').classList.remove('scale-90', 'opacity-0'); document.getElementById('alertContent').classList.add('scale-100', 'opacity-100'); }, 50); }
     function closeCustomAlert() { const m = document.getElementById('customAlertModal'); document.getElementById('alertBackdrop').classList.add('opacity-0'); document.getElementById('alertContent').classList.remove('scale-100', 'opacity-100'); document.getElementById('alertContent').classList.add('scale-90', 'opacity-0'); setTimeout(() => m.classList.add('hidden'), 300); }
     
-    let deleteUrl = '';
+    var deleteUrl = '';
     function triggerDelete(id, type) {
         deleteUrl = `${BASE_URL}/admin/deleteSchedule?id=${id}&type=${type}`;
         const modal = document.getElementById('customConfirmModal');

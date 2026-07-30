@@ -34,8 +34,10 @@ class RecycleBinModel
                 `date_reset`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 `jumlah_presensi` INT DEFAULT 0,
                 `jumlah_logbook`  INT DEFAULT 0,
+                `jumlah_izin`     INT DEFAULT 0,
                 `data_presensi`   LONGTEXT NULL,
                 `data_logbook`    LONGTEXT NULL,
+                `data_izin`       LONGTEXT NULL,
                 `id_admin`        INT NOT NULL DEFAULT 0,
                 `status`          ENUM('archived','restored','deleted') NOT NULL DEFAULT 'archived',
                 INDEX idx_bin_profil (`id_profil`),
@@ -56,6 +58,15 @@ class RecycleBinModel
                 INDEX idx_conflict_bin (`id_bin`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
+
+        // [BARU v7] Tambah kolom baru jika belum ada (idempoten)
+        try {
+            $this->conn->exec("ALTER TABLE `profile` ADD COLUMN IF NOT EXISTS `attendance_reset_at` DATETIME NULL DEFAULT NULL");
+            $this->conn->exec("ALTER TABLE `attendance_recycle_bin` ADD COLUMN IF NOT EXISTS `jumlah_izin` INT DEFAULT 0");
+            $this->conn->exec("ALTER TABLE `attendance_recycle_bin` ADD COLUMN IF NOT EXISTS `data_izin` LONGTEXT NULL DEFAULT NULL");
+        } catch (\Throwable $e) {
+            // Kolom mungkin sudah ada — abaikan
+        }
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -101,7 +112,7 @@ class RecycleBinModel
             foreach ($profiles as $p) {
                 $pid = (int)$p['id_profil'];
 
-                // Presensi
+                // Presensi (dengan logbook terikut via LEFT JOIN)
                 $stmtP = $this->conn->prepare(
                     "SELECT pr.*, l.id_logbook, l.detail_aktivitas, l.is_verified
                      FROM presensi pr
@@ -111,7 +122,7 @@ class RecycleBinModel
                 $stmtP->execute([':pid' => $pid]);
                 $presensiRows = $stmtP->fetchAll(\PDO::FETCH_ASSOC);
 
-                // Logbook terpisah (yang orphan tanpa presensi — jarang tapi bisa ada)
+                // Logbook orphan (tanpa presensi)
                 $stmtL = $this->conn->prepare(
                     "SELECT l.* FROM logbook l
                      LEFT JOIN presensi pr ON pr.id_presensi = l.id_presensi
@@ -125,23 +136,41 @@ class RecycleBinModel
                     $orphanLogs
                 );
 
-                // Rentang tanggal
-                $dates = array_column($presensiRows, 'tanggal');
+                // [BARU v7] Izin — arsipkan sebelum dihapus agar bisa di-restore
+                $stmtIz = $this->conn->prepare(
+                    "SELECT * FROM izin WHERE id_profil = :pid ORDER BY start_date ASC"
+                );
+                $stmtIz->execute([':pid' => $pid]);
+                $izinRows = $stmtIz->fetchAll(\PDO::FETCH_ASSOC);
+
+                // [BARU] Lewati profil yang memang tidak punya data apapun
+                // untuk diarsipkan (umum terjadi saat "Reset Keseluruhan"
+                // menyentuh asisten yang belum pernah presensi/logbook/izin
+                // sama sekali) - baris recycle bin kosong seperti itu hanya
+                // membingungkan admin karena tidak ada apa pun yang bisa
+                // di-restore, sementara tidak ada juga yang perlu dihapus
+                // dari tabel asli untuk profil ini.
+                if (count($presensiRows) === 0 && count($allLogbookRows) === 0 && count($izinRows) === 0) {
+                    continue;
+                }
+
+                // Rentang tanggal dari presensi
+                $dates     = array_column($presensiRows, 'tanggal');
                 $dateStart = !empty($dates) ? min($dates) : null;
                 $dateEnd   = !empty($dates) ? max($dates) : null;
 
-                // Insert ke recycle bin
+                // Insert ke recycle bin (dengan data_izin)
                 $stmtIns = $this->conn->prepare(
                     "INSERT INTO attendance_recycle_bin
                         (reset_scope, reset_label, id_profil, nama_asisten, jabatan_asisten,
                          date_data_start, date_data_end, date_reset,
-                         jumlah_presensi, jumlah_logbook,
-                         data_presensi, data_logbook, id_admin, status)
+                         jumlah_presensi, jumlah_logbook, jumlah_izin,
+                         data_presensi, data_logbook, data_izin, id_admin, status)
                      VALUES
                         (:scope, :label, :pid, :nama, :jabatan,
                          :ds, :de, NOW(),
-                         :jp, :jl,
-                         :dp, :dl, :adm, 'archived')"
+                         :jp, :jl, :ji,
+                         :dp, :dl, :diz, :adm, 'archived')"
                 );
                 $stmtIns->execute([
                     ':scope'   => $scope,
@@ -153,19 +182,26 @@ class RecycleBinModel
                     ':de'      => $dateEnd,
                     ':jp'      => count($presensiRows),
                     ':jl'      => count($allLogbookRows),
+                    ':ji'      => count($izinRows),
                     ':dp'      => json_encode($presensiRows, JSON_UNESCAPED_UNICODE),
                     ':dl'      => json_encode($allLogbookRows, JSON_UNESCAPED_UNICODE),
+                    ':diz'     => json_encode($izinRows, JSON_UNESCAPED_UNICODE),
                     ':adm'     => $adminId,
                 ]);
                 $insertedIds[] = (int)$this->conn->lastInsertId();
 
-                // Hapus dari tabel asli.
-                // Urutan: logbook dulu (child of presensi via FK id_presensi),
-                // kemudian presensi. Walaupun ada ON DELETE CASCADE dari
-                // presensi → logbook, menghapus logbook secara eksplisit
-                // dulu lebih aman dan konsisten.
+                // Hapus dari tabel asli (urutan: logbook → presensi → izin)
                 $this->conn->prepare("DELETE FROM logbook  WHERE id_profil = :pid")->execute([':pid' => $pid]);
                 $this->conn->prepare("DELETE FROM presensi WHERE id_profil = :pid")->execute([':pid' => $pid]);
+                // [BARU v7] Hapus izin agar total izin = 0 setelah reset
+                $this->conn->prepare("DELETE FROM izin WHERE id_profil = :pid")->execute([':pid' => $pid]);
+
+                // [BARU v7] Tandai waktu reset di profil agar calculateRealAlpha
+                // menghitung alpha mulai dari tanggal reset (bukan created_at)
+                // sehingga alpha = 0 segera setelah reset.
+                $this->conn->prepare(
+                    "UPDATE profile SET attendance_reset_at = NOW() WHERE id_profil = :pid"
+                )->execute([':pid' => $pid]);
             }
 
             $this->conn->commit();
@@ -195,11 +231,16 @@ class RecycleBinModel
             $params[':pid']      = $filter['id_profil'];
         }
 
+        // [BARU] JOIN profile untuk angkatan - tidak disimpan di kolom bin
+        // sendiri (beda dengan nama_asisten/jabatan_asisten yang memang
+        // snapshot saat arsip dibuat), tapi profil tidak ikut dihapus saat
+        // reset jadi aman diambil langsung dari sumbernya.
         $sql = "SELECT b.id_bin, b.reset_scope, b.reset_label, b.id_profil,
-                       b.nama_asisten, b.jabatan_asisten,
+                       b.nama_asisten, b.jabatan_asisten, p.angkatan AS angkatan_asisten,
                        b.date_data_start, b.date_data_end, b.date_reset,
                        b.jumlah_presensi, b.jumlah_logbook, b.status
                 FROM attendance_recycle_bin b
+                LEFT JOIN profile p ON p.id_profil = b.id_profil
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY b.date_reset DESC";
 
@@ -249,6 +290,8 @@ class RecycleBinModel
 
         $presensiData = json_decode($entry['data_presensi'], true) ?? [];
         $logbookData  = json_decode($entry['data_logbook'],  true) ?? [];
+        // [BARU v7] Restore izin yang turut diarsipkan saat reset
+        $izinData     = json_decode($entry['data_izin'] ?? '[]', true) ?? [];
         $pid          = (int)$entry['id_profil'];
 
         $conflicts = [];
@@ -309,6 +352,47 @@ class RecycleBinModel
                     ]);
                 }
             }
+
+            // [BARU v7] Restore izin yang turut diarsipkan
+            foreach ($izinData as $iz) {
+                // Cek apakah sudah ada izin yang overlap di tanggal tersebut
+                $chkIz = $this->conn->prepare(
+                    "SELECT id_izin FROM izin WHERE id_profil=:pid
+                     AND (:ds BETWEEN start_date AND end_date
+                          OR :de BETWEEN start_date AND end_date
+                          OR start_date BETWEEN :ds AND :de) LIMIT 1"
+                );
+                $chkIz->execute([':pid' => $pid, ':ds' => $iz['start_date'], ':de' => $iz['end_date']]);
+                if ($chkIz->fetch()) {
+                    $conflicts[] = [
+                        'id_profil'     => $pid,
+                        'nama_asisten'  => $entry['nama_asisten'],
+                        'tanggal'       => $iz['start_date'] . ' s/d ' . $iz['end_date'],
+                        'conflict_type' => 'izin_overlap',
+                    ];
+                    continue;
+                }
+                $insIz = $this->conn->prepare(
+                    "INSERT INTO izin (id_profil, tipe, start_date, end_date, deskripsi,
+                                      file_bukti, status_approval)
+                     VALUES (:pid, :tipe, :ds, :de, :desc, :file, :status)"
+                );
+                $insIz->execute([
+                    ':pid'    => $pid,
+                    ':tipe'   => $iz['tipe'],
+                    ':ds'     => $iz['start_date'],
+                    ':de'     => $iz['end_date'],
+                    ':desc'   => $iz['deskripsi'] ?? '',
+                    ':file'   => $iz['file_bukti'] ?? null,
+                    ':status' => $iz['status_approval'] ?? 'Approved',
+                ]);
+            }
+
+            // [BARU v7] Reset attendance_reset_at agar alpha dihitung kembali
+            // dari presensi yang baru saja di-restore (bukan dari reset_at).
+            $this->conn->prepare(
+                "UPDATE profile SET attendance_reset_at = NULL WHERE id_profil = :pid"
+            )->execute([':pid' => $pid]);
 
             // Catat konflik ke tabel log
             if (!empty($conflicts)) {

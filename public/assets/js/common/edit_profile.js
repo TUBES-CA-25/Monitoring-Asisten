@@ -49,10 +49,33 @@
     });
   }
 
+  // [BARU] Gabungkan kode negara + digit nomor telepon menjadi satu nilai
+  // "+<kode><digit>" pada input#inputPhone tepat sebelum submit, sama
+  // seperti admin/users.js - server tetap menerima satu field "phone".
+  // Jika percobaan submit sebelumnya gagal (nilai sudah pernah digabung,
+  // mis. "+62812..."), ambil ulang bagian digit setelah kode negara supaya
+  // tidak tergabung dobel saat submit diulang.
+  function combinePhoneBeforeSubmit() {
+    const countrySel = document.getElementById("inputPhoneCountry");
+    const numberInput = document.getElementById("inputPhone");
+    if (!countrySel || !numberInput) return;
+    const value = numberInput.value.trim();
+    let digits;
+    if (value.startsWith("+")) {
+      const m = value.match(/^\+\d{1,3}(\d+)$/);
+      digits = m ? m[1] : value.replace(/\D/g, "");
+    } else {
+      digits = value.replace(/\D/g, "");
+    }
+    numberInput.value = digits ? `+${countrySel.value}${digits}` : "";
+  }
+
   function submitData() {
     const form = document.getElementById("profileForm");
     const btn = document.getElementById("saveBtn");
     if (!form || !btn) return;
+
+    combinePhoneBeforeSubmit();
 
     const formData = new FormData(form);
     const originalHTML = btn.innerHTML;

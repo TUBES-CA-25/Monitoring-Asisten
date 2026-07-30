@@ -35,16 +35,16 @@ $css = $css ?? 'admin/pdf_attendance.css';
         <table>
             <thead>
                 <tr>
-                    <th class="text-center" style="width: 5%;">No</th>
+                    <th class="text-center" style="width:4%;">No</th>
                     <th>Nama Asisten</th>
-                    <th style="width: 15%;">NIM</th>
-                    <th style="width: 15%;">Jabatan</th>
-                    <th class="text-center" style="width: 8%;">Masuk</th>
-                    <th class="text-center" style="width: 8%;">Pulang</th>
-                    <th class="text-center" style="width: 10%;">Hadir</th>
-                    <th class="text-center" style="width: 10%;">Izin</th>
-                    <th class="text-center" style="width: 10%;">Alpa</th>
-                    <th class="text-center" style="width: 12%;">Total Kehadiran</th>
+                    <th style="width:13%;">NIM</th>
+                    <th style="width:13%;">Jabatan</th>
+                    <th class="text-center" style="width:8%;">Hadir</th>
+                    <th class="text-center" style="width:8%;">Izin</th>
+                    <th class="text-center" style="width:8%;">Tidak Hadir</th>
+                    <th class="text-center" style="width:9%;">Tepat Waktu</th>
+                    <th class="text-center" style="width:9%;">Terlambat</th>
+                    <th class="text-center" style="width:10%;">Durasi Kerja</th>
                 </tr>
             </thead>
             <tbody>
@@ -57,15 +57,16 @@ $css = $css ?? 'admin/pdf_attendance.css';
                     <?php foreach ($summary_data as $row): ?>
                         <tr>
                             <td class="text-center"><?= $no++ ?></td>
-                            <td style="font-weight: 600;"><?= htmlspecialchars($row['name']) ?></td>
+                            <td style="font-weight:600;"><?= htmlspecialchars($row['name'] ?? '-') ?></td>
                             <td><?= htmlspecialchars($row['nim'] ?? '-') ?></td>
-                            <td><?= htmlspecialchars($row['position'] ?? 'Asisten') ?></td>
-                            <td class="text-center font-mono"><?= $row['total_masuk'] ?></td>
-                            <td class="text-center font-mono"><?= $row['total_pulang'] ?></td>
-                            <td class="text-center"><?= $row['total_hadir'] ?> Hari</td>
-                            <td class="text-center"><?= $row['total_izin'] ?> Hari</td>
-                            <td class="text-center"><?= $row['total_alpa'] ?> Hari</td>
-                            <td class="text-center" style="font-weight: 600;"><?= $row['total_hadir'] ?> Hari</td>
+                            <td><?= htmlspecialchars($row['position'] ?? '-') ?></td>
+                            <td class="text-center"><?= $row['total_hadir'] ?></td>
+                            <td class="text-center"><?= $row['total_izin'] ?></td>
+                            <td class="text-center"><?= $row['total_alpa'] ?></td>
+                            <td class="text-center"><?= $row['total_tepat_waktu'] ?? 0 ?></td>
+                            <td class="text-center"><?= $row['total_terlambat']   ?? 0 ?></td>
+                            <?php $dm=(int)($row['total_durasi_menit']??0); ?>
+                            <td class="text-center"><?= $dm>0?floor($dm/60).'j '.($dm%60).'m':'-' ?></td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>

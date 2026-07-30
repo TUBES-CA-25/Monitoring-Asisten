@@ -1,3 +1,21 @@
+// [Fix CSRF] scan.php adalah halaman standalone (tidak muat global.js).
+// Patch window.fetch di sini agar semua POST dari scan.js otomatis
+// menyertakan header X-CSRF-TOKEN dari <meta name="csrf-token">.
+(function patchFetchCsrfScan() {
+    var _orig = window.fetch.bind(window);
+    window.fetch = function(resource, init) {
+        init = init || {};
+        if (((init.method || 'GET')).toUpperCase() !== 'GET') {
+            var token = (document.querySelector('meta[name="csrf-token"]') || {}).getAttribute('content') || '';
+            if (token) {
+                if (!init.headers) init.headers = {};
+                if (!init.headers['X-CSRF-TOKEN']) init.headers['X-CSRF-TOKEN'] = token;
+            }
+        }
+        return _orig(resource, init);
+    };
+})();
+
 let html5QrCode = null;
         let scanLocked = false; // [BARU - Modul 2 V3] guard pencegahan double scan
         let selfieStream = null;
@@ -18,8 +36,35 @@ let html5QrCode = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             readConfig();
-            initQRWidget();
             initGeolocation();
+
+            // [BARU] Deep-link dari Google Lens / QR scanner eksternal:
+            // URL mengandung ?t={token}&a={in|out}. Jika ada, skip tampilan
+            // kamera scan dan langsung validasi token ke server, lalu ke selfie.
+            if (config.prefilledToken) {
+                // Sembunyikan widget kamera QR, tampilkan indikator loading
+                const stepScan = document.getElementById('step-scan');
+                if (stepScan) {
+                    stepScan.innerHTML = [
+                        '<div class="flex flex-col items-center justify-center gap-4 py-12 text-center">',
+                        '  <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center animate-pulse">',
+                        '    <i class="fas fa-qrcode text-2xl text-blue-600"></i>',
+                        '  </div>',
+                        '  <p class="text-white font-bold text-sm">QR terdeteksi via scanner</p>',
+                        '  <p class="text-blue-200 text-xs">Memvalidasi token presensi...</p>',
+                        '</div>'
+                    ].join('');
+                }
+
+                // Tentukan tipe: 'in' → check_in, 'out' → check_out
+                var prefilledType = (config.prefilledAction === 'out') ? 'check_out' : 'check_in';
+
+                // Langsung validasi token
+                validateScannedToken(config.prefilledToken, prefilledType);
+            } else {
+                // Alur normal: tampilkan kamera untuk scan QR
+                initQRWidget();
+            }
         });
 
         // 1. GEOLOCATION DENGAN REVERSE GEOCODING (ALAMAT ASLI)
@@ -194,9 +239,7 @@ let html5QrCode = null;
         }
 
         function onScanSuccess(decodedText) {
-            // [BARU] Cegah double scan/debounce: setelah scan pertama sukses,
-            // abaikan callback decode berikutnya yang mungkin masih sempat
-            // tertembak sebelum stop() benar-benar selesai.
+            // [BARU - Modul 2 V3] guard pencegahan double scan
             if (scanLocked) return;
             scanLocked = true;
 
@@ -204,20 +247,32 @@ let html5QrCode = null;
             let type = 'check_in'; // Default
 
             try {
-                // Mengurai JSON dari QR Admin
-                const parsed = JSON.parse(decodedText);
-                if (parsed.token) cleanToken = parsed.token;
-
-                // Konversi tipe: CHECK_IN -> check_in, CHECK_OUT -> check_out
-                if (parsed.type === 'CHECK_IN') type = 'check_in';
-                if (parsed.type === 'CHECK_OUT') type = 'check_out';
-            } catch (e) {
-                console.warn("Format QR bukan JSON, menggunakan token mentah.");
+                // [BARU] Coba parse sebagai URL terlebih dahulu (format QR baru dengan scan_url)
+                // Contoh: https://domain.com/user/scan?t=TOKEN&a=in
+                var urlObj = new URL(decodedText);
+                var tParam = urlObj.searchParams.get('t');
+                var aParam = urlObj.searchParams.get('a');
+                if (tParam) {
+                    cleanToken = tParam;
+                    if (aParam === 'out') type = 'check_out';
+                    else type = 'check_in';
+                } else {
+                    // Bukan URL dengan ?t= — coba parse sebagai JSON (format lama)
+                    throw new Error('no_t_param');
+                }
+            } catch (urlErr) {
+                // Bukan URL valid — coba parse sebagai JSON (format lama)
+                try {
+                    const parsed = JSON.parse(decodedText);
+                    if (parsed.token) cleanToken = parsed.token;
+                    if (parsed.type === 'CHECK_IN')  type = 'check_in';
+                    if (parsed.type === 'CHECK_OUT') type = 'check_out';
+                } catch (jsonErr) {
+                    console.warn("Format QR bukan URL maupun JSON, menggunakan token mentah.");
+                }
             }
 
             stopScanner().then(() => {
-                // [BARU] Validasi token (termasuk cek expired) ke server SEBELUM
-                // lanjut ke tahap selfie - "Validasi QR expired".
                 validateScannedToken(cleanToken, type);
             });
         }
@@ -505,8 +560,17 @@ let html5QrCode = null;
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
 
+                // [BARU] Sebelumnya mengirim tanggal via new Date().toISOString()
+                // (zona waktu UTC browser) - antara pukul 00:00-08:00 WITA,
+                // ini menghasilkan tanggal HARI SEBELUMNYA (WITA = UTC+8),
+                // beda dengan tanggal presensi yang baru saja dicatat server
+                // (Asia/Makassar) - submit_logbook() lalu tidak menemukan
+                // baris presensi utk tanggal "salah" tsb & menolak dengan
+                // pesan "Anda belum melakukan scan masuk!". Tidak perlu
+                // dikirim sama sekali - server sudah default ke tanggal
+                // HARI INI di zona waktu yang benar (lihat UserController::
+                // submit_logbook(), $targetDate = $_POST['date'] ?? date('Y-m-d')).
                 const fd = new FormData();
-                fd.append('date',     new Date().toISOString().split('T')[0]);
                 fd.append('activity', activity);
                 fd.append('time',     new Date().toTimeString().slice(0,5));
                 fd.append('log_id',   '');
@@ -520,13 +584,21 @@ let html5QrCode = null;
                             'Aktivitas kamu hari ini sudah dicatat. Sampai jumpa!',
                             () => window.location.href = config.dashboardUrl);
                     } else {
-                        // Jika gagal simpan logbook, tetap redirect ke dashboard
-                        window.location.href = config.dashboardUrl;
+                        // [BARU] Sebelumnya kegagalan diam-diam di-redirect ke
+                        // dashboard tanpa pemberitahuan apa pun - pengguna
+                        // mengira logbook tersimpan padahal tidak. Tampilkan
+                        // pesan error sungguhan (dari server jika ada), baru
+                        // redirect setelah pengguna menutup modal.
+                        showModal('error', 'Gagal Menyimpan Logbook',
+                            data.message || 'Terjadi kesalahan saat menyimpan logbook. Silakan isi ulang lewat menu Logbook.',
+                            () => window.location.href = config.dashboardUrl);
                     }
                 })
                 .catch(function() {
                     modal.classList.add('hidden');
-                    window.location.href = config.dashboardUrl;
+                    showModal('error', 'Gagal Menyimpan Logbook',
+                        'Koneksi ke server terputus. Silakan isi ulang lewat menu Logbook.',
+                        () => window.location.href = config.dashboardUrl);
                 });
             };
         }

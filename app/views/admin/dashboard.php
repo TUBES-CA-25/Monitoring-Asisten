@@ -1,6 +1,3 @@
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
 <div class="max-w-7xl mx-auto space-y-8 animate-enter">
     <div class="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden circuit-pattern">
         <div class="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-left"></div>
@@ -116,7 +113,9 @@
                 if (!in_array($sJabatan, $jabatanList)) $jabatanList[] = $sJabatan;
 
                 $searchCards[] = [
-                    'json'        => htmlspecialchars(json_encode($a), ENT_QUOTES, 'UTF-8'),
+                    'json'        => htmlspecialchars(json_encode(array_merge($a, [
+                        'id_hash' => HashHelper::encode((int)($a['id_user'] ?? $a['id'] ?? 0)),
+                    ])), ENT_QUOTES, 'UTF-8'),
                     'name'        => $a['name'] ?? 'Asisten',
                     'jabatan'     => $sJabatan,
                     'imgFilter'   => $sImgFilter,
@@ -124,6 +123,7 @@
                     'statusLabel' => $sStatusLabel,
                     'photoPath'   => $sPhotoPath,
                     'isInactive'  => $sInactive,
+                    'timingBadge' => $a['timing_badge'] ?? null,
                 ];
             }
             sort($jabatanList);
@@ -180,6 +180,8 @@
                             ? BASE_URL . '/uploads/profile/' . $asisten['photo_profile']
                             : "https://ui-avatars.com/api/?name=" . urlencode($asisten['name'] ?? 'Asisten') . "&background=random&size=500";
 
+                        // [BARU] Sertakan id_hash agar JS tidak perlu mengekspos id integer di URL
+                        $asisten['id_hash'] = HashHelper::encode((int)($asisten['id'] ?? $asisten['id_user'] ?? 0));
                         $jsonUser   = htmlspecialchars(json_encode($asisten), ENT_QUOTES, 'UTF-8');
                         $cardExtra  = $isInactive ? 'border-2 border-gray-300 bg-gray-100/60' : '';
                     ?>
@@ -195,12 +197,27 @@
                         <div class="aspect-square bg-gray-100 mb-3 border border-gray-100 overflow-hidden rounded-lg relative">
                             <img src="<?= $photoPath ?>"
                                 class="w-full h-full object-cover transition-all duration-500 <?= $imgFilter ?>"
-                                alt="<?= $asisten['name'] ?>">
+                                alt="<?= htmlspecialchars($asisten['name'], ENT_QUOTES, 'UTF-8') ?>">
+                            <?php
+                                $timingBadge = $asisten['timing_badge'] ?? null;
+                                if ($timingBadge === 'pulang_cepat'): ?>
+                            <div class="attendance-stamp stamp-early">
+                                <span class="stamp-label">PULANG<br>CEPAT</span>
+                            </div>
+                            <?php elseif ($timingBadge === 'terlambat'): ?>
+                            <div class="attendance-stamp stamp-late">
+                                <span class="stamp-label">TERLAMBAT</span>
+                            </div>
+                            <?php elseif ($timingBadge === 'tepat_waktu'): ?>
+                            <div class="attendance-stamp stamp-ontime">
+                                <span class="stamp-label">TEPAT<br>WAKTU</span>
+                            </div>
+                            <?php endif; ?>
                         </div>
 
                         <div class="text-center">
-                            <h3 class="font-bold text-sm truncate px-1 leading-tight <?= $isInactive ? 'text-gray-400' : 'text-gray-800' ?>"><?= $asisten['name'] ?></h3>
-                            <p class="text-[10px] text-gray-400 font-bold uppercase mt-1"><?= $asisten['jabatan'] ?? 'Asisten' ?></p>
+                            <h3 class="font-bold text-sm truncate px-1 leading-tight <?= $isInactive ? 'text-gray-400' : 'text-gray-800' ?>"><?= htmlspecialchars($asisten['name'], ENT_QUOTES, 'UTF-8') ?></h3>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase mt-1"><?= htmlspecialchars($asisten['jabatan'] ?? 'Asisten', ENT_QUOTES, 'UTF-8') ?></p>
                         </div>
 
                         <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-xl">
@@ -234,7 +251,7 @@
                 </div>
             </div>
         </div>
-        <div class="h-80 w-full"><canvas id="adminChart"></canvas></div>
+        <div class="chart-box chart-box-lg"><canvas id="adminChart"></canvas></div>
     </div>
 
     <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
@@ -263,7 +280,7 @@
         </div>
         <p class="text-xs text-gray-400 mb-3">Bandingkan performa antar asisten (seluruh lab) berdasarkan metrik yang dipilih.</p>
         <p id="perfChartNote" class="hidden text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3"></p>
-        <div id="perfChartOuter" class="w-full h-80 overflow-y-auto custom-scrollbar relative">
+        <div id="perfChartOuter" class="w-full h-80 overflow-y-auto overflow-x-hidden custom-scrollbar relative">
             <div id="perfChartInner" class="w-full h-full relative">
                 <canvas id="assistantPerfChart"></canvas>
             </div>
@@ -574,6 +591,11 @@
                             <?php endif; ?>
                             <div class="aspect-square bg-gray-100 mb-3 border border-gray-100 overflow-hidden rounded-lg relative">
                                 <img src="<?= $card['photoPath'] ?>" class="w-full h-full object-cover transition-all duration-500 <?= $card['imgFilter'] ?>" alt="<?= htmlspecialchars($card['name'], ENT_QUOTES) ?>">
+                                <?php if (($card['timingBadge'] ?? null) === 'terlambat'): ?>
+                                <div class="attendance-stamp stamp-late"><span class="stamp-label">TERLAMBAT</span></div>
+                                <?php elseif (($card['timingBadge'] ?? null) === 'tepat_waktu'): ?>
+                                <div class="attendance-stamp stamp-ontime"><span class="stamp-label">TEPAT<br>WAKTU</span></div>
+                                <?php endif; ?>
                             </div>
                             <div class="text-center">
                                 <h3 class="font-bold text-sm truncate px-1 leading-tight <?= $cInactive ? 'text-gray-400' : 'text-gray-800' ?>"><?= htmlspecialchars($card['name']) ?></h3>

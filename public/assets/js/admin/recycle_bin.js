@@ -53,13 +53,13 @@
         btn.disabled  = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
 
-        const { action, id_bin } = _pendingAction;
+        const { action, id_bin } = _pendingAction; // id_bin is now a hash string
         const endpoint = action === 'restore'
             ? base + '/admin/recycleBinRestore'
             : base + '/admin/recycleBinDelete';
 
         const fd = new FormData();
-        fd.append('id_bin', id_bin);
+        fd.append('id_bin', id_bin); // send hash string directly
 
         fetch(endpoint, { method: 'POST', body: fd })
             .then(r => r.json())
@@ -84,7 +84,7 @@
                     } else {
                         closeBinModal();
                         // Hapus baris dari tabel tanpa reload
-                        const row = document.getElementById('bin-row-' + id_bin);
+                        const row = document.getElementById('bin-row-' + id_bin); // id_bin is hash
                         if (row) {
                             row.style.transition = 'opacity .3s';
                             row.style.opacity    = '0';
@@ -114,25 +114,60 @@
                 }
             });
     };
-    document.addEventListener('DOMContentLoaded', () => {
-        initClock();
-    });
 
-    function initClock() {
-        updateClock();
-        setInterval(updateClock, 1000);
-    }
+    /* ── Pencarian nama (instan) + filter jabatan & angkatan ──────
+       Client-side murni (bukan AJAX) karena jumlah entri recycle bin
+       biasanya kecil - cukup hide/show baris <tr> berdasarkan
+       data-name/data-jabatan/data-angkatan yang sudah dirender PHP. */
+    (function initRecycleBinFilters() {
+        var searchInput   = document.getElementById('binSearchInput');
+        var jabatanFilter = document.getElementById('binJabatanFilter');
+        var angkatanFilter= document.getElementById('binAngkatanFilter');
+        var tbody         = document.getElementById('binTableBody');
+        var noResultEl    = document.getElementById('binNoFilterResult');
+        var countEl       = document.getElementById('binVisibleCount');
 
-    function updateClock() {
-        const now = new Date();
+        if (!tbody) return; // recycle bin kosong - tidak ada tabel untuk difilter
 
-        const dateOptions = { day: '2-digit', month: 'long', year: 'numeric' };
-        const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+        function applyFilters() {
+            var query   = (searchInput && searchInput.value || '').trim().toLowerCase();
+            var jabatan = jabatanFilter ? jabatanFilter.value : '';
+            var angkatan= angkatanFilter ? angkatanFilter.value : '';
+            var rows    = tbody.querySelectorAll('tr[data-name]');
+            var visible = 0;
 
-        const elDate = document.getElementById('liveDate');
-        const elTime = document.getElementById('liveTime');
+            rows.forEach(function (row) {
+                var matchesName     = !query || row.dataset.name.indexOf(query) !== -1;
+                var matchesJabatan  = !jabatan || row.dataset.jabatan === jabatan;
+                var matchesAngkatan = !angkatan || row.dataset.angkatan === angkatan;
+                var show = matchesName && matchesJabatan && matchesAngkatan;
+                row.classList.toggle('hidden', !show);
+                if (show) visible++;
+            });
 
-        if (elDate) elDate.innerText = now.toLocaleDateString('id-ID', dateOptions);
-        if (elTime) elTime.innerText = now.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':');
-    }
+            if (noResultEl) noResultEl.classList.toggle('hidden', visible !== 0);
+            if (countEl) countEl.innerText = visible;
+        }
+
+        if (searchInput)    searchInput.addEventListener('input', applyFilters);
+        if (jabatanFilter)  jabatanFilter.addEventListener('change', applyFilters);
+        if (angkatanFilter) angkatanFilter.addEventListener('change', applyFilters);
+    })();
+
+    /* ── Jam live di header ───────────────────────────────────
+       Update #liveDate dan #liveTime setiap detik, sama seperti
+       halaman Logbook / Dashboard sehingga tampilan konsisten. */
+    (function initRecycleBinClock() {
+        function tick() {
+            var now   = new Date();
+            var dOpts = { day: '2-digit', month: 'long', year: 'numeric' };
+            var tOpts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            var elDate = document.getElementById('liveDate');
+            var elTime = document.getElementById('liveTime');
+            if (elDate) elDate.innerText = now.toLocaleDateString('id-ID', dOpts);
+            if (elTime) elTime.innerText = now.toLocaleTimeString('id-ID', tOpts).replace(/\./g, ':');
+        }
+        setInterval(tick, 1000);
+        tick();
+    })();
 })();

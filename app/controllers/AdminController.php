@@ -1,5 +1,6 @@
 <?php
 require_once '../app/core/GoogleClient.php';
+require_once __DIR__ . '/../services/AttendanceAutoService.php';
 
 class AdminController extends Controller {
 
@@ -25,6 +26,7 @@ class AdminController extends Controller {
         ];
 
         $assistants = $userModel->getAssistantsWithProfile();
+        $autoService = new AttendanceAutoService();
 
         foreach ($assistants as &$ast) {
             $pid = $ast['id_profil'];
@@ -36,10 +38,25 @@ class AdminController extends Controller {
                 $ast['visual_status'] = ($presensi['waktu_pulang'] != null)
                     ? 'offline_pulang'
                     : 'online';
+                // [BARU] Begitu asisten sudah pulang LEBIH CEPAT dari jam
+                // pulang minimal, cap di kartu diganti jadi "PULANG CEPAT"
+                // (kuning) - status yang lebih relevan/terkini daripada cap
+                // datang (terlambat/tepat waktu) karena asisten sudah tidak
+                // di lab lagi.
+                if (!empty($presensi['waktu_pulang']) && $autoService->isEarlyCheckout($presensi['waktu_pulang'])) {
+                    $ast['timing_badge'] = 'pulang_cepat';
+                } else {
+                    // Cap TEPAT WAKTU / TERLAMBAT berdasarkan status presensi hari ini
+                    $ast['timing_badge'] = (($presensi['status'] ?? '') === 'Terlambat')
+                        ? 'terlambat'
+                        : 'tepat_waktu';
+                }
             } elseif ($izin) {
                 $ast['visual_status'] = 'izin';
+                $ast['timing_badge']  = null;
             } else {
                 $ast['visual_status'] = 'alpha';
+                $ast['timing_badge']  = null;
             }
 
             $ast['total_hadir'] = $attModel->getTotalHadir($pid);
@@ -81,6 +98,7 @@ class AdminController extends Controller {
 
         $data['vendor_js'] = [
             'https://cdn.jsdelivr.net/npm/chart.js',
+            'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2',
             'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
         ];
 
@@ -136,25 +154,28 @@ class AdminController extends Controller {
         $userModel = $this->model('UserModel');
         $labModel  = $this->model('LabModel');
 
-        $keyword = isset($_GET['search']) ? $_GET['search'] : null;
+        $keyword        = $_GET['search']  ?? null;
+        $roleFilter     = $_GET['role']    ?? null;
+        $jabatanFilter  = $_GET['jabatan'] ?? null;
+        $angkatanFilter = $_GET['angkatan']?? null;
 
-        $itemsPerPage = 10; 
-        $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        if ($currentPage < 1) $currentPage = 1;
+        $itemsPerPage = 10;
+        $currentPage  = max(1, (int)($_GET['page'] ?? 1));
 
-        $totalData  = $userModel->countUsersWithProfileAndLab($keyword);
+        $totalData  = $userModel->countUsersWithProfileAndLab($keyword, $roleFilter, $jabatanFilter, $angkatanFilter);
         $totalPages = ceil($totalData / $itemsPerPage);
-        
         if ($currentPage > $totalPages && $totalPages > 0) $currentPage = $totalPages;
-
         $offset = ($currentPage - 1) * $itemsPerPage;
 
         $data['users_list'] = $userModel->getUsersWithProfileAndLab(
-            $keyword,
-            $itemsPerPage,
-            $offset
-        ); 
-        $data['search_keyword'] = $keyword;
+            $keyword, $itemsPerPage, $offset, $roleFilter, $jabatanFilter, $angkatanFilter
+        );
+        $data['search_keyword']  = $keyword;
+        $data['filter_role']     = $roleFilter;
+        $data['filter_jabatan']  = $jabatanFilter;
+        $data['filter_angkatan'] = $angkatanFilter;
+        $data['jabatan_list']    = $this->model('AttendanceModel')->getJabatanList();
+        $data['angkatan_list']   = $this->model('AttendanceModel')->getAngkatanList();
 
         $data['pagination'] = [
             'current'      => $currentPage,
@@ -267,6 +288,10 @@ class AdminController extends Controller {
                 $fileExtension = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
                 
                 if (in_array($fileExtension, $allowedExtensions)) {
+                    // [Item 4] Validasi MIME type
+                    if (!$this->validateImageMime($_FILES['photo']['tmp_name'] ?? '')) {
+                        echo json_encode(['status'=>'error','message'=>'File gambar tidak valid.']); exit;
+                    }
                     if ($_FILES["photo"]["size"] <= 2048000) {
                         $newFileName = time() . '_' . uniqid() . '.' . $fileExtension;
                         $targetFilePath = $targetDir . $newFileName;
@@ -340,7 +365,11 @@ class AdminController extends Controller {
                 exit;
             }
 
-            $oldUser = $this->model('UserModel')->getUserById($_POST['id_user']);
+            // [SECURITY] Decode hashed user ID dari form hidden field
+            $rawId  = $_POST['id_user'] ?? '';
+            $userId = is_numeric($rawId) ? (int)$rawId : (HashHelper::decodeOrNull($rawId) ?? 0);
+            if (!$userId) { echo json_encode(['status'=>'error','message'=>'ID pengguna tidak valid.']); exit; }
+            $oldUser = $this->model('UserModel')->getUserById($userId);
             $photoName = $oldUser['photo_profile'];
             $targetDir = UPLOAD_PATH . 'profile/';
             // [DIUBAH - Fitur Crop Foto] hanya terima JPG/JPEG/PNG, selaras
@@ -416,7 +445,7 @@ class AdminController extends Controller {
             $isCompleted = (!empty($_POST['name']) && !empty($phone) && !empty($address)) ? 1 : 0;
 
             $data = [
-                'id'       => $_POST['id_user'],
+                'id'       => $userId,
                 'name'     => $_POST['name'],
                 'email'    => $_POST['email'],
                 'role'     => $role,
@@ -627,17 +656,32 @@ class AdminController extends Controller {
         require_once '../app/models/RecycleBinModel.php';
         $binModel = new RecycleBinModel();
 
+        // [BARU] Decode hashed pid dari URL filter
+        $hashedPid  = $_GET['pid'] ?? '';
+        $decodedPid = ($hashedPid !== '')
+            ? (is_numeric($hashedPid) ? (int)$hashedPid : HashHelper::decodeOrNull($hashedPid))
+            : null;
+
         $filter = [
-            'scope'     => $_GET['scope']     ?? '',
-            'id_profil' => !empty($_GET['pid']) ? (int)$_GET['pid'] : null,
+            'scope'     => $_GET['scope'] ?? '',
+            'id_profil' => $decodedPid,
         ];
 
         $data['bin_entries']    = $binModel->getAll($filter);
         $data['assistant_list'] = $binModel->getAssistantList();
         $data['filter']         = $filter;
-        $data['judul']          = 'Recycle Bin Presensi';
+        $data['judul']          = 'Restore Data';   // [DIUBAH] dari 'Recycle Bin Presensi'
         $data['user']           = $this->model('UserModel')->getUserById($_SESSION['user_id']);
 
+        // [BARU] Opsi dropdown Jabatan & Angkatan diambil langsung dari
+        // data asisten di database (sama seperti filter di Kelola Pengguna),
+        // BUKAN diturunkan dari entri recycle bin yang sedang tampil -
+        // supaya dropdown selalu lengkap walau bin sedang kosong/terfilter.
+        $attModel = $this->model('AttendanceModel');
+        $data['jabatan_list']  = $attModel->getJabatanList();
+        $data['angkatan_list'] = $attModel->getAngkatanList();
+
+        $data['page_css'] = [ASSET_URL . '/css/admin/recycle_bin.css'];
         $data['js_config'] = ['baseUrl' => rtrim(BASE_URL, '/')];
         $data['page_js']   = [ASSET_URL . '/js/admin/recycle_bin.js'];
 
@@ -699,7 +743,9 @@ class AdminController extends Controller {
         ob_clean();
         header('Content-Type: application/json');
 
-        $idBin = (int)($_POST['id_bin'] ?? 0);
+        // [BARU] Terima hash ID, decode ke integer
+        $hashed = $_POST['id_bin'] ?? '';
+        $idBin  = is_numeric($hashed) ? (int)$hashed : (HashHelper::decodeOrNull($hashed) ?? 0);
         if (!$idBin) { echo json_encode(['status'=>'error','message'=>'ID tidak valid.']); exit; }
 
         require_once '../app/models/RecycleBinModel.php';
@@ -724,7 +770,9 @@ class AdminController extends Controller {
         ob_clean();
         header('Content-Type: application/json');
 
-        $idBin = (int)($_POST['id_bin'] ?? 0);
+        // [BARU] Terima hash ID, decode ke integer
+        $hashed = $_POST['id_bin'] ?? '';
+        $idBin  = is_numeric($hashed) ? (int)$hashed : (HashHelper::decodeOrNull($hashed) ?? 0);
         if (!$idBin) { echo json_encode(['status'=>'error','message'=>'ID tidak valid.']); exit; }
 
         require_once '../app/models/RecycleBinModel.php';
@@ -736,7 +784,9 @@ class AdminController extends Controller {
     /** Download CSV data dari satu bin entry */
     public function recycleBinDownload() {
         $this->checkAccess(['Admin']);
-        $idBin = (int)($_GET['id'] ?? 0);
+        // [BARU] Terima hash ID, decode ke integer
+        $hashed = $_GET['id'] ?? '';
+        $idBin  = is_numeric($hashed) ? (int)$hashed : (HashHelper::decodeOrNull($hashed) ?? 0);
         if (!$idBin) { http_response_code(404); echo 'ID tidak valid.'; exit; }
 
         require_once '../app/models/RecycleBinModel.php';
@@ -788,18 +838,28 @@ class AdminController extends Controller {
         readfile($zipPath);
         @unlink($zipPath);
         exit;
-    }
+    } 
     public function qrPage() {
         $this->checkAccess(['Admin']);
 
         $qrModel = $this->model('QrModel');
+
+        // [BARU] QR berisi URL yang bisa langsung dibuka browser/Google Lens.
+        // Format: BASE_URL/user/scan?t={token}&a={action}
+        // Jika user sudah login sebagai asisten → langsung ke halaman scan.
+        // Jika belum login → diarahkan ke halaman login, lalu redirect ke scan.
+        $tokenIn  = $qrModel->getOrGenerateToken('check_in');
+        $tokenOut = $qrModel->getOrGenerateToken('check_out');
+
         $data['qr_in']  = json_encode([
-            'type'  => 'CHECK_IN',
-            'token' => $qrModel->getOrGenerateToken('check_in')
+            'type'     => 'CHECK_IN',
+            'token'    => $tokenIn,
+            'scan_url' => rtrim(BASE_URL, '/') . '/user/scan?t=' . urlencode($tokenIn) . '&a=in',
         ]);
         $data['qr_out'] = json_encode([
-            'type'  => 'CHECK_OUT',
-            'token' => $qrModel->getOrGenerateToken('check_out')
+            'type'     => 'CHECK_OUT',
+            'token'    => $tokenOut,
+            'scan_url' => rtrim(BASE_URL, '/') . '/user/scan?t=' . urlencode($tokenOut) . '&a=out',
         ]);
 
         $data['judul'] = 'QR Presensi';
@@ -809,9 +869,13 @@ class AdminController extends Controller {
             'baseUrl'  => rtrim(BASE_URL, '/'),
             'qrIn'     => $data['qr_in'],
             'qrOut'    => $data['qr_out'],
-            'interval' => 175, // detik sebelum QR di-refresh di halaman (< 3 menit)
+            'interval' => 175,
         ];
 
+        // [DIUBAH] Latar galaksi Milky Way dilepas lagi dari halaman ini
+        // setelah review - khusus QR Presensi admin kembali ke latar putih
+        // standar (konsisten dengan halaman menu lain), diisi ornamen
+        // panduan & peringatan alih-alih animasi latar.
         $data['page_js'] = [
             'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
             ASSET_URL . '/js/admin/qr_page.js',
@@ -831,16 +895,22 @@ class AdminController extends Controller {
         $attModel = $this->model('AttendanceModel');
 
         $data['assistants_list'] = $attModel->getAllAssistantsList();
+        $data['angkatan_list']   = $attModel->getAngkatanList();
+        $data['jabatan_list']    = $attModel->getJabatanList();
 
-        $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
-        $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
-        $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
+        $startDate   = !empty($_GET['start_date'])   ? $_GET['start_date']        : date('Y-m-d');
+        $endDate     = !empty($_GET['end_date'])     ? $_GET['end_date']          : date('Y-m-d');
+        $assistantId = !empty($_GET['assistant_id']) ? (int)$_GET['assistant_id'] : null;
+        $jabatan     = !empty($_GET['jabatan'])      ? trim($_GET['jabatan'])      : null;
+        $angkatan    = !empty($_GET['angkatan'])     ? trim($_GET['angkatan'])     : null;
 
-        $data['start_date'] = $startDate;
-        $data['end_date'] = $endDate;
+        $data['start_date']         = $startDate;
+        $data['end_date']           = $endDate;
         $data['selected_assistant'] = $assistantId;
+        $data['selected_jabatan']   = $jabatan;
+        $data['selected_angkatan']  = $angkatan;
 
-        $fullData = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+        $fullData = $attModel->getAttendanceSummary($startDate, $endDate, $assistantId, $jabatan, $angkatan);
 
         $itemsPerPage = 10;
         $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -878,8 +948,10 @@ class AdminController extends Controller {
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-t');
         $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
+        $jabatan = !empty($_GET['jabatan']) ? trim($_GET['jabatan']) : null;
+        $angkatan = !empty($_GET['angkatan']) ? trim($_GET['angkatan']) : null;
 
-        $data = $this->model('AttendanceModel')->getAttendanceSummary($startDate, $endDate, $assistantId);
+        $data = $this->model('AttendanceModel')->getAttendanceSummary($startDate, $endDate, $assistantId, $jabatan, $angkatan);
 
         $filename = "Rekap_Presensi_" . date('d-m-Y', strtotime($startDate)) . "_sd_" . date('d-m-Y', strtotime($endDate)) . ".csv";
         
@@ -890,21 +962,23 @@ class AdminController extends Controller {
         // Kirim UTF-8 BOM agar Excel dapat mendeteksi encoding dan memisahkan kolom dengan benar
         fwrite($output, "\xEF\xBB\xBF");
         
-        fputcsv($output, ['No', 'Nama Asisten', 'NIM', 'Jabatan', 'Masuk', 'Pulang', 'Hadir', 'Izin', 'Alpa', 'Total Kehadiran'], ';', '"', '');
+        fputcsv($output, ['No', 'Nama Asisten', 'NIM', 'Jabatan', 'Hadir', 'Izin/Sakit', 'Tidak Hadir', 'Tepat Waktu', 'Terlambat', 'Durasi Kerja'], ';', '"', '');
 
         $no = 1;
         foreach ($data as $row) {
+            $durasiBrut = (int)($row['total_durasi_menit'] ?? 0);
+            $durasiStr  = ($durasiBrut > 0) ? floor($durasiBrut/60).'j '.($durasiBrut%60).'m' : '-';
             fputcsv($output, [
                 $no++,
-                $row['name'],
-                $row['nim'] ?? '-',
-                $row['position'] ?? 'Asisten',
-                $row['total_masuk'],
-                $row['total_pulang'],
-                $row['total_hadir'] . " Hari",
-                $row['total_izin'] . " Hari",
-                $row['total_alpa'] . " Hari",
-                $row['total_hadir'] . " Hari"
+                $row['name']     ?? '-',
+                $row['nim']      ?? '-',
+                $row['position'] ?? '-',
+                $row['total_hadir'],
+                $row['total_izin'],
+                $row['total_alpa'],
+                $row['total_tepat_waktu'] ?? 0,
+                $row['total_terlambat']   ?? 0,
+                $durasiStr,
             ], ';', '"', '');
         }
         fclose($output);
@@ -917,11 +991,13 @@ class AdminController extends Controller {
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-t');
         $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
-        
+        $jabatan = !empty($_GET['jabatan']) ? trim($_GET['jabatan']) : null;
+        $angkatan = !empty($_GET['angkatan']) ? trim($_GET['angkatan']) : null;
+
         $attModel = $this->model('AttendanceModel');
-        
+
         // Menggunakan metode baru untuk mendapatkan data rekapitulasi
-        $data['summary_data'] = $attModel->getAttendanceSummary($startDate, $endDate, $assistantId);
+        $data['summary_data'] = $attModel->getAttendanceSummary($startDate, $endDate, $assistantId, $jabatan, $angkatan);
         
         $data['start_date'] = $startDate;
         $data['end_date'] = $endDate;
@@ -1191,6 +1267,7 @@ class AdminController extends Controller {
 
         $data['css'] = 'admin/schedule.css';
         $data['js'] = 'admin/schedule.js';
+        $data['vendor_js'] = ['https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'];  // FullCalendar — loaded before schedule.js
 
         $data['js_config'] = [
             'baseUrl'     => BASE_URL,
@@ -1271,7 +1348,13 @@ class AdminController extends Controller {
     public function addSchedule() {
         $this->checkAccess(['Admin']);
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $type = $_POST['type']; 
+            $type = $_POST['type'] ?? '';
+            // [SECURITY] Whitelist sebelum diteruskan ke ScheduleModel
+            if (!in_array($type, ['umum','piket','kuliah','asisten'], true)) {
+                ob_clean(); header('Content-Type: application/json');
+                echo json_encode(['status'=>'error','message'=>'Tipe jadwal tidak valid.']);
+                exit;
+            }
             $userId = ($type == 'umum') ? NULL : ($_POST['user_id'] ?? null);
             $data = [
                 'type' => $type, 'user_id' => $userId,
@@ -1292,7 +1375,12 @@ class AdminController extends Controller {
     public function editSchedule() {
         $this->checkAccess(['Admin']);
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $type = $_POST['type'];
+            $type = $_POST['type'] ?? '';
+            // [SECURITY] Whitelist sebelum diteruskan ke ScheduleModel
+            if (!in_array($type, ['umum','piket','kuliah','asisten'], true)) {
+                $_SESSION['flash'] = ['type'=>'error','title'=>'Error','message'=>'Tipe jadwal tidak valid.'];
+                header("Location: " . BASE_URL . "/admin/schedule"); exit;
+            }
 
             // [BARU] Jadwal Kuliah adalah wewenang penuh Asisten - Admin
             // hanya boleh melihat, tidak boleh mengedit (jaga-jaga di luar
@@ -1322,15 +1410,23 @@ class AdminController extends Controller {
     public function deleteSchedule() {
         $this->checkAccess(['Admin']);
         if (isset($_GET['id']) && isset($_GET['type'])) {
+            // [SECURITY] Whitelist tipe dan cast ID ke int
+            $delType = $_GET['type'] ?? '';
+            $delId   = (int)($_GET['id'] ?? 0);
+            if (!in_array($delType, ['umum','piket','kuliah','asisten'], true) || !$delId) {
+                $_SESSION['flash'] = ['type'=>'error','title'=>'Error','message'=>'Parameter tidak valid.'];
+                header("Location: " . BASE_URL . "/admin/schedule"); exit;
+            }
+
             // [BARU] Jadwal Kuliah adalah wewenang penuh Asisten - Admin
             // tidak boleh menghapus (jaga-jaga di luar tombol UI yang sudah
             // disembunyikan).
-            if ($_GET['type'] == 'kuliah') {
+            if ($delType == 'kuliah') {
                 $_SESSION['flash'] = ['type' => 'error', 'title' => 'Ditolak', 'message' => 'Jadwal Kuliah hanya dapat dihapus oleh Asisten bersangkutan.'];
                 header("Location: " . BASE_URL . "/admin/schedule"); exit;
             }
 
-            if ($this->model('ScheduleModel')->deleteSchedule($_GET['id'], $_GET['type'], $_SESSION['user_id'])) {
+            if ($this->model('ScheduleModel')->deleteSchedule($delId, $delType, $_SESSION['user_id'])) {
                 $_SESSION['flash'] = ['type' => 'success', 'title' => 'Terhapus', 'message' => 'Jadwal berhasil dihapus.'];
             } else {
                 $_SESSION['flash'] = ['type' => 'error', 'title' => 'Gagal', 'message' => 'Gagal menghapus.'];
@@ -1427,9 +1523,37 @@ class AdminController extends Controller {
 
     public function getLogsByUser() {
         $this->checkAccess(['Admin']);
-        $userId = $_POST['user_id'] ?? 0;
-        $logs = $this->model('LogbookModel')->getUnifiedLogbook($userId);
-        echo json_encode($logs);
+        $userId  = (int)($_POST['user_id'] ?? 0);
+        $page    = max(1, (int)($_POST['page']     ?? 1));
+        // [BARU - PERBAIKAN BUG] Sebelumnya "(int)$_POST['per_page']" di
+        // cabang true ternary MERUJUK ULANG ke $_POST['per_page'] tanpa
+        // fallback "?? 30" (fallback itu cuma dipakai di pengecekan
+        // in_array-nya). Begitu request TIDAK menyertakan "per_page" (mis.
+        // panggilan awal sebelum pengguna mengubah dropdown jumlah baris),
+        // $_POST['per_page'] tidak terdefinisi -> (int)null = 0 ->
+        // array_slice(..., 0) mengembalikan KOSONG walau datanya ada.
+        $perPage = (int) ($_POST['per_page'] ?? 30);
+        if (!in_array($perPage, [10, 20, 30, 50, 100], true)) $perPage = 30;
+
+        $result = $this->model('LogbookModel')->getUnifiedLogbook($userId, $page, $perPage);
+
+        // [SECURITY] Encode id_ref dan log_id sebelum dikirim ke JS
+        foreach ($result['data'] as &$log) {
+            if (!empty($log['id_ref'])) $log['id_ref'] = HashHelper::encode((int)$log['id_ref']);
+            if (!empty($log['log_id'])) $log['log_id'] = HashHelper::encode((int)$log['log_id']);
+        }
+        unset($log);
+
+        echo json_encode([
+            'logs'        => $result['data'],
+            'total'       => $result['total'],
+            'hadir'       => $result['hadir'],
+            'izin'        => $result['izin'],
+            'alpha'       => $result['alpha'],
+            'page'        => $result['page'],
+            'per_page'    => $result['per_page'],
+            'total_pages' => $result['total_pages'],
+        ]);
     }
     
     public function reset_logbook() {
@@ -1439,9 +1563,17 @@ class AdminController extends Controller {
             ob_clean();
             header('Content-Type: application/json');
 
-            $idRef = $_POST['id_ref']; 
-            $type = $_POST['type'];    
-            $mode = $_POST['mode'];    
+            // [SECURITY] Validasi dan sanitasi input — id_ref bisa berupa hash
+            $rawRef = $_POST['id_ref'] ?? '';
+            $idRef  = is_numeric($rawRef)
+                ? (int)$rawRef
+                : (HashHelper::decodeOrNull($rawRef) ?? 0);
+            $type   = $_POST['type'] ?? '';
+            $mode   = $_POST['mode'] ?? '';
+            if (!$idRef || !in_array($type, ['Hadir','Izin','Sakit'], true)
+                        || !in_array($mode, ['partial','full'], true)) {
+                echo json_encode(['status'=>'error','message'=>'Parameter tidak valid.']); exit;
+            }
 
             if ($this->model('LogbookModel')->resetLogAdmin($idRef, $type, $mode)) {
                 echo json_encode(['status' => 'success', 'message' => 'Data berhasil direset/dihapus.']);
@@ -1459,7 +1591,8 @@ class AdminController extends Controller {
             ob_clean();
             header('Content-Type: application/json');
             
-            $id = $_POST['id'];
+            $id = (int)($_POST['id'] ?? 0); // [SECURITY] cast ke int
+            if (!$id) { echo json_encode(['status'=>'error','message'=>'ID tidak valid.']); exit; }
             if ($this->model('LogbookModel')->deleteLogAdmin($id)) {
                 echo json_encode(['status'=>'success']); 
             } else {
@@ -1508,6 +1641,11 @@ class AdminController extends Controller {
 
         $data['judul'] = 'Profil Admin';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+        // [BARU] common/profile.php butuh $isUser untuk membedakan baris NIM
+        // (Asisten) vs NIDN/NIP (Admin/Kepala Lab) - sebelumnya tidak pernah
+        // di-set di sini (hanya di editProfile()), jadi NIDN/NIP selalu
+        // tampil untuk semua role dan NIM tidak pernah tampil sama sekali.
+        $data['isUser'] = ($data['user']['role'] === 'User');
 
         $userModel = $this->model('UserModel');
         $attModel  = $this->model('AttendanceModel');
@@ -1541,6 +1679,7 @@ class AdminController extends Controller {
 
         $data['page_js'] = [
             'https://cdn.jsdelivr.net/npm/chart.js',
+            'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2',
             ASSET_URL . '/js/common/profile.js'
         ];
 
@@ -1718,39 +1857,47 @@ class AdminController extends Controller {
         $this->checkAccess(['Admin']);    
 
         $type  = $_POST['type'] ?? 'check_in';
-        $force = !empty($_POST['force']); // true saat "generate ulang" manual
+        $force = !empty($_POST['force']);
 
         $qrModel = $this->model('QrModel');
 
-        // Jika force=true, lewati token yang sudah ada dan buat baru
         if ($force) {
             $token = $qrModel->generateFreshToken($type);
         } else {
             $token = $qrModel->getOrGenerateToken($type);
         }
-        
+
+        $action   = ($type === 'check_in') ? 'in' : 'out';
+        $typeStr  = ($type === 'check_in') ? 'CHECK_IN' : 'CHECK_OUT';
+
+        // [BARU] QR berisi URL deep-link sehingga Google Lens / scanner eksternal
+        // bisa langsung membuka halaman presensi.
         $qrString = json_encode([
-            'type'  => ($type == 'check_in') ? 'CHECK_IN' : 'CHECK_OUT', 
-            'token' => $token
+            'type'     => $typeStr,
+            'token'    => $token,
+            'scan_url' => rtrim(BASE_URL, '/') . '/user/scan?t=' . urlencode($token) . '&a=' . $action,
         ]);
-        
+
         echo json_encode(['status' => 'success', 'qr_data' => $qrString]);
     }
 
     public function assistantSchedule($id) {
         $this->checkAccess(['Admin']);
 
-        $assistant = $this->model('UserModel')->getUserById($id);
+        // [BARU] $id bisa berupa hash string dari URL — decode ke integer
+        $realId = is_numeric($id) ? (int)$id : (HashHelper::decodeOrNull((string)$id) ?? 0);
+
+        $assistant = $this->model('UserModel')->getUserById($realId);
         if (!$assistant || $assistant['role'] != 'User') {
             header("Location: " . BASE_URL . "/admin/dashboard");
             exit;
         }
 
-        $data['judul'] = 'Jadwal Asisten';
-        $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']); 
-        $data['assistant'] = $assistant; 
+        $data['judul']     = 'Jadwal Asisten';
+        $data['user']      = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+        $data['assistant'] = $assistant;
         
-        $rawSchedules = $this->model('ScheduleModel')->getAllUserSchedules($id);
+        $rawSchedules  = $this->model('ScheduleModel')->getAllUserSchedules($realId);
         $finalSchedules = [];
         $now = time(); 
 

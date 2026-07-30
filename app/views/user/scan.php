@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scan Presensi</title>
+    <link rel="icon" type="image/png" href="<?= ASSET_URL ?>/img/Logo_ICLABS.png">
+    <link rel="shortcut icon" type="image/png" href="<?= ASSET_URL ?>/img/Logo_ICLABS.png">
+    <link rel="apple-touch-icon" href="<?= ASSET_URL ?>/img/Logo_ICLABS.png">
+    <?php
+        // CSRF token untuk fetch calls di scan.js (halaman ini standalone, tidak muat global.js)
+        if (session_status() === PHP_SESSION_NONE) session_start();
+        if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    ?>
+    <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -11,6 +20,12 @@
 
 </head>
 <body class="bg-black h-screen w-full flex flex-col font-sans overflow-hidden text-white">
+
+    <!-- [BARU] Latar animasi galaksi Milky Way - full-screen, di belakang
+         semua elemen lain (z-index terendah). Lihat galaxy_background.js -
+         hanya menggambar & tidak menangkap event apapun (pointer-events
+         tetap default none karena posisinya di lapisan paling bawah). -->
+    <canvas id="galaxyBgCanvas" class="fixed inset-0 w-full h-full z-0"></canvas>
 
     <div class="absolute top-0 left-0 w-full z-40 p-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
         <a href="<?= BASE_URL ?>/user/dashboard" class="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-white/20 transition border border-white/10">
@@ -23,7 +38,7 @@
         </div>
     </div>
 
-    <div class="flex-1 relative w-full h-full bg-gray-900 flex flex-col justify-center overflow-hidden">
+    <div class="flex-1 relative z-10 w-full h-full flex flex-col justify-center overflow-hidden">
         
         <div id="step-scan" class="w-full h-full flex flex-col justify-center items-center p-6 relative z-10 transition-opacity duration-300">
             <div class="relative w-full max-w-sm aspect-square bg-gray-800 rounded-3xl overflow-hidden border-2 border-white/20 shadow-2xl">
@@ -115,11 +130,13 @@
     <input type="hidden" id="geo-address" value="">
 
     <script type="application/json" id="scan-config"><?= json_encode([
-        'userName'       => $_SESSION['name'] ?? 'User',
-        'submitUrl'      => BASE_URL . '/user/submit_attendance',
-        'checkTypeUrl'   => BASE_URL . '/user/check_qr_type',
-        'dashboardUrl'   => BASE_URL . '/user/dashboard',
-        'logbookUrl'     => BASE_URL . '/user/submit_logbook',
+        'userName'        => $_SESSION['name'] ?? 'User',
+        'submitUrl'       => BASE_URL . '/user/submit_attendance',
+        'checkTypeUrl'    => BASE_URL . '/user/check_qr_type',
+        'dashboardUrl'    => BASE_URL . '/user/dashboard',
+        'logbookUrl'      => BASE_URL . '/user/submit_logbook',
+        'prefilledToken'  => $prefilled_token  ?? '',
+        'prefilledAction' => $prefilled_action ?? '',
     ]) ?></script>
 
     <!-- [BARU – Tahap 35] Modal isi logbook setelah scan pulang -->
@@ -148,6 +165,7 @@
         </div>
     </div>
 
+    <script src="<?= ASSET_URL ?>/js/common/galaxy_background.js"></script>
     <script src="<?= ASSET_URL ?>/js/user/scan.js"></script>
 </body>
 </html>

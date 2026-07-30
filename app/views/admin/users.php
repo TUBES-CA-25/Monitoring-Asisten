@@ -23,15 +23,72 @@
     </div>
 
     <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+        <!-- [BARU] Sebelumnya form filter memakai "flex flex-wrap" tanpa
+             justify-end - begitu layar menyempit dan kontrol filter pindah
+             ke baris kedua, baris itu ikut menempel ke tepi KIRI form
+             (bukan rata kanan mengikuti baris pertama), terlihat berantakan.
+             Ditambahkan "justify-end" (rata kanan, konsisten di semua
+             baris) + setiap kontrol diberi "min-w" sendiri (bukan lebar
+             tetap) supaya membungkus dengan rapi tanpa terpotong. -->
         <div class="bg-gradient-to-r from-blue-600 to-cyan-500 circuit-pattern relative overflow-hidden p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <h3 class="font-bold text-white uppercase tracking-wide text-sm">Daftar User</h3>
-            
-            <form action="<?= BASE_URL ?>/admin/manageUsers" method="GET" class="relative w-full sm:w-72" id="userSearchForm">
-                <i id="userSearchIcon" class="fas fa-search absolute left-4 top-3.5 text-blue-100 text-xs"></i>
-                <input type="text" name="search" id="userSearchInput" value="<?= isset($search_keyword) ? $search_keyword : '' ?>" 
-                       placeholder="Cari nama, email, atau NIM..." autocomplete="off"
-                       oninput="if(window.APP_CONFIG){var t=window._usrST;clearTimeout(t);window._usrST=setTimeout(function(){if(typeof fetchUsersTable==='function')fetchUsersTable(document.getElementById('userSearchInput').value);},350);}"
-                       class="w-full pl-10 pr-4 py-2.5 bg-white/15 border border-white/25 text-white placeholder-blue-100 rounded-xl text-sm focus:outline-none focus:bg-white/25 transition">
+            <h3 class="font-bold text-white uppercase tracking-wide text-sm shrink-0 whitespace-nowrap">Daftar User</h3>
+
+            <form action="<?= BASE_URL ?>/admin/manageUsers" method="GET" class="w-full sm:w-auto flex flex-wrap items-center gap-2 justify-center sm:justify-end" id="userSearchForm">
+                <!-- Search -->
+                <div class="relative flex-1 min-w-[160px] sm:flex-none sm:w-52">
+                    <!-- [BARU] Ikon dipusatkan lewat flex (inset-y-0 + items-center),
+                         bukan "top" statis - selalu presisi center berapa pun
+                         tinggi/ukuran font inputnya, tidak lagi terlihat naik/miring. -->
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <i class="fas fa-search text-blue-100 text-xs leading-none"></i>
+                    </div>
+                    <input type="text" name="search" id="userSearchInput" value="<?= htmlspecialchars($search_keyword ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                           placeholder="Cari nama, email, NIM..." autocomplete="off"
+                           class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/10 text-white placeholder-blue-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/20">
+                </div>
+                <?php
+                    // [BARU] Admin & Kepala Lab tidak punya jabatan/angkatan asisten
+                    // (kolom itu hanya relevan untuk role User) — jika role tsb dipilih,
+                    // nonaktifkan kedua filter tersebut baik saat render awal (PHP)
+                    // maupun saat diubah kembali via JS (lihat handleUserRoleFilterChange).
+                    $roleLocksJabatanAngkatan = in_array($filter_role ?? '', ['Admin', 'Kepala Lab'], true);
+                ?>
+                <!-- Filter Role -->
+                <select name="role" id="filterRoleSelect" onchange="handleUserRoleFilterChange(this)" class="flex-1 min-w-[120px] sm:flex-none sm:w-auto px-3 py-2.5 rounded-xl bg-white/10 text-white text-xs font-medium border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 cursor-pointer">
+                    <option value="">Semua Role</option>
+                    <option value="Kepala Lab" <?= (($filter_role??'')=='Kepala Lab')?'selected':'' ?>>Kepala Lab</option>
+                    <option value="Admin" <?= (($filter_role??'')=='Admin')?'selected':'' ?>>Admin</option>
+                    <option value="User" <?= (($filter_role??'')=='User')?'selected':'' ?>>Asisten</option>
+                </select>
+                <!-- Filter Jabatan -->
+                <select name="jabatan" id="filterJabatanSelect" onchange="this.form.submit()" <?= $roleLocksJabatanAngkatan ? 'disabled title="Tidak berlaku untuk role Admin/Kepala Lab"' : '' ?> class="flex-1 min-w-[130px] sm:flex-none sm:w-auto px-3 py-2.5 rounded-xl bg-white/10 text-white text-xs font-medium border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                    <option value="">Semua Jabatan</option>
+                    <?php foreach(($jabatan_list ?? []) as $jab): ?>
+                    <option value="<?= htmlspecialchars($jab, ENT_QUOTES, 'UTF-8') ?>" <?= (($filter_jabatan??'')==$jab)?'selected':'' ?>>
+                        <?= htmlspecialchars($jab, ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <!-- Filter Angkatan -->
+                <select name="angkatan" id="filterAngkatanSelect" onchange="this.form.submit()" <?= $roleLocksJabatanAngkatan ? 'disabled title="Tidak berlaku untuk role Admin/Kepala Lab"' : '' ?> class="flex-1 min-w-[130px] sm:flex-none sm:w-auto px-3 py-2.5 rounded-xl bg-white/10 text-white text-xs font-medium border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                    <option value="">Semua Angkatan</option>
+                    <?php foreach(($angkatan_list ?? []) as $ang): ?>
+                    <option value="<?= htmlspecialchars($ang, ENT_QUOTES, 'UTF-8') ?>" <?= (($filter_angkatan??'')==$ang)?'selected':'' ?>>
+                        <?= htmlspecialchars($ang, ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <!-- Submit + Reset -->
+                <div class="flex gap-2 shrink-0">
+                    <button type="submit" class="px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold border border-white/20 transition whitespace-nowrap">
+                        <i class="fas fa-search mr-1"></i>Cari
+                    </button>
+                    <?php if ($search_keyword || $filter_role || $filter_jabatan || $filter_angkatan): ?>
+                    <a href="<?= BASE_URL ?>/admin/manageUsers" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-blue-200 text-xs font-medium border border-white/10 transition whitespace-nowrap">
+                        <i class="fas fa-times"></i> Reset
+                    </a>
+                    <?php endif; ?>
+                </div>
             </form>
 
         </div>
@@ -52,7 +109,19 @@
         </div>
 
         <div class="p-8 overflow-y-auto custom-scrollbar">
-            <form id="userForm" enctype="multipart/form-data" class="space-y-5">
+            <!-- [BARU] novalidate - form ini terbagi 2 tab (Data Akun/Data
+                 Pribadi) yang disembunyikan bergantian via class "hidden".
+                 TANPA novalidate, validasi HTML5 bawaan browser tetap
+                 mencoba memvalidasi field required di tab yang SEDANG
+                 TERSEMBUNYI - karena field itu tidak bisa di-fokus/di-scroll
+                 ke (invisible), browser DIAM-DIAM memblokir submit tanpa
+                 pesan/bubble apa pun ("form seperti macet"), dan handler
+                 submit custom di bawah (validateUserForm - yang sudah benar
+                 menampilkan modal peringatan & pindah ke tab yang benar)
+                 tidak pernah sempat berjalan sama sekali. novalidate
+                 menonaktifkan validasi bawaan sepenuhnya, disiplin validasi
+                 sekarang 100% ditangani manual lewat JS di bawah. -->
+            <form id="userForm" enctype="multipart/form-data" class="space-y-5" novalidate>
                 <input type="hidden" name="id_user" id="inputId">
                 <input type="hidden" name="status_account" id="inputStatusAccount" value="ACTIVE">
 
@@ -150,7 +219,20 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">No. WhatsApp</label>
-                                <input type="tel" name="phone" id="inputPhone" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono">
+                                <!-- [BARU] Kode negara (default Indonesia) + input angka saja
+                                     (filter otomatis via .js-phone-digits, lihat global.js). -->
+                                <div class="flex gap-2">
+                                    <select id="inputPhoneCountry" class="shrink-0 w-[92px] p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:border-blue-500 outline-none cursor-pointer">
+                                        <option value="62" selected>🇮🇩 +62</option>
+                                        <option value="60">🇲🇾 +60</option>
+                                        <option value="65">🇸🇬 +65</option>
+                                        <option value="1">🇺🇸 +1</option>
+                                        <option value="44">🇬🇧 +44</option>
+                                        <option value="61">🇦🇺 +61</option>
+                                        <option value="81">🇯🇵 +81</option>
+                                    </select>
+                                    <input type="tel" name="phone" id="inputPhone" inputmode="numeric" pattern="[0-9]*" maxlength="15" placeholder="81234567890" class="js-phone-digits flex-1 min-w-0 p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none font-mono">
+                                </div>
                             </div>
 
                             <div class="user-field md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -259,6 +341,20 @@
         <div class="flex gap-3">
             <button onclick="closeDeleteModal()" class="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-600 font-bold hover:bg-gray-50 transition">Batal</button>
             <button id="confirmDeleteBtn" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg transition">Ya, Hapus</button>
+        </div>
+    </div>
+</div>
+
+<!-- [BARU] Konfirmasi Aktifkan/Nonaktifkan Akun dari modal Edit Pengguna -->
+<div id="statusToggleModal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onclick="cancelStatusToggle()"></div>
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm relative z-10 p-6 text-center transform scale-100 transition-all">
+        <div id="statusToggleIcon" class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"></div>
+        <h3 id="statusToggleTitle" class="text-xl font-extrabold text-gray-800 mb-2"></h3>
+        <p id="statusToggleMsg" class="text-sm text-gray-500 mb-6"></p>
+        <div class="flex gap-3">
+            <button onclick="cancelStatusToggle()" class="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-600 font-bold hover:bg-gray-50 transition">Batal</button>
+            <button id="confirmStatusToggleBtn" onclick="confirmStatusToggle()" class="flex-1 py-2.5 rounded-xl bg-gray-700 text-white font-bold hover:bg-gray-800 shadow-lg transition">Ya</button>
         </div>
     </div>
 </div>

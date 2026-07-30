@@ -77,13 +77,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Nama Lengkap <span class="text-red-500">*</span></label>
-                    <input type="text" name="name" value="<?= $user['name'] ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-bold text-gray-700">
+                    <input type="text" name="name" value="<?= htmlspecialchars($user['name'], ENT_QUOTES, 'UTF-8') ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-bold text-gray-700">
                 </div>
                 
                 <?php if($isUser): ?>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">NIM <span class="text-red-500">*</span></label>
-                    <input type="text" name="nim" value="<?= $user['nim'] ?? '' ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
+                    <input type="text" name="nim" value="<?= htmlspecialchars($user['nim'] ?? '', ENT_QUOTES, 'UTF-8') ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
                 </div>
                 <?php endif; ?>
                 <div>
@@ -93,7 +93,7 @@
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Jabatan <span class="text-red-500">*</span></label>
                     <select name="position" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
-                        <option value="" disabled <?= empty($user['position']) ? 'selected' : '' ?>>Pilih Jabatan</option>
+                        <option value="" disabled <?= htmlspecialchars(empty($user['position']) ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>>Pilih Jabatan</option>
                         <?php 
                             // [PERBAIKAN] Opsi Jabatan disaring sesuai role dan disamakan dengan
                             // ENUM kolom profile.jabatan ('Kepala Lab','Laboran','Koordinator Asisten',
@@ -106,14 +106,41 @@
                             };
                             foreach($positions as $pos): 
                         ?>
-                            <option value="<?= $pos ?>" <?= ($user['position'] ?? '') == $pos ? 'selected' : '' ?>><?= $pos ?></option>
+                            <option value="<?= $pos ?>" <?= htmlspecialchars(($user['position'] ?? '') == $pos ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>><?= $pos ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">No. WhatsApp <span class="text-red-500">*</span></label>
-                    <input type="tel" name="phone" value="<?= $user['no_telp'] ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
+                    <?php
+                        // [BARU] Kode negara (default Indonesia) + input angka saja.
+                        // Baca kembali no_telp lama (format lokal "0..." atau yang
+                        // sudah "+<kode>...") supaya select & digit terisi benar.
+                        $rawPhone = $user['no_telp'] ?? '';
+                        $phoneCountry = '62';
+                        $phoneDigits = preg_replace('/\D/', '', $rawPhone);
+                        if (str_starts_with($rawPhone, '+')) {
+                            if (preg_match('/^\+(62|60|65|1|44|61|81)(\d+)$/', $rawPhone, $m)) {
+                                $phoneCountry = $m[1];
+                                $phoneDigits = $m[2];
+                            }
+                        } elseif (str_starts_with($phoneDigits, '0')) {
+                            $phoneDigits = substr($phoneDigits, 1);
+                        }
+                    ?>
+                    <div class="flex gap-2">
+                        <select id="inputPhoneCountry" class="shrink-0 w-[92px] p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-500 transition cursor-pointer">
+                            <option value="62" <?= $phoneCountry === '62' ? 'selected' : '' ?>>🇮🇩 +62</option>
+                            <option value="60" <?= $phoneCountry === '60' ? 'selected' : '' ?>>🇲🇾 +60</option>
+                            <option value="65" <?= $phoneCountry === '65' ? 'selected' : '' ?>>🇸🇬 +65</option>
+                            <option value="1" <?= $phoneCountry === '1' ? 'selected' : '' ?>>🇺🇸 +1</option>
+                            <option value="44" <?= $phoneCountry === '44' ? 'selected' : '' ?>>🇬🇧 +44</option>
+                            <option value="61" <?= $phoneCountry === '61' ? 'selected' : '' ?>>🇦🇺 +61</option>
+                            <option value="81" <?= $phoneCountry === '81' ? 'selected' : '' ?>>🇯🇵 +81</option>
+                        </select>
+                        <input type="tel" name="phone" id="inputPhone" value="<?= htmlspecialchars($phoneDigits, ENT_QUOTES, 'UTF-8') ?>" required inputmode="numeric" pattern="[0-9]*" maxlength="15" placeholder="81234567890" class="js-phone-digits flex-1 min-w-0 p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
+                    </div>
                 </div>
 
              <?php if($isUser): ?>
@@ -121,7 +148,7 @@
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Program Studi</label>
                     
                     <select name="prodi" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
-                        <option value="" disabled <?= empty($user['prodi']) ? 'selected' : '' ?>>Pilih Prodi</option>
+                        <option value="" disabled <?= htmlspecialchars(empty($user['prodi']) ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>>Pilih Prodi</option>
                         
                         <?php 
                             // Daftar Prodi (Samakan dengan yang ada di Admin)
@@ -132,7 +159,7 @@
 
                             foreach($daftarProdi as $p): 
                         ?>
-                            <option value="<?= $p ?>" <?= ($user['prodi'] ?? '') == $p ? 'selected' : '' ?>>
+                            <option value="<?= $p ?>" <?= htmlspecialchars(($user['prodi'] ?? '') == $p ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>>
                                 <?= $p ?>
                             </option>
                         <?php endforeach; ?>
@@ -165,7 +192,7 @@
 
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Angkatan <span class="text-red-500">*</span></label>
-                        <input type="text" name="angkatan" value="<?= $user['angkatan'] ?? '' ?>" required maxlength="4" inputmode="numeric" pattern="\d{4}" placeholder="Contoh: 2023" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
+                        <input type="text" name="angkatan" value="<?= htmlspecialchars($user['angkatan'] ?? '', ENT_QUOTES, 'UTF-8') ?>" required maxlength="4" inputmode="numeric" pattern="\d{4}" placeholder="Contoh: 2023" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
                     </div>
 
                     <div class="md:col-span-2">
@@ -202,19 +229,19 @@
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Peminatan <span class="text-red-500">*</span></label>
                     <select name="interest" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">
-                        <option value="" disabled <?= empty($user['peminatan']) ? 'selected' : '' ?>>Pilih Peminatan</option>
-                        <option value="RPL" <?= $user['peminatan'] == 'RPL' ? 'selected' : '' ?>>Rekayasa Perangkat Lunak (RPL)</option>
-                        <option value="Jaringan" <?= $user['peminatan'] == 'Jaringan' ? 'selected' : '' ?>>Jaringan Komputer</option>
-                        <option value="IoT" <?= $user['peminatan'] == 'IoT' ? 'selected' : '' ?>>Internet of Things (IoT)</option>
-                        <option value="Multimedia" <?= $user['peminatan'] == 'Multimedia' ? 'selected' : '' ?>>Multimedia</option>
-                        <option value="AI" <?= $user['peminatan'] == 'AI' ? 'selected' : '' ?>>Artificial Intelligence (AI)</option>
+                        <option value="" disabled <?= htmlspecialchars(empty($user['peminatan']) ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>>Pilih Peminatan</option>
+                        <option value="RPL" <?= htmlspecialchars($user['peminatan'] == 'RPL' ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>>Rekayasa Perangkat Lunak (RPL)</option>
+                        <option value="Jaringan" <?= htmlspecialchars($user['peminatan'] == 'Jaringan' ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>>Jaringan Komputer</option>
+                        <option value="IoT" <?= htmlspecialchars($user['peminatan'] == 'IoT' ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>>Internet of Things (IoT)</option>
+                        <option value="Multimedia" <?= htmlspecialchars($user['peminatan'] == 'Multimedia' ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>>Multimedia</option>
+                        <option value="AI" <?= htmlspecialchars($user['peminatan'] == 'AI' ? 'selected' : '', ENT_QUOTES, 'UTF-8') ?>>Artificial Intelligence (AI)</option>
                     </select>
                 </div>
                 <?php endif; ?>
 
                 <div class="md:col-span-2">
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Alamat Domisili <span class="text-red-500">*</span></label>
-                    <textarea name="address" rows="2" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"><?= $user['alamat'] ?></textarea>
+                    <textarea name="address" rows="2" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"><?= htmlspecialchars($user['alamat'], ENT_QUOTES, 'UTF-8') ?></textarea>
                 </div>
             </div>
 

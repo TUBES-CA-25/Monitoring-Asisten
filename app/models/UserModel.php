@@ -240,10 +240,20 @@ class UserModel {
 
 
     public function calculateRealAlpha($id_profil, $accountCreatedAt, $isCompleted) {
-        // [PERBAIKAN] Sebelumnya mengembalikan 0 jika is_completed != 1, sehingga
-        // asisten yang belum melengkapi profil tidak pernah memiliki catatan alpha.
-        // Sekarang alpha dihitung untuk semua akun User agar data kehadiran akurat.
-        // is_completed tetap diterima sebagai parameter agar signature tidak berubah.
+        // [PERBAIKAN v7] Gunakan attendance_reset_at sebagai titik mulai
+        // penghitungan alpha jika tersedia (di-set saat reset dilakukan).
+        // Query dibungkus try-catch: kolom ini baru ada setelah migration v7
+        // dijalankan; jika belum ada, gracefully fall back ke accountCreatedAt.
+        $resetAt = null;
+        try {
+            $this->db->query("SELECT attendance_reset_at FROM profile WHERE id_profil = :pid");
+            $this->db->bind(':pid', $id_profil);
+            $profileRow = $this->db->single();
+            $resetAt    = $profileRow['attendance_reset_at'] ?? null;
+        } catch (\Throwable $e) {
+            // Kolom belum ada (migration v7 belum dijalankan) — abaikan
+            $resetAt = null;
+        }
 
         $this->db->query("SELECT tanggal FROM presensi WHERE id_profil = :pid AND status IN ('Hadir', 'Terlambat')");
         $this->db->bind(':pid', $id_profil);
@@ -255,7 +265,14 @@ class UserModel {
         $this->db->bind(':pid', $id_profil);
         $izinRanges = $this->db->resultSet();
 
+        // Titik mulai: gunakan yang paling akhir antara created_at dan reset_at
         $startDate = new DateTime($accountCreatedAt);
+        if ($resetAt) {
+            $resetDate = new DateTime($resetAt);
+            if ($resetDate > $startDate) {
+                $startDate = clone $resetDate;
+            }
+        }
         $startDate->setTime(0, 0, 0);
 
         $endDate = new DateTime();
@@ -267,15 +284,11 @@ class UserModel {
         $alphaCount = 0;
 
         while ($startDate <= $endDate) {
-            $currDate = $startDate->format('Y-m-d');
+            $currDate  = $startDate->format('Y-m-d');
             $dayOfWeek = (int) $startDate->format('N');
 
-            // [PERBAIKAN] Sebelumnya "<= 7" yang selalu benar (no-op) untuk
-            // semua hari termasuk Minggu. Sekarang memakai WORK_DAYS_MAX_DOW
-            // sehingga hari di luar "hari kerja" (default: Minggu) tidak
-            // dihitung sebagai Alpa, sesuai "wajib hadir setiap hari kerja".
             if ($dayOfWeek <= self::WORK_DAYS_MAX_DOW) {
-                $isPresent = isset($presensiMap[$currDate]);
+                $isPresent   = isset($presensiMap[$currDate]);
                 $isPermitted = false;
 
                 if (!$isPresent) {
@@ -305,7 +318,19 @@ class UserModel {
                 FROM user u 
                 JOIN profile p ON u.id_user = p.id_user 
                 LEFT JOIN lab l ON p.id_lab = l.id_lab 
-                ORDER BY u.role, p.nama";
+                ORDER BY
+                   CASE
+                     WHEN u.role = 'Kepala Lab' THEN 1
+                     WHEN u.role = 'Admin' AND p.jabatan LIKE '%Laboran%'      THEN 2
+                     WHEN u.role = 'Admin' AND p.jabatan LIKE '%Koordinator%'  THEN 3
+                     WHEN u.role = 'Admin'                                     THEN 4
+                     WHEN u.role = 'User' AND p.jabatan LIKE '%Asisten 1%'     THEN 5
+                     WHEN u.role = 'User' AND p.jabatan LIKE '%Asisten 2%'     THEN 6
+                     WHEN u.role = 'User' AND p.jabatan LIKE '%Pendamping%'    THEN 7
+                     WHEN u.role = 'User'                                      THEN 8
+                     ELSE 9
+                   END,
+                   p.nama ASC";
         $stmt = $this->conn->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -647,7 +672,7 @@ class UserModel {
         return $this->db->resultSet();
     }
 
-    public function getUsersWithProfileAndLab($keyword = null, $limit = 10, $offset = 0)
+    public function getUsersWithProfileAndLab($keyword = null, $limit = 10, $offset = 0, $roleFilter = null, $jabatanFilter = null, $angkatanFilter = null)
     {
         $sql = "
             SELECT u.id_user as id, u.email, u.role, u.status_account,
@@ -662,20 +687,43 @@ class UserModel {
             LEFT JOIN lab l ON p.id_lab = l.id_lab
         ";
 
-        if ($keyword) {
-            $sql .= " WHERE p.nama LIKE :key 
-                    OR p.nim LIKE :key 
-                    OR u.email LIKE :key";
-        }
+        // [FIX] Sebelumnya hanya $keyword yang dipakai di WHERE — $roleFilter,
+        // $jabatanFilter, $angkatanFilter diterima sebagai parameter tapi TIDAK
+        // PERNAH dipakai di query ini, sehingga daftar yang ditampilkan selalu
+        // berisi SEMUA user (tidak tersaring), padahal countUsersWithProfileAndLab()
+        // di bawah sudah benar menghitung total sesuai filter — akibatnya jumlah
+        // halaman/total sesuai filter, tapi baris yang tampil tidak sesuai filter.
+        $conds = [];
+        if ($keyword)        { $conds[] = "(p.nama LIKE :key OR p.nim LIKE :key2 OR u.email LIKE :key3)"; }
+        if ($roleFilter)     { $conds[] = "u.role = :role"; }
+        if ($jabatanFilter)  { $conds[] = "p.jabatan = :jabatan"; }
+        if ($angkatanFilter) { $conds[] = "p.angkatan = :angkatan"; }
+        if ($conds) $sql .= " WHERE " . implode(" AND ", $conds);
 
-        $sql .= " ORDER BY p.nama ASC
+        $sql .= " ORDER BY
+                   CASE
+                     WHEN u.role = 'Kepala Lab' THEN 1
+                     WHEN u.role = 'Admin' AND p.jabatan LIKE '%Laboran%'     THEN 2
+                     WHEN u.role = 'Admin' AND p.jabatan LIKE '%Koordinator%' THEN 3
+                     WHEN u.role = 'Admin'                                    THEN 4
+                     WHEN u.role = 'User' AND p.jabatan LIKE '%Asisten 1%'    THEN 5
+                     WHEN u.role = 'User' AND p.jabatan LIKE '%Asisten 2%'    THEN 6
+                     WHEN u.role = 'User' AND p.jabatan LIKE '%Pendamping%'   THEN 7
+                     WHEN u.role = 'User'                                     THEN 8
+                     ELSE 9
+                   END, p.nama ASC
                 LIMIT :limit OFFSET :offset";
 
         $this->db->query($sql);
 
         if ($keyword) {
             $this->db->bind(':key', "%$keyword%");
+            $this->db->bind(':key2', "%$keyword%");
+            $this->db->bind(':key3', "%$keyword%");
         }
+        if ($roleFilter)     $this->db->bind(':role', $roleFilter);
+        if ($jabatanFilter)  $this->db->bind(':jabatan', $jabatanFilter);
+        if ($angkatanFilter) $this->db->bind(':angkatan', $angkatanFilter);
 
         $this->db->bind(':limit', (int)$limit);
         $this->db->bind(':offset', (int)$offset);
@@ -683,7 +731,7 @@ class UserModel {
         return $this->db->resultSet();
     }
 
-    public function countUsersWithProfileAndLab($keyword = null)
+    public function countUsersWithProfileAndLab($keyword = null, $roleFilter = null, $jabatanFilter = null, $angkatanFilter = null)
     {
         $sql = "
             SELECT COUNT(*) as total
@@ -692,17 +740,18 @@ class UserModel {
             LEFT JOIN lab l ON p.id_lab = l.id_lab
         ";
 
-        if ($keyword) {
-            $sql .= " WHERE p.nama LIKE :key 
-                    OR p.nim LIKE :key 
-                    OR u.email LIKE :key";
-        }
+        $conds = [];
+        if ($keyword) { $conds[] = "(p.nama LIKE :key OR p.nim LIKE :key2 OR u.email LIKE :key3)"; }
+        if ($roleFilter) { $conds[] = "u.role = :role"; }
+        if ($jabatanFilter) { $conds[] = "p.jabatan = :jabatan"; }
+        if ($angkatanFilter) { try { $conds[] = "p.angkatan = :angkatan"; } catch(\Throwable $e){} }
+        if ($conds) $sql .= " WHERE " . implode(" AND ", $conds);
 
         $this->db->query($sql);
-
-        if ($keyword) {
-            $this->db->bind(':key', "%$keyword%");
-        }
+        if ($keyword) { $this->db->bind(':key', "%$keyword%"); $this->db->bind(':key2', "%$keyword%"); $this->db->bind(':key3', "%$keyword%"); }
+        if ($roleFilter) $this->db->bind(':role', $roleFilter);
+        if ($jabatanFilter) $this->db->bind(':jabatan', $jabatanFilter);
+        if ($angkatanFilter) { try { $this->db->bind(':angkatan', $angkatanFilter); } catch(\Throwable $e){} }
 
         return $this->db->single()['total'];
     }

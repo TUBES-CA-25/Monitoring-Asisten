@@ -1,5 +1,3 @@
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <div class="max-w-7xl mx-auto space-y-6 animate-enter pb-10">
     
     <div class="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden circuit-pattern">
@@ -54,10 +52,29 @@
                             <div class="absolute bottom-1 right-1 w-5 h-5 rounded-full border-2 border-white <?= ($status_today == 'green') ? 'bg-green-500' : (($status_today == 'yellow') ? 'bg-yellow-500' : 'bg-red-500') ?>" title="Status Kehadiran"></div>
                         </div>
                     </div>
+
+                    <?php if (!empty($timing_today)):
+                        $stampClass = match($timing_today) {
+                            'pulang_cepat' => 'stamp-early',
+                            'terlambat'    => 'stamp-late',
+                            default        => 'stamp-ontime',
+                        };
+                        $stampLabel = match($timing_today) {
+                            'pulang_cepat' => 'PULANG<br>CEPAT',
+                            'terlambat'    => 'TERLAMBAT',
+                            default        => 'TEPAT<br>WAKTU',
+                        };
+                    ?>
+                    <div class="flex justify-center -mt-2 mb-3">
+                        <div class="attendance-stamp stamp-profile <?= $stampClass ?>">
+                            <span class="stamp-label"><?= $stampLabel ?></span>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                     
                     <div class="text-center mb-6">
-                        <h2 class="text-xl font-bold text-gray-800 leading-tight"><?= $user['name'] ?></h2>
-                        <p class="text-sm text-blue-600 font-medium bg-blue-50 inline-block px-3 py-1 rounded-full mt-2"><?= $user['position'] ?? 'Asisten Laboratorium' ?></p>
+                        <h2 class="text-xl font-bold text-gray-800 leading-tight"><?= htmlspecialchars($user['name'], ENT_QUOTES, 'UTF-8') ?></h2>
+                        <p class="text-sm text-blue-600 font-medium bg-blue-50 inline-block px-3 py-1 rounded-full mt-2"><?= htmlspecialchars($user['position'] ?? 'Asisten Laboratorium', ENT_QUOTES, 'UTF-8') ?></p>
                         
                         <?php 
                             $st = $status_today; 
@@ -72,19 +89,19 @@
                     <div class="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
                         <div class="flex justify-between items-center border-b border-gray-200 pb-2">
                             <span class="text-[10px] font-bold text-gray-400 uppercase">NIM / ID</span>
-                            <span class="text-sm font-bold text-gray-700"><?= $user['nim'] ?? '-' ?></span>
+                            <span class="text-sm font-bold text-gray-700"><?= htmlspecialchars($user['nim'] ?? '-', ENT_QUOTES, 'UTF-8') ?></span>
                         </div>
                         <div class="flex justify-between items-center border-b border-gray-200 pb-2">
                             <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas</span>
-                            <span class="text-xs font-bold text-gray-700"><?= $user['kelas'] ?? '-' ?></span>
+                            <span class="text-xs font-bold text-gray-700"><?= htmlspecialchars($user['kelas'] ?? '-', ENT_QUOTES, 'UTF-8') ?></span>
                         </div>
                         <div class="flex justify-between items-center border-b border-gray-200 pb-2">
                             <span class="text-[10px] font-bold text-gray-400 uppercase">Program Studi</span>
-                            <span class="text-xs font-bold text-gray-700"><?= $user['prodi'] ?? '-' ?></span>
+                            <span class="text-xs font-bold text-gray-700"><?= htmlspecialchars($user['prodi'] ?? '-', ENT_QUOTES, 'UTF-8') ?></span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-[10px] font-bold text-gray-400 uppercase">No. HP</span>
-                            <span class="text-xs font-bold text-gray-700"><?= $user['no_telp'] ?? '-' ?></span>
+                            <span class="text-xs font-bold text-gray-700"><?= htmlspecialchars($user['no_telp'] ?? '-', ENT_QUOTES, 'UTF-8') ?></span>
                         </div>
                     </div>
                 </div>
@@ -138,7 +155,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="h-64 w-full relative">
+                <div class="chart-box">
                     <canvas id="userChart"></canvas>
                 </div>
             </div>
@@ -283,8 +300,8 @@
                         <div class="text-[9px] font-bold <?= $cClass ?> inline-block px-1.5 rounded mb-1">
                             <?= date('H:i', strtotime($s['start_time'])) ?>
                         </div>
-                        <div class="text-xs font-bold text-gray-700 truncate" title="<?= $s['title'] ?>"><?= $s['title'] ?></div>
-                        <div class="text-[9px] text-gray-400 truncate"><?= $s['location'] ?? '-' ?></div>
+                        <div class="text-xs font-bold text-gray-700 truncate" title="<?= htmlspecialchars($s['title'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($s['title'], ENT_QUOTES, 'UTF-8') ?></div>
+                        <div class="text-[9px] text-gray-400 truncate"><?= htmlspecialchars($s['location'] ?? '-', ENT_QUOTES, 'UTF-8') ?></div>
                     </div>
                 <?php endforeach; endif; ?>
             </div>

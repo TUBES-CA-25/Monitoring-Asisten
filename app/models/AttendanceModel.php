@@ -229,7 +229,7 @@ class AttendanceModel
         for ($i = 6; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-$i days"));
             $labels[] = date('d M', strtotime($date));
-            
+
             // [PERBAIKAN] Lihat catatan di getUserStats() — Hadir+Terlambat = hadir.
             $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND tanggal = :d AND status IN ('Hadir', 'Terlambat')");
             $this->db->bind(':pid', $pId);
@@ -237,6 +237,74 @@ class AttendanceModel
             $data[] = $this->db->single()['total'] ?? 0;
         }
         return ['labels' => $labels, 'data' => $data];
+    }
+
+    // [BARU] Versi per-asisten dari getWeeklyStats()/getMonthlyStats() di
+    // bawah - sebelumnya TIDAK ADA sama sekali, sehingga UserController::
+    // dashboard() selalu mengirim chart_data['weekly']/['monthly'] sebagai
+    // array kosong ke frontend (data['weekly'] = ['labels'=>[], 'data'=>[]]
+    // hardcoded). Grafik "Data Kehadiran" di dashboard asisten pun selalu
+    // tampil kosong untuk kedua kategori itu, di semua jenis grafik
+    // (bar/line/pie) karena datanya memang tidak pernah diambil, bukan
+    // masalah di logika render Chart.js.
+    public function getUserWeeklyChart($pId, $weeks = 4) {
+        $labels = []; $data = [];
+        for ($i = $weeks - 1; $i >= 0; $i--) {
+            $start = date('Y-m-d', strtotime("-$i weeks Monday this week"));
+            $end   = date('Y-m-d', strtotime("-$i weeks Sunday this week"));
+            $labels[] = "Minggu " . date('W', strtotime($start));
+
+            $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND tanggal BETWEEN :start AND :end AND status IN ('Hadir', 'Terlambat')");
+            $this->db->bind(':pid', $pId);
+            $this->db->bind(':start', $start);
+            $this->db->bind(':end', $end);
+            $data[] = $this->db->single()['total'] ?? 0;
+        }
+        return ['labels' => $labels, 'data' => $data];
+    }
+
+    public function getUserMonthlyChart($pId, $months = 6) {
+        $labels = []; $data = [];
+        // [PERBAIKAN] "-$i months" dari TANGGAL HARI INI kena bug klasik PHP:
+        // kalau tanggal hari ini (mis. 30/31) tidak ada di bulan tujuan
+        // (mis. Februari), strtotime melimpah ke bulan berikutnya (Maret)
+        // - dua bulan bisa berlabel sama & satu bulan lain terlewat sama
+        // sekali. Dinormalisasi ke tanggal 1 bulan berjalan DULU (yang
+        // selalu valid di bulan manapun) baru dikurangi per bulan.
+        $firstOfThisMonth = date('Y-m-01');
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $start = date('Y-m-01', strtotime("$firstOfThisMonth -$i months"));
+            $end   = date('Y-m-t', strtotime($start));
+            $labels[] = date('F', strtotime($start));
+
+            $this->db->query("SELECT COUNT(*) as total FROM presensi WHERE id_profil = :pid AND tanggal BETWEEN :start AND :end AND status IN ('Hadir', 'Terlambat')");
+            $this->db->bind(':pid', $pId);
+            $this->db->bind(':start', $start);
+            $this->db->bind(':end', $end);
+            $data[] = $this->db->single()['total'] ?? 0;
+        }
+        return ['labels' => $labels, 'data' => $data];
+    }
+
+
+    public function getAngkatanList() {
+        try {
+            $this->db->query("SELECT DISTINCT p.angkatan FROM profile p
+                              JOIN user u ON u.id_user = p.id_user
+                              WHERE u.role = 'User' AND p.angkatan IS NOT NULL AND p.angkatan != ''
+                              ORDER BY p.angkatan DESC");
+            return array_column($this->db->resultSet(), 'angkatan');
+        } catch (\Throwable $e) { return []; }
+    }
+
+    public function getJabatanList() {
+        try {
+            $this->db->query("SELECT DISTINCT p.jabatan FROM profile p
+                              JOIN user u ON u.id_user = p.id_user
+                              WHERE u.role = 'User' AND p.jabatan IS NOT NULL AND p.jabatan != ''
+                              ORDER BY p.jabatan ASC");
+            return array_column($this->db->resultSet(), 'jabatan');
+        } catch (\Throwable $e) { return []; }
     }
 
     public function getAllAssistantsList() {
@@ -248,17 +316,23 @@ class AttendanceModel
         return $this->db->resultSet();
     }
 
-    public function getAttendanceRecap($startDate, $endDate, $userId = null) {
-        $sqlP = "SELECT p.*, prof.nama, prof.nim, prof.jabatan, prof.id_user 
+    public function getAttendanceRecap($startDate, $endDate, $userId = null, $jabatan = null, $angkatan = null) {
+        $sqlP = "SELECT p.*, prof.nama, prof.nim, prof.jabatan, prof.angkatan, prof.id_user 
                  FROM presensi p 
                  JOIN profile prof ON p.id_profil = prof.id_profil 
                  WHERE p.tanggal BETWEEN :start AND :end";
-        if ($userId) $sqlP .= " AND prof.id_user = :uid";
+        if ($userId)   $sqlP .= " AND prof.id_user = :uid";
+        if ($jabatan)  $sqlP .= " AND prof.jabatan = :jabatan";
+        try {
+            if ($angkatan) $sqlP .= " AND prof.angkatan = :angkatan";
+        } catch (\Throwable $e) {}
         
         $this->db->query($sqlP);
         $this->db->bind(':start', $startDate);
         $this->db->bind(':end', $endDate);
-        if ($userId) $this->db->bind(':uid', $userId);
+        if ($userId)   $this->db->bind(':uid', $userId);
+        if ($jabatan)  $this->db->bind(':jabatan', $jabatan);
+        if ($angkatan) { try { $this->db->bind(':angkatan', $angkatan); } catch(\Throwable $e){} }
         $rawPresensi = $this->db->resultSet();
 
         $sqlIz = "SELECT i.*, prof.id_user 
@@ -270,7 +344,9 @@ class AttendanceModel
                       (i.end_date BETWEEN :start AND :end) OR
                       (:start BETWEEN i.start_date AND i.end_date)
                   )";
-        if ($userId) $sqlIz .= " AND prof.id_user = :uid";
+        if ($userId)   $sqlIz .= " AND prof.id_user = :uid";
+        if ($jabatan)  $sqlIz .= " AND prof.jabatan = :jabatan";
+        if ($angkatan) { try { $sqlIz .= " AND prof.angkatan = :angkatan"; } catch(\Throwable $e){} }
 
         $this->db->query($sqlIz);
         $this->db->bind(':start', $startDate);
@@ -425,7 +501,7 @@ class AttendanceModel
     public function getTodayPresenceByProfile($profileId)
     {
         $this->db->query("
-            SELECT waktu_presensi, waktu_pulang 
+            SELECT waktu_presensi, waktu_pulang, status, late_minutes
             FROM presensi 
             WHERE id_profil = :pid 
             AND tanggal = CURDATE()
@@ -528,9 +604,14 @@ class AttendanceModel
         $labels = [];
         $data = [];
 
+        // [PERBAIKAN] Lihat catatan di getUserMonthlyChart() - normalisasi
+        // ke tanggal 1 bulan berjalan dulu supaya "-$i months" tidak kena
+        // bug limpahan tanggal PHP (mis. tanggal 30/31 hari ini melompat
+        // ke bulan berikutnya saat dikurangi ke Februari).
+        $firstOfThisMonth = date('Y-m-01');
         for ($i = $months - 1; $i >= 0; $i--) {
-            $start = date('Y-m-01', strtotime("-$i months"));
-            $end   = date('Y-m-t', strtotime("-$i months"));
+            $start = date('Y-m-01', strtotime("$firstOfThisMonth -$i months"));
+            $end   = date('Y-m-t', strtotime($start));
             $labels[] = date('F', strtotime($start));
 
             $this->db->query("
@@ -547,17 +628,23 @@ class AttendanceModel
         return ['labels' => $labels, 'data' => $data];
     }
 
-    public function getAttendanceSummary($startDate, $endDate, $assistantId = null) {
-        $sqlUser = "SELECT u.id_user, p.id_profil, p.nama, p.nim, p.jabatan 
-                    FROM user u JOIN profile p ON u.id_user = p.id_user 
+    public function getAttendanceSummary($startDate, $endDate, $assistantId = null, $jabatanFilter = null, $angkatanFilter = null) {
+        // [FIX] $jabatanFilter/$angkatanFilter sebelumnya diterima oleh controller
+        // dari GET tapi TIDAK PERNAH diteruskan ke sini — dropdown filter Jabatan
+        // & Angkatan di halaman Rekap Presensi tidak berpengaruh sama sekali
+        // terhadap data yang ditampilkan (selalu menampilkan semua asisten).
+        $sqlUser = "SELECT u.id_user, p.id_profil, p.nama, p.nim, p.jabatan
+                    FROM user u JOIN profile p ON u.id_user = p.id_user
                     WHERE u.role = 'User'";
-        if ($assistantId) {
-            $sqlUser .= " AND u.id_user = :uid";
-        } else {
-            $sqlUser .= " ORDER BY p.nama ASC";
-        }
+        if ($assistantId)    $sqlUser .= " AND u.id_user = :uid";
+        if ($jabatanFilter)  $sqlUser .= " AND p.jabatan = :jabatan";
+        if ($angkatanFilter) $sqlUser .= " AND p.angkatan = :angkatan";
+        $sqlUser .= " ORDER BY p.nama ASC";
+
         $this->db->query($sqlUser);
-        if ($assistantId) $this->db->bind(':uid', $assistantId);
+        if ($assistantId)    $this->db->bind(':uid', $assistantId);
+        if ($jabatanFilter)  $this->db->bind(':jabatan', $jabatanFilter);
+        if ($angkatanFilter) $this->db->bind(':angkatan', $angkatanFilter);
         $targetUsers = $this->db->resultSet();
 
         $sqlP = "SELECT p.*, prof.id_user 
@@ -592,16 +679,19 @@ class AttendanceModel
         $summary = [];
         foreach ($targetUsers as $user) {
             $summary[$user['id_user']] = [
-                'id_user' => $user['id_user'],
-                'id_profil' => $user['id_profil'],
-                'name' => $user['nama'],
-                'nim' => $user['nim'],
-                'position' => $user['jabatan'],
-                'total_masuk' => 0,
-                'total_pulang' => 0,
-                'total_hadir' => 0,
-                'total_izin' => 0,
-                'total_alpa' => 0
+                'id_user'          => $user['id_user'],
+                'id_profil'        => $user['id_profil'],
+                'name'             => $user['nama'],
+                'nim'              => $user['nim'],
+                'position'         => $user['jabatan'],
+                'total_masuk'      => 0,
+                'total_pulang'     => 0,
+                'total_hadir'      => 0,
+                'total_izin'       => 0,
+                'total_alpa'       => 0,
+                'total_tepat_waktu'=> 0,
+                'total_terlambat'  => 0,
+                'total_durasi_menit'=> 0,
             ];
         }
 
@@ -645,15 +735,21 @@ class AttendanceModel
                 }
 
                 if ($hasPresensi) {
-                    if ($waktuPresensi !== null) {
-                        $summary[$uid]['total_masuk']++;
+                    if ($waktuPresensi !== null) { $summary[$uid]['total_masuk']++; }
+                    if ($waktuPulang   !== null) { $summary[$uid]['total_pulang']++; }
+                    // Tepat waktu vs terlambat berdasarkan status_db atau late_minutes
+                    $statusDb    = $p['status']       ?? 'Hadir';
+                    $lateMinutes = (int)($p['late_minutes'] ?? 0);
+                    if ($statusDb === 'Terlambat' || $lateMinutes > 0) {
+                        $summary[$uid]['total_terlambat']++;
+                    } else {
+                        $summary[$uid]['total_tepat_waktu']++;
                     }
-                    if ($waktuPulang !== null) {
-                        $summary[$uid]['total_pulang']++;
-                    }
+                    // Durasi kerja (work_duration dalam menit, bisa null)
+                    $summary[$uid]['total_durasi_menit'] += (int)($p['work_duration'] ?? 0);
                 }
 
-                if ($status == 'Hadir') {
+                if ($status == 'Hadir' || $statusDb === 'Terlambat') {
                     $summary[$uid]['total_hadir']++;
                 } elseif ($status == 'Izin' || $status == 'Sakit') {
                     $summary[$uid]['total_izin']++;

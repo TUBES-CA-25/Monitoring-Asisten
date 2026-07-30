@@ -1,31 +1,30 @@
 <?php /* app/views/admin/recycle_bin.php — Recycle Bin Presensi */ ?>
 
-<div class="p-4 md:p-8 max-w-6xl mx-auto">
+<div class="max-w-7xl mx-auto space-y-6 animate-enter pb-12">
 
   <!-- Header -->
-  <div class="bg-gradient-to-r from-blue-600 to-cyan-500 circuit-pattern relative overflow-hidden rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-500/20 mb-6">
+  <div class="bg-gradient-to-r from-blue-600 to-cyan-500 circuit-pattern relative overflow-hidden rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-500/20">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-extrabold flex items-center gap-2"><i class="fas fa-trash-restore-alt"></i> Restore Presensi</h1>
+        <!-- <p class="text-blue-100 text-[10px] font-bold uppercase tracking-widest mb-1">Admin — Manajemen Data</p> -->
+        <h1 class="text-2xl font-extrabold flex items-center gap-2"></i> Restore Data Presensi</h1>
         <p class="text-blue-100 text-sm mt-1">Data yang di-reset tersimpan di sini sebelum dihapus permanen.</p>
       </div>
-      <div class="text-center md:text-right bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
-            <p class="text-[10px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
-            <h2 id="liveDate" class="text-xl font-bold font-mono"><?= date('d F Y') ?></h2>
-            <p class="text-sm opacity-90 font-mono mt-1">
-                <span id="liveTime" class="bg-blue-900/30 px-2 py-0.5 rounded"><?= date('H:i:s') ?></span> WITA
-            </p>
-        </div>
-      <!-- <a href="<?= BASE_URL ?>/admin/dashboard"
-         class="shrink-0 flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/20 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition w-fit">
-        <i class="fas fa-arrow-left"></i> Kembali
-      </a> -->
+      <!-- Jam Live (menggantikan tombol Kembali) -->
+      <div class="shrink-0 text-right bg-white/10 px-4 py-3 rounded-2xl backdrop-blur-sm border border-white/20">
+        <p class="text-[9px] font-bold text-blue-100 uppercase tracking-widest mb-1">Waktu Sistem</p>
+        <h2 id="liveDate" class="text-lg font-bold font-mono leading-tight"><?= date('d F Y') ?></h2>
+        <p class="text-sm font-mono mt-0.5">
+          <span id="liveTime" class="bg-blue-900/30 px-2 py-0.5 rounded"><?= date('H:i:s') ?></span>
+          <span class="text-blue-200 text-xs"> WITA</span>
+        </p>
+      </div>
     </div>
   </div>
 
   <!-- Filter bar -->
   <form method="GET" action="<?= BASE_URL ?>/admin/recycleBin"
-        class="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-3 mb-4 flex flex-wrap gap-3 items-center">
+        class="bg-gradient-to-r from-blue-600 to-cyan-500 circuit-pattern rounded-2xl border border-gray-200 shadow-sm px-4 py-3 flex flex-wrap gap-3 items-center">
 
     <select name="scope" onchange="this.form.submit()"
             class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white">
@@ -45,7 +44,8 @@
       ?>
       <optgroup label="<?= htmlspecialchars($jabatan) ?>">
         <?php foreach ($list as $a): ?>
-        <option value="<?= $a['id_profil'] ?>" <?= ($filter['id_profil'] == $a['id_profil']) ? 'selected' : '' ?>>
+        <?php $hPid = HashHelper::encode((int)$a['id_profil']); ?>
+        <option value="<?= $hPid ?>" <?= ($filter['id_profil'] == $a['id_profil']) ? 'selected' : '' ?>>
           <?= htmlspecialchars($a['nama_asisten']) ?>
         </option>
         <?php endforeach; ?>
@@ -55,19 +55,47 @@
     <?php endif; ?>
 
     <?php if (!empty($filter['scope']) || !empty($filter['id_profil'])): ?>
-    <a href="<?= BASE_URL ?>/admin/recycleBin" class="text-xs text-gray-400 hover:text-red-500 transition flex items-center gap-1">
+    <a href="<?= BASE_URL ?>/admin/recycleBin" class="text-xs text-white hover:text-red-500 transition flex items-center gap-1">
       <i class="fas fa-times-circle"></i> Reset Filter
     </a>
     <?php endif; ?>
 
-    <span class="ml-auto text-xs text-gray-400"><?= count($bin_entries) ?> entri</span>
+    <!-- [BARU] Pencarian nama (instan, client-side) + filter jabatan &
+         angkatan - terpisah dari scope/pid di atas (yang server-side/reload)
+         supaya nama langsung ter-filter saat mengetik tanpa reload. -->
+    <div class="relative flex-1 min-w-[180px]">
+      <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs"></i>
+      <input type="text" id="binSearchInput" placeholder="Cari nama asisten..." autocomplete="off"
+             class="w-full border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white">
+    </div>
+
+    <!-- [DIUBAH] Opsi jabatan & angkatan diambil dari data asisten di
+         database ($jabatan_list/$angkatan_list dari AttendanceModel, sama
+         seperti filter di Kelola Pengguna) - BUKAN diturunkan dari entri
+         recycle bin yang sedang tampil, supaya dropdown selalu lengkap
+         walau bin kosong atau sedang terfilter scope/pid. -->
+    <select id="binJabatanFilter" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white">
+      <option value="">Semua Jabatan</option>
+      <?php foreach (($jabatan_list ?? []) as $j): ?>
+      <option value="<?= htmlspecialchars($j, ENT_QUOTES) ?>"><?= htmlspecialchars($j) ?></option>
+      <?php endforeach; ?>
+    </select>
+
+    <select id="binAngkatanFilter" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white">
+      <option value="">Semua Angkatan</option>
+      <?php foreach (($angkatan_list ?? []) as $ang): ?>
+      <option value="<?= htmlspecialchars($ang, ENT_QUOTES) ?>"><?= htmlspecialchars($ang) ?></option>
+      <?php endforeach; ?>
+    </select>
+
+    <span class="ml-auto text-xs text-white"><span id="binVisibleCount"><?= count($bin_entries) ?></span> entri</span>
   </form>
 
-  <!-- Empty state -->
+  <!-- Empty state (tidak ada entri sama sekali) -->
   <?php if (empty($bin_entries)): ?>
     <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-16 text-center text-gray-400">
       <i class="fas fa-trash-restore-alt text-5xl mb-4 opacity-20"></i>
-      <p class="font-bold text-lg mb-1 text-gray-500">Recycle Bin Kosong</p>
+      <p class="font-bold text-lg mb-1 text-gray-500">Restore Data Kosong</p>
       <p class="text-sm">Belum ada data presensi yang di-reset.</p>
     </div>
 
@@ -85,9 +113,13 @@
             <th class="px-4 py-3 text-center">Aksi</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
-          <?php foreach ($bin_entries as $b): ?>
-          <tr class="hover:bg-gray-50/70 transition group" id="bin-row-<?= $b['id_bin'] ?>">
+        <tbody class="divide-y divide-gray-100" id="binTableBody">
+          <?php foreach ($bin_entries as $b):
+            $hBin = HashHelper::encode((int)$b['id_bin']); ?>
+          <tr class="hover:bg-gray-50/70 transition group" id="bin-row-<?= $hBin ?>"
+              data-name="<?= strtolower(htmlspecialchars($b['nama_asisten'] ?? '', ENT_QUOTES)) ?>"
+              data-jabatan="<?= htmlspecialchars($b['jabatan_asisten'] ?? '', ENT_QUOTES) ?>"
+              data-angkatan="<?= htmlspecialchars($b['angkatan_asisten'] ?? '', ENT_QUOTES) ?>">
 
             <!-- Nama -->
             <td class="px-5 py-3.5">
@@ -139,19 +171,19 @@
             <td class="px-4 py-3.5 text-center">
               <div class="flex items-center justify-center gap-1">
 
-                <a href="<?= BASE_URL ?>/admin/recycleBinDownload?id=<?= $b['id_bin'] ?>"
+                <a href="<?= BASE_URL ?>/admin/recycleBinDownload?id=<?= $hBin ?>"
                    title="Unduh data (CSV/ZIP)"
                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 transition">
                   <i class="fas fa-download text-xs"></i>
                 </a>
 
-                <button onclick="confirmBinAction('restore', <?= $b['id_bin'] ?>, '<?= htmlspecialchars($b['nama_asisten'], ENT_QUOTES) ?>')"
+                <button onclick="confirmBinAction('restore', '<?= $hBin ?>', '<?= htmlspecialchars($b['nama_asisten'], ENT_QUOTES) ?>')"
                         title="Pulihkan data ke presensi"
                         class="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 text-green-600 hover:bg-green-100 border border-green-100 transition">
                   <i class="fas fa-trash-restore-alt text-xs"></i>
                 </button>
 
-                <button onclick="confirmBinAction('delete', <?= $b['id_bin'] ?>, '<?= htmlspecialchars($b['nama_asisten'], ENT_QUOTES) ?>')"
+                <button onclick="confirmBinAction('delete', '<?= $hBin ?>', '<?= htmlspecialchars($b['nama_asisten'], ENT_QUOTES) ?>')"
                         title="Hapus permanen"
                         class="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100 border border-red-100 transition">
                   <i class="fas fa-trash-alt text-xs"></i>
@@ -164,6 +196,11 @@
           <?php endforeach; ?>
         </tbody>
       </table>
+      <!-- [BARU] Ditampilkan JS saat pencarian/filter tidak cocok dengan baris manapun -->
+      <div id="binNoFilterResult" class="hidden text-center text-gray-400 py-14">
+        <i class="fas fa-search text-3xl mb-3 opacity-30"></i>
+        <p class="text-sm">Tidak ada entri yang cocok dengan pencarian/filter.</p>
+      </div>
     </div>
   </div>
   <?php endif; ?>

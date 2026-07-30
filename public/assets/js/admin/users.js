@@ -3,6 +3,11 @@
 
   let currentMode = "add";
   let deleteTargetId = null;
+  // [BARU] id_user mentah dari akun yang sedang diedit + status yang
+  // sedang menunggu konfirmasi toggle aktif/nonaktif (lihat
+  // handleAccountStatusChange / confirmStatusToggle di bawah).
+  let editingUserId = null;
+  let pendingStatusToggle = null;
   // [BARU - Fitur Crop Foto] instance Cropper.js aktif (sama seperti
   // common/edit_profile.js)
   let cropper = null;
@@ -107,6 +112,55 @@
     }
   };
 
+  // [BARU] Nomor telepon + kode negara (default Indonesia). Nilai tersimpan
+  // memakai format internasional "+<kode><digit>" (mis. "+6281234567890").
+  // parsePhoneForEdit membaca kembali nomor lama (format lokal "0..." atau
+  // yang sudah "+...") supaya kode negara & digit terisi benar saat edit.
+  const PHONE_COUNTRY_CODES = ["62", "60", "65", "1", "44", "61", "81"];
+
+  function parsePhoneForEdit(raw) {
+    raw = (raw || "").trim();
+    if (raw.startsWith("+")) {
+      const match = raw.match(/^\+(\d{1,3})(\d+)$/);
+      if (match && PHONE_COUNTRY_CODES.includes(match[1])) {
+        return { country: match[1], number: match[2] };
+      }
+    }
+    // Format lama (lokal, mis. "08534186497") - anggap Indonesia, buang '0' di depan.
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("0")) digits = digits.slice(1);
+    return { country: "62", number: digits };
+  }
+
+  function applyPhoneToForm(rawPhone) {
+    const parsed = parsePhoneForEdit(rawPhone);
+    const countrySel = document.getElementById("inputPhoneCountry");
+    const numberInput = document.getElementById("inputPhone");
+    if (countrySel) countrySel.value = parsed.country;
+    if (numberInput) numberInput.value = parsed.number;
+  }
+
+  // Gabungkan kode negara + digit menjadi satu nilai "+<kode><digit>" pada
+  // input#inputPhone tepat sebelum submit, supaya server tetap menerima
+  // SATU field "phone" seperti sebelumnya (tidak perlu ubah backend).
+  // Jika percobaan submit sebelumnya gagal (nilai sudah pernah digabung),
+  // ambil ulang bagian digit setelah kode negara supaya tidak dobel saat
+  // submit diulang.
+  function combinePhoneBeforeSubmit() {
+    const countrySel = document.getElementById("inputPhoneCountry");
+    const numberInput = document.getElementById("inputPhone");
+    if (!countrySel || !numberInput) return;
+    const value = numberInput.value.trim();
+    let digits;
+    if (value.startsWith("+")) {
+      const m = value.match(/^\+\d{1,3}(\d+)$/);
+      digits = m ? m[1] : value.replace(/\D/g, "");
+    } else {
+      digits = value.replace(/\D/g, "");
+    }
+    numberInput.value = digits ? `+${countrySel.value}${digits}` : "";
+  }
+
   window.openUserModal = function (mode, data = null) {
     currentMode = mode;
 
@@ -134,6 +188,8 @@
 
     if (mode === "add") {
       title.innerText = "Tambah Pengguna Baru";
+      editingUserId = null;
+      pendingStatusToggle = null;
 
       // [BARU - Fitur Crop Foto] mode tambah: belum ada foto, tampilkan
       // placeholder default & sembunyikan indikator "Foto sudah ada".
@@ -156,13 +212,19 @@
       passHint.innerText = "";
     } else {
       title.innerText = "Edit Data Pengguna";
+      // [BARU] id mentah disimpan di closure (tidak di form) — dipakai
+      // khusus untuk memanggil /admin/toggleUserStatus (lihat
+      // confirmStatusToggle) yang butuh id_user asli, bukan hash.
+      editingUserId = data.id || data.id_user || null;
+      pendingStatusToggle = null;
 
-      document.getElementById("inputId").value = data.id || "";
+      // [SECURITY] Kirim hash bukan integer mentah ke form hidden field
+      document.getElementById("inputId").value = data.id_hash || data.id || "";
       document.getElementById("inputName").value = data.name || "";
       document.getElementById("inputEmail").value = data.email || "";
       document.getElementById("inputRole").value = data.role || "";
       document.getElementById("inputPosition").value = data.position || "";
-      document.getElementById("inputPhone").value = data.no_telp || "";
+      applyPhoneToForm(data.no_telp || "");
       document.getElementById("inputAddress").value = data.alamat || "";
       document.getElementById("inputGender").value = data.jenis_kelamin || "";
 
@@ -432,6 +494,8 @@
         return;
       }
 
+      combinePhoneBeforeSubmit();
+
       const formData = new FormData(form);
       const url =
         currentMode === "add"
@@ -525,8 +589,24 @@
   function fetchUsersTable(keyword) {
     const icon = document.getElementById("userSearchIcon");
     const base = (window.APP_CONFIG && window.APP_CONFIG.BASE_URL) || "";
-    const url =
-      base + "/admin/manageUsers?ajax=1&search=" + encodeURIComponent(keyword);
+
+    // [FIX] Sebelumnya hanya "search" yang dikirim ke endpoint AJAX ini,
+    // sehingga filter Role/Jabatan/Angkatan yang sedang aktif (dipilih lewat
+    // select, yang me-reload halaman penuh) langsung HILANG begitu user
+    // mengetik di kolom pencarian — tabel AJAX menampilkan hasil pencarian
+    // dari SEMUA data, bukan dari data yang sudah tersaring. Sekarang nilai
+    // select saat ini ikut disertakan.
+    const params = new URLSearchParams();
+    params.set('ajax', '1');
+    params.set('search', keyword);
+    const roleSel     = document.getElementById('filterRoleSelect');
+    const jabatanSel  = document.getElementById('filterJabatanSelect');
+    const angkatanSel = document.getElementById('filterAngkatanSelect');
+    if (roleSel && roleSel.value)                        params.set('role', roleSel.value);
+    if (jabatanSel && !jabatanSel.disabled && jabatanSel.value)   params.set('jabatan', jabatanSel.value);
+    if (angkatanSel && !angkatanSel.disabled && angkatanSel.value) params.set('angkatan', angkatanSel.value);
+
+    const url = base + "/admin/manageUsers?" + params.toString();
 
     if (icon) icon.className = "fas fa-spinner fa-spin absolute left-4 top-3.5 text-blue-100 text-xs";
 
@@ -536,11 +616,12 @@
         const container = document.getElementById("usersTableContainer");
         if (container) container.outerHTML = html;
 
-        // Sinkronkan URL browser (bookmarkable, tanpa reload).
-        const newUrl =
-          base +
-          "/admin/manageUsers" +
-          (keyword ? "?search=" + encodeURIComponent(keyword) : "");
+        // Sinkronkan URL browser (bookmarkable, tanpa reload) — tetap bawa
+        // filter role/jabatan/angkatan yang sedang aktif.
+        params.delete('ajax');
+        if (!keyword) params.delete('search');
+        const qs = params.toString();
+        const newUrl = base + "/admin/manageUsers" + (qs ? "?" + qs : "");
         history.replaceState(null, "", newUrl);
       })
       .catch(() => {})
@@ -548,16 +629,125 @@
         if (icon) icon.className = "fas fa-search absolute left-4 top-3.5 text-blue-100 text-xs";
       });
   }
-  // [BARU – Tahap 30] Toggle aktif/nonaktif akun di edit modal
+  // [BARU] Filter "Role" pada Daftar User: Admin & Kepala Lab tidak memiliki
+  // jabatan/angkatan asisten, jadi kedua filter tersebut dinonaktifkan
+  // (bukan sekadar disembunyikan) begitu salah satu role tsb dipilih —
+  // <select disabled> otomatis tidak ikut terkirim saat form di-submit.
+  window.handleUserRoleFilterChange = function (sel) {
+    const jabatanSel  = document.getElementById("filterJabatanSelect");
+    const angkatanSel = document.getElementById("filterAngkatanSelect");
+    const lock = (sel.value === "Admin" || sel.value === "Kepala Lab");
+
+    [jabatanSel, angkatanSel].forEach((el) => {
+      if (!el) return;
+      el.disabled = lock;
+      if (lock) el.value = "";
+    });
+
+    sel.form.submit();
+  };
+
+  // [DIUBAH] Toggle aktif/nonaktif akun di edit modal — sebelumnya hanya
+  // mengubah hidden field `status_account` yang baru benar-benar diterapkan
+  // saat form "Simpan Data" disubmit: tidak ada konfirmasi, tidak ada
+  // notifikasi khusus, dan (bug utama) TIDAK memanggil endpoint
+  // /admin/toggleUserStatus sama sekali — jadi arsip ZIP presensi+logbook
+  // (yang harusnya terjadi saat nonaktifkan) tidak pernah dibuat lewat
+  // jalur ini. Sekarang toggle memicu konfirmasi + memanggil endpoint yang
+  // sama persis dengan yang dipakai tombol "Nonaktifkan Akun" di dashboard,
+  // supaya perilaku & notifikasinya konsisten di kedua tempat.
   window.handleAccountStatusChange = function() {
-      const toggle    = document.getElementById("inputAccountActive");
-      const hint      = document.getElementById("accountStatusHint");
-      const statusIn  = document.getElementById("inputStatusAccount");
+      const toggle = document.getElementById("inputAccountActive");
       if (!toggle) return;
-      const active    = toggle.checked;
-      if (statusIn) statusIn.value = active ? "ACTIVE" : "INACTIVE";
-      if (hint) hint.innerText = active
-          ? "Akun aktif — user dapat login dan mengakses semua fitur."
-          : "Akun nonaktif — user dapat login namun tidak bisa mengakses fitur.";
+      const wantActive = toggle.checked;
+
+      // Kembalikan tampilan toggle ke posisi semula dulu — baru diterapkan
+      // permanen setelah admin benar-benar konfirmasi (lihat confirmStatusToggle).
+      toggle.checked = !wantActive;
+
+      if (!editingUserId) return;
+      pendingStatusToggle = wantActive ? "ACTIVE" : "INACTIVE";
+      openStatusToggleModal(pendingStatusToggle);
+  };
+
+  function openStatusToggleModal(status) {
+      const modal = document.getElementById("statusToggleModal");
+      const icon  = document.getElementById("statusToggleIcon");
+      const title = document.getElementById("statusToggleTitle");
+      const msg   = document.getElementById("statusToggleMsg");
+      const btn   = document.getElementById("confirmStatusToggleBtn");
+      if (!modal || !icon || !title || !msg || !btn) return;
+
+      if (status === "INACTIVE") {
+          icon.className = "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gray-100 text-gray-500";
+          icon.innerHTML = '<i class="fas fa-user-slash text-2xl"></i>';
+          title.innerText = "Nonaktifkan Akun?";
+          msg.innerText = "Data presensi & logbook asisten ini akan diarsipkan (ZIP) lalu dihapus dari sistem. Akun tidak bisa mengakses fitur apapun hingga diaktifkan kembali.";
+          btn.className = "flex-1 py-2.5 rounded-xl bg-gray-700 text-white font-bold hover:bg-gray-800 shadow-lg transition";
+          btn.innerText = "Ya, Nonaktifkan";
+      } else {
+          icon.className = "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-blue-100 text-blue-600";
+          icon.innerHTML = '<i class="fas fa-user-check text-2xl"></i>';
+          title.innerText = "Aktifkan Kembali Akun?";
+          msg.innerText = "Akun ini akan bisa login dan mengakses semua fitur seperti biasa kembali.";
+          btn.className = "flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg transition";
+          btn.innerText = "Ya, Aktifkan";
+      }
+      modal.classList.remove("hidden");
+  }
+
+  window.cancelStatusToggle = function() {
+      document.getElementById("statusToggleModal")?.classList.add("hidden");
+      pendingStatusToggle = null;
+  };
+
+  window.confirmStatusToggle = function() {
+      const modal    = document.getElementById("statusToggleModal");
+      const toggle   = document.getElementById("inputAccountActive");
+      const hint     = document.getElementById("accountStatusHint");
+      const statusIn = document.getElementById("inputStatusAccount");
+      const status   = pendingStatusToggle;
+
+      modal?.classList.add("hidden");
+      if (!status || !editingUserId) return;
+
+      const base = ((window.APP_CONFIG && (window.APP_CONFIG.BASE_URL || window.APP_CONFIG.baseUrl)) || "").replace(/\/$/, "");
+
+      fetch(base + "/admin/toggleUserStatus", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: editingUserId, status: status })
+      })
+      .then((r) => r.json())
+      .then((data) => {
+          if (data.status === "success") {
+              if (toggle) toggle.checked = (status === "ACTIVE");
+              if (statusIn) statusIn.value = status;
+              if (hint) hint.innerText = (status === "ACTIVE")
+                  ? "Akun aktif — user dapat login dan mengakses semua fitur."
+                  : "Akun nonaktif — user dapat login namun tidak bisa mengakses fitur.";
+
+              if (data.download_url) {
+                  const f = document.createElement("iframe");
+                  f.style.display = "none";
+                  f.src = data.download_url;
+                  document.body.appendChild(f);
+                  setTimeout(() => { try { document.body.removeChild(f); } catch (e) {} }, 30000);
+              }
+
+              showAlert("success",
+                  status === "ACTIVE" ? "Akun Diaktifkan" : "Akun Dinonaktifkan",
+                  status === "ACTIVE"
+                      ? "Akun berhasil diaktifkan kembali."
+                      : "Akun dinonaktifkan & data presensi/logbook telah diarsipkan.");
+          } else {
+              showAlert("error", "Gagal", data.message || "Terjadi kesalahan.");
+          }
+      })
+      .catch(() => {
+          showAlert("error", "Gagal", "Koneksi ke server terputus.");
+      });
+
+      pendingStatusToggle = null;
   };
 })();

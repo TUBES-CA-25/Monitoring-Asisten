@@ -6,7 +6,7 @@ $schedule_type = $schedule_type ?? '';
 $sort_by = $sort_by ?? 'hari_waktu';
 $assistants = $assistants ?? [];
 ?>
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+<!-- FullCalendar loaded via vendor_js in controller -->
 
 <div class="max-w-7xl mx-auto space-y-6 animate-enter pb-12">
 
@@ -44,18 +44,18 @@ $assistants = $assistants ?? [];
                 <div class="grid grid-cols-2 gap-2 w-full">
                     <div class="flex flex-col bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
                         <span class="text-[9px] text-gray-400 font-bold uppercase leading-none">Dari</span>
-                        <input type="date" name="start_date" value="<?= $start_date ?>" max="<?= $end_date ?>" onchange="handleStartDateChange(this.value)" class="bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 outline-none p-0 w-full cursor-pointer mt-0.5">
+                        <input type="date" name="start_date" value="<?= htmlspecialchars($start_date, ENT_QUOTES, 'UTF-8') ?>" max="<?= htmlspecialchars($end_date, ENT_QUOTES, 'UTF-8') ?>" onchange="handleStartDateChange(this.value)" class="bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 outline-none p-0 w-full cursor-pointer mt-0.5">
                     </div>
                     <div class="flex flex-col bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
                         <span class="text-[9px] text-gray-400 font-bold uppercase leading-none">Sampai</span>
-                        <input type="date" name="end_date" value="<?= $end_date ?>" min="<?= $start_date ?>" onchange="handleEndDateChange(this.value)" class="bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 outline-none p-0 w-full cursor-pointer mt-0.5">
+                        <input type="date" name="end_date" value="<?= htmlspecialchars($end_date, ENT_QUOTES, 'UTF-8') ?>" min="<?= htmlspecialchars($start_date, ENT_QUOTES, 'UTF-8') ?>" onchange="handleEndDateChange(this.value)" class="bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 outline-none p-0 w-full cursor-pointer mt-0.5">
                     </div>
                 </div>
 
-                <input type="hidden" name="sort_by" value="<?= $sort_by ?>">
+                <input type="hidden" name="sort_by" value="<?= htmlspecialchars($sort_by, ENT_QUOTES, 'UTF-8') ?>">
 
-                <div class="flex gap-2 w-full">
-                    <select name="assistant_id_select" onchange="applyFilterFromDropdown(this.value)" class="flex-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl p-2.5 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer">
+                <div class="flex flex-wrap gap-2 w-full">
+                    <select name="assistant_id_select" onchange="applyFilterFromDropdown(this.value)" class="flex-1 min-w-[120px] bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl p-2.5 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer">
                         <option value="all">Semua Asisten</option>
                         <?php if (!empty($assistants) && is_array($assistants)): ?>
                             <?php foreach($assistants as $ast): ?>
@@ -66,7 +66,7 @@ $assistants = $assistants ?? [];
                         <?php endif; ?>
                     </select>
 
-                    <select name="schedule_type" onchange="fetchFilteredSchedules()" class="flex-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl p-2.5 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer">
+                    <select name="schedule_type" onchange="fetchFilteredSchedules()" class="flex-1 min-w-[110px] bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl p-2.5 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer">
                         <option value="">Semua Jenis</option>
                         <option value="umum" <?= ($schedule_type == 'umum') ? 'selected' : '' ?>>Umum (Lab)</option>
                         <option value="asisten" <?= ($schedule_type == 'asisten') ? 'selected' : '' ?>>Asisten Lab</option>
@@ -82,24 +82,30 @@ $assistants = $assistants ?? [];
         </div>
 
         <!-- Card 2: Ekspor Laporan -->
-        <div class="lg:col-span-5 bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden">
+        <!-- [BARU] Sebelumnya "flex-col sm:flex-row" - breakpoint sm (viewport
+             640px) tidak memperhitungkan bahwa card ini hanya 5/12 lebar grid
+             begitu breakpoint lg (1024px) aktif, sehingga di layar ~1024-1279px
+             tombol Excel kepotong keluar card (overflow-hidden menyembunyikannya).
+             flex-wrap bereaksi terhadap lebar CONTAINER sebenarnya, bukan viewport,
+             jadi selalu pas berapa pun lebar kolomnya. -->
+        <div class="lg:col-span-5 bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">
             <div class="absolute right-0 top-0 h-full w-16 bg-green-50/50 skew-x-12 transform origin-bottom-left"></div>
-            
-            <div class="relative z-10 flex items-center gap-2 self-start sm:self-center">
+
+            <div class="relative z-10 flex items-center gap-2 shrink-0">
                 <div class="p-2 bg-green-100 text-green-600 rounded-lg">
                     <i class="fas fa-file-export"></i>
                 </div>
-                <h3 class="font-extrabold text-gray-700">Ekspor Laporan</h3>
+                <h3 class="font-extrabold text-gray-700 whitespace-nowrap">Ekspor Laporan</h3>
             </div>
-            <div class="relative z-10 flex gap-3 w-full sm:w-auto justify-end">
-                <?php 
-                    $roleLink = strtolower(str_replace(' ', '', $_SESSION['role'])); 
+            <div class="relative z-10 flex flex-wrap gap-3 flex-1 justify-end min-w-[210px]">
+                <?php
+                    $roleLink = strtolower(str_replace(' ', '', $_SESSION['role']));
                     $qs = "start_date=" . $start_date . "&end_date=" . $end_date . "&assistant_id=" . $assistant_id . "&schedule_type=" . $schedule_type . "&sort_by=" . $sort_by;
                 ?>
-                <a id="exportPdfBtn" href="<?= BASE_URL ?>/<?= $roleLink ?>/exportSchedulePdf?<?= $qs ?>" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 border border-red-100 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white hover:shadow-lg transition group">
+                <a id="exportPdfBtn" href="<?= BASE_URL ?>/<?= $roleLink ?>/exportSchedulePdf?<?= $qs ?>" class="flex-1 min-w-[100px] flex items-center justify-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 border border-red-100 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white hover:shadow-lg transition group">
                     <i class="fas fa-file-pdf text-lg group-hover:scale-110 transition"></i> <span>PDF</span>
                 </a>
-                <a id="exportExcelBtn" href="<?= BASE_URL ?>/<?= $roleLink ?>/exportScheduleCsv?<?= $qs ?>" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-green-50 text-green-600 border border-green-100 rounded-xl font-bold text-xs hover:bg-green-600 hover:text-white hover:shadow-lg transition group">
+                <a id="exportExcelBtn" href="<?= BASE_URL ?>/<?= $roleLink ?>/exportScheduleCsv?<?= $qs ?>" class="flex-1 min-w-[100px] flex items-center justify-center gap-2 px-5 py-2.5 bg-green-50 text-green-600 border border-green-100 rounded-xl font-bold text-xs hover:bg-green-600 hover:text-white hover:shadow-lg transition group">
                     <i class="fas fa-file-excel text-lg group-hover:scale-110 transition"></i> <span>Excel</span>
                 </a>
             </div>
@@ -109,12 +115,14 @@ $assistants = $assistants ?? [];
     <div class="flex flex-col lg:flex-row gap-6 lg:h-[850px] h-auto">
         <div class="w-full lg:w-72 space-y-6 flex flex-col h-full shrink-0">
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 shrink-0">
-                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide mb-4">Kategori</h3>
-                <div class="space-y-3 text-sm font-medium text-gray-600">
-                    <div class="flex items-center"><span class="legend-dot bg-gray-800"></span> Umum (Lab)</div>
-                    <div class="flex items-center"><span class="legend-dot bg-blue-500"></span> Asisten Lab</div>
-                    <div class="flex items-center"><span class="legend-dot bg-orange-500"></span> Piket</div>
-                    <div class="flex items-center"><span class="legend-dot bg-green-500"></span> Kuliah Asisten</div>
+                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide mb-4 flex items-center gap-2">
+                    <i class="fas fa-palette text-blue-500"></i> Kategori
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="legend-chip bg-gray-800 text-white"><i class="fas fa-building"></i><span>Umum</span></div>
+                    <div class="legend-chip bg-blue-50 text-blue-600 border-blue-100"><i class="fas fa-user-tie"></i><span>Asisten</span></div>
+                    <div class="legend-chip bg-orange-50 text-orange-600 border-orange-100"><i class="fas fa-broom"></i><span>Piket</span></div>
+                    <div class="legend-chip bg-green-50 text-green-600 border-green-100"><i class="fas fa-graduation-cap"></i><span>Kuliah</span></div>
                 </div>
             </div>
 
@@ -125,25 +133,40 @@ $assistants = $assistants ?? [];
             <!-- Filter Asisten Sidebar -->
             <div class="bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col overflow-hidden flex-1 min-h-0">
                 <div class="p-5 border-b border-gray-100 bg-white sticky top-0 z-20">
-                    <h3 class="font-extrabold text-gray-700 text-sm uppercase tracking-wide mb-3">Filter Asisten</h3>
-                    <input type="text" id="searchFilterInput" placeholder="Cari nama..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 class="font-extrabold text-gray-700 text-sm uppercase tracking-wide">Filter Asisten</h3>
+                            <p class="text-[10px] text-gray-400">Klik untuk filter kalender</p>
+                        </div>
+                        <div class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 shadow-sm">
+                            <span class="font-normal text-blue-400">Total: </span> <?= count($assistants) ?>
+                        </div>
+                    </div>
+
+                    <div class="relative group">
+                        <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 group-focus-within:text-blue-500 transition-colors text-sm"></i>
+                        <input type="text" id="searchFilterInput" placeholder="Cari nama..."
+                            class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all">
+                    </div>
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar" id="filterListContainer">
-                    <div onclick="applyFilter('all')" id="filter-all" class="assistant-card filter-item filter-active p-3 rounded-2xl cursor-pointer flex items-center gap-3 border border-transparent hover:bg-gray-50 group">
-                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"><i class="fas fa-layer-group text-sm"></i></div>
-                        <div><h4 class="font-bold text-gray-800 text-sm">Semua Jadwal</h4><p class="text-[10px] text-gray-500">Gabungan data</p></div>
+                    <div onclick="applyFilter('all')" id="filter-all" class="assistant-card filter-item filter-active p-3 rounded-2xl cursor-pointer flex items-center gap-3 border border-transparent hover:bg-gray-50 hover:border-gray-200 transition-all duration-200 group">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform"><i class="fas fa-layer-group text-sm"></i></div>
+                        <div><h4 class="font-bold text-gray-800 text-sm leading-tight">Semua Jadwal</h4><p class="text-[10px] text-gray-500 font-medium mt-0.5">Gabungan semua data</p></div>
                         <div class="ml-auto opacity-0 check-icon text-blue-600 transition-opacity"><i class="fas fa-check-circle"></i></div>
                     </div>
                     <?php if (!empty($assistants) && is_array($assistants)): ?>
                         <?php foreach($assistants as $ast): ?>
-                        <div onclick="applyFilter('<?= $ast['id_profil'] ?>')" id="filter-<?= $ast['id_profil'] ?>" class="assistant-card filter-item p-3 rounded-2xl cursor-pointer flex items-center gap-3 border border-transparent hover:bg-gray-50 group" data-name="<?= strtolower($ast['nama'] ?? $ast['name'] ?? '') ?>">
-                            <div class="relative shrink-0"><img src="<?= !empty($ast['photo_profile']) ? BASE_URL.'/uploads/profile/'.$ast['photo_profile'] : 'https://ui-avatars.com/api/?name='.urlencode($ast['nama'] ?? $ast['name'] ?? '').'&background=random' ?>" class="w-10 h-10 rounded-full object-cover border border-gray-100 shadow-sm"></div>
-                            <div class="min-w-0 flex-1"><h4 class="font-bold text-gray-800 text-sm truncate"><?= htmlspecialchars($ast['nama'] ?? $ast['name'] ?? '') ?></h4><p class="text-[10px] text-gray-500 truncate">Asisten</p></div>
+                        <div onclick="applyFilter('<?= $ast['id_profil'] ?>')" id="filter-<?= $ast['id_profil'] ?>" class="assistant-card filter-item p-3 rounded-2xl cursor-pointer flex items-center gap-3 border border-transparent hover:bg-gray-50 hover:border-gray-200 transition-all duration-200 group" data-name="<?= htmlspecialchars(strtolower($ast['nama'] ?? $ast['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                            <div class="relative shrink-0"><img src="<?= !empty($ast['photo_profile']) ? BASE_URL.'/uploads/profile/'.$ast['photo_profile'] : 'https://ui-avatars.com/api/?name='.urlencode($ast['nama'] ?? $ast['name'] ?? '').'&background=random' ?>" class="w-10 h-10 rounded-full object-cover border border-gray-100 shadow-sm group-hover:scale-105 transition-transform"></div>
+                            <div class="min-w-0 flex-1"><h4 class="font-bold text-gray-800 text-sm leading-tight truncate group-hover:text-blue-600 transition-colors"><?= htmlspecialchars($ast['nama'] ?? $ast['name'] ?? '') ?></h4><p class="text-[10px] text-gray-500 font-medium mt-0.5 truncate"><?= htmlspecialchars($ast['position'] ?? 'Anggota Lab', ENT_QUOTES, 'UTF-8') ?></p></div>
                             <div class="ml-auto opacity-0 check-icon text-blue-600 transition-opacity"><i class="fas fa-check-circle"></i></div>
                         </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
+
+                    <div id="noResultFilter" class="hidden text-center py-8 text-gray-400 text-xs italic">Tidak ditemukan.</div>
                 </div>
             </div>
         </div>

@@ -4,6 +4,30 @@ class ScheduleModel {
     private $conn;
     private $db;
 
+    /**
+     * [BARU – Security] Whitelist tipe jadwal yang diizinkan.
+     * Nilai dari $type WAJIB ada di sini sebelum dipakai dalam
+     * konstruksi nama tabel/kolom SQL, karena PDO bind() TIDAK
+     * melindungi nama tabel/kolom — hanya nilai parameter (:param).
+     */
+    private const VALID_TYPES = ['umum', 'piket', 'kuliah', 'asisten'];
+
+    /**
+     * Validasi $type dan lempar exception jika tidak valid.
+     * Dipanggil di createSchedule, updateSchedule, deleteSchedule
+     * sebelum string $type digunakan dalam SQL.
+     */
+    private function validateType(string $type): string
+    {
+        if (!in_array($type, self::VALID_TYPES, true)) {
+            throw new \InvalidArgumentException(
+                "Tipe jadwal tidak valid: '{$type}'. Nilai yang diizinkan: " .
+                implode(', ', self::VALID_TYPES)
+            );
+        }
+        return $type;
+    }
+
     public function __construct() {
         $this->db = new Database();
         $this->conn = $this->db->getConnection();
@@ -499,6 +523,7 @@ class ScheduleModel {
             $syncStatus = 'failed';
         }
 
+        $type = $this->validateType($type); // [SECURITY] whitelist before SQL concat
         $colName = 'id_jadwal_' . $type;
         if ($type == 'umum') $colName = 'id_jadwal_lab';
 
@@ -558,6 +583,7 @@ class ScheduleModel {
             // Lihat catatan pada createSchedule(): untuk jadwal umum, akun Google
             // yang dipakai adalah akun Admin pembuat jadwal (creator_user_id),
             // bukan id_profil (yang memang tidak ada untuk jadwal umum).
+            $type = $this->validateType($type); // [SECURITY] whitelist before SQL concat
             $colName = ($type == 'umum') ? 'id_jadwal_lab' : 'id_jadwal_' . $type;
             $stmtGet = $this->conn->prepare("SELECT id_jadwal, google_event_id, sync_status FROM jadwal_full WHERE $colName = :id");
             $stmtGet->execute([':id' => $data['id']]);
@@ -645,6 +671,7 @@ class ScheduleModel {
 
     public function deleteSchedule($id, $type, $creatorUserId = null) {
         try {
+            $type = $this->validateType($type); // [SECURITY] whitelist before SQL concat
             $colName = ($type == 'umum') ? 'id_jadwal_lab' : 'id_jadwal_' . $type;
             $tableMap = ['kuliah'=>'jadwal_kuliah', 'asisten'=>'jadwal_asisten', 'piket'=>'jadwal_piket', 'umum'=>'jadwal_lab'];
             $tableName = $tableMap[$type];
@@ -767,6 +794,7 @@ class ScheduleModel {
      */
     public function retrySchedule($id, $type, $creatorUserId = null) {
         try {
+            $type = $this->validateType($type); // [SECURITY] whitelist before SQL concat
             $colName = ($type == 'umum') ? 'id_jadwal_lab' : 'id_jadwal_' . $type;
             $tableMap = ['kuliah'=>'jadwal_kuliah', 'asisten'=>'jadwal_asisten', 'piket'=>'jadwal_piket', 'umum'=>'jadwal_lab'];
             if (!isset($tableMap[$type])) return false;

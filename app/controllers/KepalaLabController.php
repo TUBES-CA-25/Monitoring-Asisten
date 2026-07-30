@@ -1,5 +1,6 @@
 <?php
 require_once '../app/core/GoogleClient.php';
+require_once __DIR__ . '/../services/AttendanceAutoService.php';
 
 class KepalaLabController extends Controller {
 
@@ -34,6 +35,7 @@ class KepalaLabController extends Controller {
         $assistants = array_values(array_filter($allUsers, function ($u) {
             return isset($u['role']) && $u['role'] === 'User';
         }));
+        $autoService = new AttendanceAutoService();
 
         foreach ($assistants as &$ast) {
             $pid = $ast['id_profil'] ?? null;
@@ -53,10 +55,25 @@ class KepalaLabController extends Controller {
                 $ast['visual_status'] = !empty($presensi['waktu_pulang'])
                     ? 'offline_pulang'
                     : 'online';
+                // [BARU] Begitu asisten sudah pulang LEBIH CEPAT dari jam
+                // pulang minimal, cap di kartu diganti jadi "PULANG CEPAT"
+                // (kuning) - status yang lebih relevan/terkini daripada cap
+                // datang (terlambat/tepat waktu) karena asisten sudah tidak
+                // di lab lagi.
+                if (!empty($presensi['waktu_pulang']) && $autoService->isEarlyCheckout($presensi['waktu_pulang'])) {
+                    $ast['timing_badge'] = 'pulang_cepat';
+                } else {
+                    // Cap TEPAT WAKTU / TERLAMBAT
+                    $ast['timing_badge'] = (($presensi['status'] ?? '') === 'Terlambat')
+                        ? 'terlambat'
+                        : 'tepat_waktu';
+                }
             } elseif ($izin) {
                 $ast['visual_status'] = 'izin';
+                $ast['timing_badge']  = null;
             } else {
                 $ast['visual_status'] = 'alpha';
+                $ast['timing_badge']  = null;
             }
 
             $userStats = $attModel->getUserStats($pid);
@@ -98,6 +115,18 @@ class KepalaLabController extends Controller {
 
         $data['page_css'] = [
             ASSET_URL . '/css/kepalalab/dashboard.css'
+        ];
+
+        // [BARU] chart.js sebelumnya HANYA dimuat lewat <script> inline di
+        // kepalalab/dashboard.php - script itu berada di dalam #mainContent,
+        // jadi tidak ikut dieksekusi saat halaman ini dicapai lewat navigasi
+        // AJAX (browser tidak menjalankan <script> hasil innerHTML). Akibatnya
+        // grafik dashboard Kepala Lab gagal termuat total kalau tidak diakses
+        // lewat reload penuh. Dipindah ke vendor_js (dirender di footer,
+        // dikelola ulang oleh global.js di setiap navigasi AJAX).
+        $data['vendor_js'] = [
+            'https://cdn.jsdelivr.net/npm/chart.js',
+            'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2',
         ];
 
         $data['page_js'] = [
@@ -158,11 +187,29 @@ class KepalaLabController extends Controller {
         $userModel = $this->model('UserModel');
         $data['user'] = $userModel->getUserById($_SESSION['user_id']);
         
-        $allUsers = $userModel->getAllUsers();
-        $data['users_list'] = array_filter($allUsers, function($u) {
-            return $u['id'] != $_SESSION['user_id'];
-        });
-        
+        $keyword        = $_GET['search']  ?? null;
+        $roleFilter     = $_GET['role']    ?? null;
+        $jabatanFilter  = $_GET['jabatan'] ?? null;
+        $angkatanFilter = $_GET['angkatan']?? null;
+        $currentPage    = max(1, (int)($_GET['page'] ?? 1));
+        $itemsPerPage   = 15;
+
+        $totalData  = $userModel->countUsersWithProfileAndLab($keyword, $roleFilter, $jabatanFilter, $angkatanFilter);
+        $totalPages = max(1, (int)ceil($totalData / $itemsPerPage));
+        if ($currentPage > $totalPages) $currentPage = $totalPages;
+        $offset = ($currentPage - 1) * $itemsPerPage;
+
+        $data['users_list'] = $userModel->getUsersWithProfileAndLab(
+            $keyword, $itemsPerPage, $offset, $roleFilter, $jabatanFilter, $angkatanFilter
+        );
+        $data['pagination']      = ['current'=>$currentPage,'total_pages'=>$totalPages,'total_items'=>$totalData,'per_page'=>$itemsPerPage];
+        $data['search_keyword']  = $keyword;
+        $data['filter_role']     = $roleFilter;
+        $data['filter_jabatan']  = $jabatanFilter;
+        $data['filter_angkatan'] = $angkatanFilter;
+        $data['jabatan_list']    = $this->model('AttendanceModel')->getJabatanList();
+        $data['angkatan_list']   = $this->model('AttendanceModel')->getAngkatanList();
+
         $data['labs'] = $this->model('LabModel')->getAllLabs();
 
         $data['page_css'] = [
@@ -278,6 +325,7 @@ class KepalaLabController extends Controller {
         
         $data['css'] = 'kepalalab/schedule.css';
         $data['js'] = 'kepalalab/schedule.js';
+        $data['vendor_js'] = ['https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'];  // FullCalendar — loaded before schedule.js
 
         $data['js_config'] = [
             'baseUrl'     => BASE_URL,
@@ -384,16 +432,22 @@ class KepalaLabController extends Controller {
         $attModel = $this->model('AttendanceModel');
 
         $data['assistants_list'] = $attModel->getAllAssistantsList();
+        $data['angkatan_list']   = $attModel->getAngkatanList();
+        $data['jabatan_list']    = $attModel->getJabatanList();
 
-        $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
-        $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
-        $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
+        $startDate   = !empty($_GET['start_date'])   ? $_GET['start_date']        : date('Y-m-d');
+        $endDate     = !empty($_GET['end_date'])     ? $_GET['end_date']          : date('Y-m-d');
+        $assistantId = !empty($_GET['assistant_id']) ? (int)$_GET['assistant_id'] : null;
+        $jabatan     = !empty($_GET['jabatan'])      ? trim($_GET['jabatan'])      : null;
+        $angkatan    = !empty($_GET['angkatan'])     ? trim($_GET['angkatan'])     : null;
 
-        $data['start_date'] = $startDate;
-        $data['end_date'] = $endDate;
+        $data['start_date']         = $startDate;
+        $data['end_date']           = $endDate;
         $data['selected_assistant'] = $assistantId;
+        $data['selected_jabatan']   = $jabatan;
+        $data['selected_angkatan']  = $angkatan;
 
-        $data['attendance_list'] = $attModel->getAttendanceRecap($startDate, $endDate, $assistantId);
+        $data['attendance_list'] = $attModel->getAttendanceSummary($startDate, $endDate, $assistantId, $jabatan, $angkatan);
 
         $data['page_css'] = [
             ASSET_URL . '/css/kepalalab/attendance.css'
@@ -416,8 +470,10 @@ class KepalaLabController extends Controller {
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-t');
         $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
+        $jabatan = !empty($_GET['jabatan']) ? trim($_GET['jabatan']) : null;
+        $angkatan = !empty($_GET['angkatan']) ? trim($_GET['angkatan']) : null;
 
-        $data = $this->model('AttendanceModel')->getAttendanceSummary($startDate, $endDate, $assistantId);
+        $data = $this->model('AttendanceModel')->getAttendanceSummary($startDate, $endDate, $assistantId, $jabatan, $angkatan);
         $filename = "Rekap_Presensi_" . date('d-m-Y', strtotime($startDate)) . "_sd_" . date('d-m-Y', strtotime($endDate)) . ".csv";
         
         header('Content-Type: text/csv; charset=utf-8');
@@ -427,21 +483,23 @@ class KepalaLabController extends Controller {
         // Kirim UTF-8 BOM agar Excel dapat mendeteksi encoding dan memisahkan kolom dengan benar
         fwrite($output, "\xEF\xBB\xBF");
 
-        fputcsv($output, ['No', 'Nama Asisten', 'NIM', 'Jabatan', 'Masuk', 'Pulang', 'Hadir', 'Izin', 'Alpa', 'Total Kehadiran'], ';', '"', '');
+        fputcsv($output, ['No', 'Nama Asisten', 'NIM', 'Jabatan', 'Hadir', 'Izin/Sakit', 'Tidak Hadir', 'Tepat Waktu', 'Terlambat', 'Durasi Kerja'], ';', '"', '');
 
         $no = 1;
         foreach ($data as $row) {
+            $dm = (int)($row['total_durasi_menit']??0);
+            $dStr = $dm>0?floor($dm/60).'j '.($dm%60).'m':'-';
             fputcsv($output, [
                 $no++,
-                $row['name'],
-                $row['nim'] ?? '-',
-                $row['position'] ?? 'Asisten',
-                $row['total_masuk'],
-                $row['total_pulang'],
-                $row['total_hadir'] . " Hari",
-                $row['total_izin'] . " Hari",
-                $row['total_alpa'] . " Hari",
-                $row['total_hadir'] . " Hari"
+                $row['name']     ?? '-',
+                $row['nim']      ?? '-',
+                $row['position'] ?? '-',
+                $row['total_hadir'],
+                $row['total_izin'],
+                $row['total_alpa'],
+                $row['total_tepat_waktu'] ?? 0,
+                $row['total_terlambat']   ?? 0,
+                $dStr,
             ], ';', '"', '');
         }
         fclose($output); exit;
@@ -453,9 +511,11 @@ class KepalaLabController extends Controller {
         $startDate = !empty($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01');
         $endDate = !empty($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-t');
         $assistantId = !empty($_GET['assistant_id']) ? $_GET['assistant_id'] : null;
-        
+        $jabatan = !empty($_GET['jabatan']) ? trim($_GET['jabatan']) : null;
+        $angkatan = !empty($_GET['angkatan']) ? trim($_GET['angkatan']) : null;
+
         $attModel = $this->model('AttendanceModel');
-        $data['summary_data'] = $attModel->getAttendanceSummary($startDate, $endDate, $assistantId);
+        $data['summary_data'] = $attModel->getAttendanceSummary($startDate, $endDate, $assistantId, $jabatan, $angkatan);
         
         $data['start_date'] = $startDate;
         $data['end_date'] = $endDate;
@@ -681,9 +741,37 @@ class KepalaLabController extends Controller {
             echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
             exit;
         }
-        $userId = $_POST['user_id'] ?? 0;
-        $logs = $this->model('LogbookModel')->getUnifiedLogbook($userId);
-        echo json_encode($logs);
+        $userId  = (int)($_POST['user_id'] ?? 0);
+        $page    = max(1, (int)($_POST['page']     ?? 1));
+        // [BARU - PERBAIKAN BUG] Sebelumnya "(int)$_POST['per_page']" di
+        // cabang true ternary MERUJUK ULANG ke $_POST['per_page'] tanpa
+        // fallback "?? 30" (fallback itu cuma dipakai di pengecekan
+        // in_array-nya). Begitu request TIDAK menyertakan "per_page" (mis.
+        // panggilan awal sebelum pengguna mengubah dropdown jumlah baris),
+        // $_POST['per_page'] tidak terdefinisi -> (int)null = 0 ->
+        // array_slice(..., 0) mengembalikan KOSONG walau datanya ada.
+        $perPage = (int) ($_POST['per_page'] ?? 30);
+        if (!in_array($perPage, [10, 20, 30, 50, 100], true)) $perPage = 30;
+
+        $result = $this->model('LogbookModel')->getUnifiedLogbook($userId, $page, $perPage);
+
+        // [SECURITY] Encode id_ref dan log_id sebelum dikirim ke JS
+        foreach ($result['data'] as &$log) {
+            if (!empty($log['id_ref'])) $log['id_ref'] = HashHelper::encode((int)$log['id_ref']);
+            if (!empty($log['log_id'])) $log['log_id'] = HashHelper::encode((int)$log['log_id']);
+        }
+        unset($log);
+
+        echo json_encode([
+            'logs'        => $result['data'],
+            'total'       => $result['total'],
+            'hadir'       => $result['hadir'],
+            'izin'        => $result['izin'],
+            'alpha'       => $result['alpha'],
+            'page'        => $result['page'],
+            'per_page'    => $result['per_page'],
+            'total_pages' => $result['total_pages'],
+        ]);
     }
 
     public function reset_logbook() {
@@ -719,7 +807,12 @@ class KepalaLabController extends Controller {
         $data['judul'] = 'Profil Kepala Lab';
         $userModel = $this->model('UserModel');
         $data['user'] = $userModel->getUserById($_SESSION['user_id']);
-        
+        // [BARU] common/profile.php butuh $isUser untuk membedakan baris NIM
+        // (Asisten) vs NIDN/NIP (Admin/Kepala Lab) - sebelumnya tidak pernah
+        // di-set di sini (hanya di editProfile()), jadi NIDN/NIP selalu
+        // tampil untuk semua role dan NIM tidak pernah tampil sama sekali.
+        $data['isUser'] = ($data['user']['role'] === 'User');
+
         $data['is_google_connected'] = $userModel->isGoogleConnected($_SESSION['user_id']);
         $data['google_configured'] = (new GoogleClient())->isConfigured();
         $data['total_managed_users'] = $userModel->countUsersByRole('User');
@@ -758,6 +851,7 @@ class KepalaLabController extends Controller {
 
         $data['page_js'] = [
             'https://cdn.jsdelivr.net/npm/chart.js',
+            'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2',
             ASSET_URL . '/js/common/profile.js'
         ];
 
@@ -879,6 +973,11 @@ class KepalaLabController extends Controller {
                     echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
                     exit;
                 }
+                // [Item 4] Validasi MIME type dari isi file
+                if (!$this->validateImageMime($_FILES['photo']['tmp_name'])) {
+                    echo json_encode(['status' => 'error', 'title' => 'File Tidak Valid', 'message' => 'File gambar tidak valid. Pastikan file adalah gambar asli.']);
+                    exit;
+                }
                 if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
                 $fileName = time() . '_' . uniqid() . '.' . $fileExt;
                 if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetDir . $fileName)) {
@@ -982,6 +1081,18 @@ class KepalaLabController extends Controller {
         $data['judul'] = 'Detail Asisten';
         $data['css'] = 'kepalalab/detail_assistant.css';
         $data['js'] = 'kepalalab/detail_assistant.js';
+
+        // [BARU] Sebelumnya chart.js HANYA dimuat lewat <script> inline di
+        // kepalalab/detail_assistant.php - tidak pernah dieksekusi saat
+        // halaman ini dicapai lewat navigasi AJAX (script hasil innerHTML
+        // tidak dijalankan browser). Akibatnya `new Chart(...)` melempar
+        // ReferenceError (Chart tidak terdefinisi) dan menghentikan seluruh
+        // detail_assistant.js di baris itu - grafik performa asisten gagal
+        // total & sisa interaksi halaman ikut mati.
+        $data['vendor_js'] = [
+            'https://cdn.jsdelivr.net/npm/chart.js',
+            'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2',
+        ];
         $data['user'] = $userModel->getUserById($_SESSION['user_id']); 
         $data['assistant'] = $assistant; 
 
@@ -1011,17 +1122,20 @@ class KepalaLabController extends Controller {
     public function assistantSchedule($id) {
         $this->checkAccess(['Kepala Lab']);
 
-        $assistant = $this->model('UserModel')->getUserById($id);
+        // [SECURITY] Decode hash ID dari URL
+        $realId = is_numeric($id) ? (int)$id : (HashHelper::decodeOrNull((string)$id) ?? 0);
+
+        $assistant = $this->model('UserModel')->getUserById($realId);
         if (!$assistant || $assistant['role'] != 'User') {
             header("Location: " . BASE_URL . "/kepalalab/dashboard");
             exit;
         }
 
-        $data['judul'] = 'Jadwal Asisten';
-        $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']); 
-        $data['assistant'] = $assistant; 
+        $data['judul']     = 'Jadwal Asisten';
+        $data['user']      = $this->model('UserModel')->getUserById($_SESSION['user_id']);
+        $data['assistant'] = $assistant;
 
-        $rawSchedules = $this->model('ScheduleModel')->getAllUserSchedules($id);
+        $rawSchedules = $this->model('ScheduleModel')->getAllUserSchedules($realId);
         $finalSchedules = [];
         $now = time();
         

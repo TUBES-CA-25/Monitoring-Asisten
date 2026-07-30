@@ -83,14 +83,28 @@
                             </td>
 
                             <td class="px-2 py-3 text-center align-middle">
+                                <!-- [BARU] Tanda terlambat/tepat waktu di samping jam masuk,
+                                     dan pulang lebih cepat (kuning) di samping jam pulang -
+                                     dihitung dari late_minutes & is_early_checkout yang
+                                     disiapkan LogbookModel::getUnifiedLogbook(). -->
                                 <div class="flex flex-col gap-1 text-[11px] font-mono leading-tight">
-                                    <div class="text-gray-500">
-                                        <span class="text-[9px] font-bold text-gray-400 mr-1">IN</span>
+                                    <div class="text-gray-500 flex items-center justify-center gap-1">
+                                        <span class="text-[9px] font-bold text-gray-400">IN</span>
                                         <span class="<?= $log['color'] == 'green' ? 'text-blue-600 font-bold' : '' ?>"><?= $log['time_in'] ?></span>
+                                        <?php if ($log['time_in'] !== '-'): ?>
+                                            <?php if (($log['late_minutes'] ?? 0) > 0): ?>
+                                                <i class="fas fa-clock text-red-500 text-[9px]" title="Terlambat <?= (int)$log['late_minutes'] ?> menit"></i>
+                                            <?php else: ?>
+                                                <i class="fas fa-check-circle text-green-500 text-[9px]" title="Tepat Waktu"></i>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
                                     </div>
-                                    <div class="text-gray-500">
-                                        <span class="text-[9px] font-bold text-gray-400 mr-1">OUT</span>
+                                    <div class="text-gray-500 flex items-center justify-center gap-1">
+                                        <span class="text-[9px] font-bold text-gray-400">OUT</span>
                                         <span class="<?= $log['color'] == 'green' ? 'text-orange-600 font-bold' : '' ?>"><?= $log['time_out'] ?></span>
+                                        <?php if (!empty($log['is_early_checkout'])): ?>
+                                            <i class="fas fa-door-open text-yellow-500 text-[9px]" title="Pulang Lebih Cepat"></i>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </td>
@@ -120,7 +134,7 @@
                             <td class="px-4 py-3 align-middle">
                                 <?php if(!empty($log['activity'])): ?>
                                     <p class="text-[13px] text-gray-700 leading-snug line-clamp-2" title="<?= htmlspecialchars($log['activity']) ?>">
-                                        <?= nl2br($log['activity']) ?>
+                                        <?= nl2br(htmlspecialchars($log['activity'], ENT_QUOTES, 'UTF-8')) ?>
                                     </p>
                                 <?php else: ?>
                                     <span class="text-xs text-gray-400 italic opacity-60">Belum ada catatan.</span>
@@ -139,7 +153,7 @@
                                     </div>
                                 <?php else: ?>
                                     <div class="flex justify-center items-center gap-2">
-                                        <button onclick="openLogModal('<?= $log['date'] ?>', `<?= htmlspecialchars($log['activity']) ?>`, '<?= $log['time_in'] ?>', '<?= $log['log_id'] ?>')"
+                                        <button onclick="openLogModal('<?= $log['date'] ?>', `<?= htmlspecialchars($log['activity']) ?>`, '<?= htmlspecialchars($log['time_in'] ?? '', ENT_QUOTES, 'UTF-8') ?>', '<?= $log['log_id'] ?>')"
                                                 class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold shadow-sm transition hover:shadow-md active:scale-95 flex items-center gap-1">
                                             <i class="fas fa-pen"></i> <?= empty($log['activity']) ? 'Isi' : 'Edit' ?>
                                         </button>

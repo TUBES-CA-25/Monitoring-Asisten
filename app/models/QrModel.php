@@ -23,7 +23,8 @@ class QrModel {
             return $token['token_code'];
         }
         
-        $code = md5(uniqid(rand(), true));
+        // [Item 8] Gunakan random_bytes — kriptografis aman, tidak bisa diprediksi
+        $code = bin2hex(random_bytes(24)); // 48 karakter hex
         $interval = '3 MINUTE';
         
         $sqlClean = "DELETE FROM qr_code WHERE tipe = :t AND valid_until < NOW()";
@@ -58,7 +59,8 @@ class QrModel {
             return $token['token_code'];
         }
 
-        $staticCode = md5('STATIC_' . $dbType . '_' . time()); 
+        // [Item 8] Token kriptografis — tidak bergantung pada timestamp
+            $staticCode = bin2hex(random_bytes(24));
         
         $sqlInsert = "INSERT INTO qr_code (tipe, token_code, generated_at, valid_until) 
                       VALUES (:t, :c, NOW(), '9999-12-31 23:59:59')";
@@ -95,7 +97,8 @@ class QrModel {
      */
     public function generateFreshToken($type) {
         $dbType   = ($type == 'check_in') ? 'Presensi' : 'Pulang';
-        $code     = md5(uniqid(rand(), true));
+        // [Item 8] Token kriptografis
+        $code     = bin2hex(random_bytes(24));
         $interval = '3 MINUTE';
 
         // Bersihkan token lama (expired atau sudah dipakai)

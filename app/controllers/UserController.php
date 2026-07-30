@@ -63,11 +63,27 @@ class UserController extends Controller {
 
         $data['status_today'] = 'red';
         $data['is_working'] = false;
+        $data['timing_today'] = null; // null | 'tepat_waktu' | 'terlambat' | 'pulang_cepat'
 
         if ($presensiToday && !empty($presensiToday['waktu_presensi'])) {
             $data['status_today'] = 'green';
             if (empty($presensiToday['waktu_pulang'])) {
                 $data['is_working'] = true;
+            }
+            // [BARU] Begitu sudah pulang LEBIH CEPAT dari jam pulang minimal,
+            // cap diganti jadi "PULANG CEPAT" (kuning) - status yang lebih
+            // relevan/terkini daripada cap datang (terlambat/tepat waktu)
+            // karena asisten sudah tidak di lab lagi. Sama seperti logika di
+            // AdminController/KepalaLabController::dashboard().
+            require_once __DIR__ . '/../services/AttendanceAutoService.php';
+            $autoService = new AttendanceAutoService();
+            if (!empty($presensiToday['waktu_pulang']) && $autoService->isEarlyCheckout($presensiToday['waktu_pulang'])) {
+                $data['timing_today'] = 'pulang_cepat';
+            } else {
+                // Tentukan timing badge dari status presensi hari ini
+                $data['timing_today'] = (($presensiToday['status'] ?? '') === 'Terlambat')
+                    ? 'terlambat'
+                    : 'tepat_waktu';
             }
         } elseif ($izinToday) {
             $data['status_today'] = 'yellow';
@@ -75,12 +91,23 @@ class UserController extends Controller {
 
         $data['weekly_schedule'] = $schModel->getUserScheduleForWeek($uid); 
 
-        $dailyChart = $attModel->getUserDailyChart($pId);
+        // [DIUBAH] weekly/monthly sebelumnya hardcoded kosong - lihat catatan
+        // di AttendanceModel::getUserWeeklyChart()/getUserMonthlyChart().
         $data['chart_data'] = [
-            'daily' => $dailyChart,
-            'weekly' => ['labels' => [], 'data' => []],
-            'monthly' => ['labels' => [], 'data' => []]
+            'daily'   => $attModel->getUserDailyChart($pId),
+            'weekly'  => $attModel->getUserWeeklyChart($pId),
+            'monthly' => $attModel->getUserMonthlyChart($pId),
         ];
+
+        // [BARU] chart.js sebelumnya HANYA dimuat lewat <script> inline di
+        // user/dashboard.php - script itu berada di dalam #mainContent,
+        // jadi tidak ikut dieksekusi saat halaman ini dicapai lewat navigasi
+        // AJAX (browser tidak menjalankan <script> hasil innerHTML). Akibatnya
+        // grafik statistik kehadiran gagal termuat total kalau tidak diakses
+        // lewat reload penuh. Dipindah ke vendor_js (dirender di footer,
+        // dikelola ulang oleh global.js di setiap navigasi AJAX).
+        $data['vendor_js'][] = 'https://cdn.jsdelivr.net/npm/chart.js';
+        $data['vendor_js'][] = 'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2';
 
         $data['page_css'][] = ASSET_URL . '/css/user/dashboard.css';
         $data['page_js'][]  = ASSET_URL . '/js/user/dashboard.js';
@@ -100,13 +127,20 @@ class UserController extends Controller {
         $attModel = $this->model('AttendanceModel');
 
         $data['user'] = $userModel->getUserById($_SESSION['user_id']);
+        // [BARU] common/profile.php butuh $isUser untuk membedakan baris NIM
+        // (Asisten) vs NIDN/NIP (Admin/Kepala Lab) - sebelumnya tidak pernah
+        // di-set di sini (hanya di editProfile()), jadi NIDN/NIP selalu
+        // tampil untuk semua role dan NIM tidak pernah tampil sama sekali.
+        $data['isUser'] = ($data['user']['role'] === 'User');
         $pId = $_SESSION['profil_id'];
 
         $data['is_google_connected'] = $userModel->isGoogleConnected($_SESSION['user_id']);
         $data['google_configured'] = (new GoogleClient())->isConfigured();
         
         $userStats = $attModel->getUserStats($pId);
-        $data['stats'] = ['hadir' => $userStats['hadir'], 'izin' => $userStats['izin'], 'alpa' => 0];
+        // [PERBAIKAN v7] Sebelumnya 'alpa' di-hardcode 0 di halaman profil.
+        $alpaProfile = $userModel->calculateRealAlpha($pId, $data['user']['created_at'] ?? date('Y-m-d'), $data['user']['is_completed'] ?? 0);
+        $data['stats'] = ['hadir' => $userStats['hadir'], 'izin' => $userStats['izin'], 'alpa' => $alpaProfile];
 
         $data['page_css'] = [
             ASSET_URL . '/css/common/profile.css'
@@ -114,6 +148,7 @@ class UserController extends Controller {
 
         $data['page_js'] = [
             'https://cdn.jsdelivr.net/npm/chart.js',
+            'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2',
             ASSET_URL . '/js/common/profile.js'
         ];
 
@@ -256,6 +291,11 @@ class UserController extends Controller {
                     echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
                     exit;
                 }
+                // [Item 4] Validasi MIME type dari isi file (bukan hanya ekstensi)
+                if (!$this->validateImageMime($_FILES['photo']['tmp_name'])) {
+                    echo json_encode(['status' => 'error', 'title' => 'File Tidak Valid', 'message' => 'File gambar tidak valid. Pastikan file adalah gambar asli.']);
+                    exit;
+                }
                 if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
                 $newFileName = time() . '_' . uniqid() . '.' . $fileExt;
 
@@ -268,7 +308,7 @@ class UserController extends Controller {
                 }
             }
 
-            $labId = !empty($_POST['lab_id']) ? $_POST['lab_id'] : null;
+            $labId = !empty($_POST['lab_id']) ? (int)$_POST['lab_id'] : null; // [Security] cast ke int
 
             $data = [
                 'id' => $_SESSION['user_id'],
@@ -308,39 +348,48 @@ class UserController extends Controller {
     public function logbook() {
         $this->checkAccess(['User']);
         $this->checkAccountActive();
-        
+
         $data['judul'] = 'Logbook Kegiatan';
-        $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
-        
-        $allLogs = $this->model('LogbookModel')->getUnifiedLogbook($_SESSION['user_id']); 
-        
-        $itemsPerPage = 10; 
-        $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        if ($currentPage < 1) $currentPage = 1;
+        $data['user']  = $this->model('UserModel')->getUserById($_SESSION['user_id']);
 
-        $totalData = count($allLogs);
-        $totalPages = ceil($totalData / $itemsPerPage);
-        
-        if ($currentPage > $totalPages && $totalPages > 0) $currentPage = $totalPages;
+        // [BARU - PERBAIKAN BUG] Sebelumnya "(int)$_GET['per_page']" di
+        // cabang true ternary MERUJUK ULANG ke $_GET['per_page'] tanpa
+        // fallback "?? 30" (fallback itu cuma dipakai di pengecekan
+        // in_array-nya). Begitu halaman ini diakses TANPA query "per_page"
+        // di URL (cara NORMAL - klik menu sidebar), $_GET['per_page'] tidak
+        // terdefinisi -> (int)null = 0 -> array_slice(..., 0) mengembalikan
+        // KOSONG walau datanya ada -> "Belum ada riwayat aktivitas" padahal
+        // riwayatnya ada. Diperbaiki: hitung nilainya SEKALI dengan fallback,
+        // baru divalidasi terhadap daftar yang diizinkan.
+        $itemsPerPage = (int) ($_GET['per_page'] ?? 30);
+        if (!in_array($itemsPerPage, [10, 20, 30, 50], true)) $itemsPerPage = 30;
+        $currentPage  = max(1, (int)($_GET['page'] ?? 1));
 
-        $offset = ($currentPage - 1) * $itemsPerPage;
-        $slicedLogs = array_slice($allLogs, $offset, $itemsPerPage);
+        // Riwayat logbook lengkap sejak profil terverifikasi, dengan pagination
+        $result      = $this->model('LogbookModel')->getUnifiedLogbook($_SESSION['user_id'], $currentPage, $itemsPerPage);
+        $slicedLogs  = $result['data'];
+        $totalData   = $result['total'];
+        $totalPages  = $result['total_pages'];
+        $currentPage = $result['page'];
 
-        $data['logs'] = $slicedLogs;
+        // [SECURITY] Encode log_id dan id_ref
+        foreach ($slicedLogs as &$log) {
+            if (!empty($log['id_ref'])) $log['id_ref'] = HashHelper::encode((int)$log['id_ref']);
+            if (!empty($log['log_id'])) $log['log_id'] = HashHelper::encode((int)$log['log_id']);
+        }
+        unset($log);
+
+        $data['logs']       = $slicedLogs;
+        $data['stats']      = ['hadir' => $result['hadir'], 'izin' => $result['izin'], 'alpha' => $result['alpha']];
         $data['pagination'] = [
-            'current' => $currentPage,
+            'current'     => $currentPage,
             'total_pages' => $totalPages,
             'total_items' => $totalData,
-            'per_page' => $itemsPerPage
+            'per_page'    => $itemsPerPage,
         ];
-
         $data['page_css'][] = ASSET_URL . '/css/user/logbook.css';
-
         $data['page_js'][]  = ASSET_URL . '/js/user/logbook.js';
-
-        $data['js_config'] = [
-            'BASE_URL' => BASE_URL
-        ];
+        $data['js_config']  = ['BASE_URL' => BASE_URL, 'stats' => $data['stats']];
 
         $this->view('layout/header', $data);
         $this->view('layout/sidebar', $data);
@@ -354,6 +403,8 @@ class UserController extends Controller {
             echo json_encode(['status'=>'error', 'message'=>'Unauthorized']);
             exit;
         }
+        // [Security] CSRF validation — endpoint ini bypass checkAccess
+        $this->validateCsrf();
 
         header('Content-Type: application/json');
 
@@ -382,9 +433,19 @@ class UserController extends Controller {
         if (!$att || !$att['waktu_presensi']) {
             echo json_encode(['status'=>'error', 'message'=>'Anda belum melakukan scan masuk!']); exit;
         }
-        if ($att['waktu_pulang']) {
-            echo json_encode(['status'=>'error', 'message'=>'Logbook terkunci karena Anda sudah scan pulang.']); exit;
-        }
+        // [DIHAPUS] Sebelumnya menolak submit begitu waktu_pulang sudah terisi
+        // ("Logbook terkunci karena Anda sudah scan pulang") - tapi modal
+        // pengisian logbook justru BARU muncul SETELAH presensi pulang
+        // berhasil (submitAttendance() di scan.js men-set waktu_pulang lebih
+        // dulu, baru menampilkan modal), jadi pengecekan ini SELALU menolak
+        // submit dari modal tsb - logbook tidak pernah tersimpan walau
+        // tampilannya seolah berhasil (scan.js diam-diam redirect ke
+        // dashboard saat gagal, tanpa pesan error). Pengecekan ini juga
+        // tidak konsisten dengan menu Logbook biasa (LogbookModel::
+        // getUnifiedLogbook()) yang TIDAK PERNAH mengunci entri berdasarkan
+        // waktu_pulang - hanya hari Alpha/Izin yang terkunci. saveLogbook()
+        // sendiri sudah aman di-panggil berkali-kali (insert kalau belum
+        // ada log utk presensi ybs, update kalau sudah ada).
 
         $payload = [
             'log_id'   => $logId,
@@ -446,12 +507,14 @@ class UserController extends Controller {
 
         $logbookModel = $this->model('LogbookModel');
 
+        $rawLogId = $_POST['log_id'] ?? null;
         $data = [
-            'user_id' => $_SESSION['user_id'] ?? null,
-            'log_id'  => $_POST['log_id'] ?? null,
-            'activity'=> isset($_POST['activity']) ? trim($_POST['activity']) : null,
-            'time'    => $_POST['time'] ?? null,
-            'date'    => $_POST['date'] ?? null
+            'user_id'  => $_SESSION['user_id'] ?? null,
+            // [Security] Decode hashed log_id; fallback ke null jika tidak valid
+            'log_id'   => $rawLogId ? (is_numeric($rawLogId) ? (int)$rawLogId : HashHelper::decodeOrNull($rawLogId)) : null,
+            'activity' => isset($_POST['activity']) ? trim($_POST['activity']) : null,
+            'time'     => $_POST['time'] ?? null,
+            'date'     => $_POST['date'] ?? null
         ];
 
         if (
@@ -539,6 +602,7 @@ class UserController extends Controller {
 
         $data['page_css'][] = ASSET_URL . '/css/user/schedule.css';
         $data['page_js'][]  = ASSET_URL . '/js/user/schedule.js';
+        $data['vendor_js'] = ['https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'];  // FullCalendar — loaded before schedule.js
 
         $data['js_config'] = [
             'baseUrl'       => BASE_URL,
@@ -613,8 +677,14 @@ class UserController extends Controller {
         $this->checkAccess(['User']);
         $this->checkAccountActive();
         
-        $id = $_GET['id'];
-        $type = $_GET['type'];
+        // [Security] Cast ke int dan whitelist type sebelum ke ScheduleModel
+        $id   = (int)($_GET['id'] ?? 0);
+        $type = $_GET['type'] ?? '';
+
+        if (!$id || !in_array($type, ['kuliah', 'piket', 'asisten', 'umum'], true)) {
+            $_SESSION['flash'] = ['type' => 'error', 'title' => 'Error', 'message' => 'Parameter tidak valid.'];
+            header("Location: " . BASE_URL . "/user/schedule"); exit;
+        }
 
         if ($type !== 'kuliah') {
             $_SESSION['flash'] = ['type' => 'error', 'title' => 'Ditolak', 'message' => 'Hanya jadwal kuliah yang bisa dihapus.'];
@@ -635,6 +705,15 @@ class UserController extends Controller {
         $data['judul'] = 'Scan Presensi';
         $data['user'] = $this->model('UserModel')->getUserById($_SESSION['user_id']);
 
+        // [BARU] Jika user datang dari QR eksternal (Google Lens / scanner),
+        // URL mengandung ?t={token}&a={in|out} dari scan_url yang di-embed
+        // dalam data QR. Kita teruskan ke view agar scan.js bisa otomatis
+        // memproses token tanpa perlu scan ulang lewat kamera.
+        $prefilledToken  = trim($_GET['t'] ?? '');
+        $prefilledAction = in_array($_GET['a'] ?? '', ['in', 'out']) ? $_GET['a'] : '';
+        $data['prefilled_token']  = htmlspecialchars($prefilledToken,  ENT_QUOTES, 'UTF-8');
+        $data['prefilled_action'] = htmlspecialchars($prefilledAction, ENT_QUOTES, 'UTF-8');
+
         $data['page_css'][] = ASSET_URL . '/css/user/scan.css';
         $data['page_js'][]  = ASSET_URL . '/js/user/scan.js';
 
@@ -645,13 +724,13 @@ class UserController extends Controller {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ob_clean(); header('Content-Type: application/json');
 
-            // PENTING: endpoint ini sebelumnya tidak memiliki pengecekan sesi/role
-            // sama sekali, sehingga bisa diakses tanpa login.
             if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'User') {
                 http_response_code(401);
                 echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
                 exit;
             }
+            // [Security] CSRF validation — endpoint ini bypass checkAccess
+            $this->validateCsrf();
 
             $rawToken = $_POST['token'] ?? ''; 
             $token = trim($rawToken); 
@@ -675,17 +754,27 @@ class UserController extends Controller {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ob_clean(); header('Content-Type: application/json');
 
-            // PENTING: endpoint ini sebelumnya tidak memiliki pengecekan sesi/role
-            // sama sekali, sehingga bisa diakses tanpa login.
             if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'User') {
                 http_response_code(401);
                 echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
                 exit;
             }
+            // [Security] CSRF validation — endpoint ini bypass checkAccess
+            $this->validateCsrf();
 
-            $token = $_POST['token'];
-            $image = $_POST['image'];
-            $typeInput = $_POST['type']; 
+            $token     = $_POST['token'] ?? '';
+            $image     = $_POST['image'] ?? '';
+            // [Security] Whitelist tipe — hanya check_in atau check_out
+            $typeInput = $_POST['type'] ?? '';
+            if (!in_array($typeInput, ['check_in', 'check_out'], true)) {
+                echo json_encode(['status' => 'error', 'message' => 'Tipe presensi tidak valid.']);
+                exit;
+            }
+            // [Security] Batas ukuran gambar base64 (~5MB sebelum encode)
+            if (strlen($image) > 7_000_000) {
+                echo json_encode(['status' => 'error', 'message' => 'Ukuran gambar terlalu besar.']);
+                exit;
+            }
 
             if (!$this->model('QrModel')->validateToken($token, $typeInput)) {
                 echo json_encode(['status' => 'error', 'message' => 'Token QR Code tidak valid/sesuai.']);

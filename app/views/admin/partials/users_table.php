@@ -40,9 +40,9 @@
                                         $avatarUrl = BASE_URL . '/uploads/profile/' . $photoName;
                                     }
                                 ?>
-                                <img src="<?= $avatarUrl ?>" class="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm">
+                                <img src="<?= htmlspecialchars($avatarUrl, ENT_QUOTES, 'UTF-8') ?>" class="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm">
                                 <div>
-                                    <div class="font-bold text-gray-800 text-sm user-name"><?= $u['name'] ?></div>
+                                    <div class="font-bold text-gray-800 text-sm user-name"><?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?></div>
                                     <?php if ($u['role'] === 'User' && !empty($u['nim'])): ?>
                                     <div class="mt-0.5 text-[10px] font-mono text-gray-400 user-nim"><?= htmlspecialchars($u['nim']) ?></div>
                                     <?php endif; ?>
@@ -51,28 +51,28 @@
                             </div>
                         </td>
                         <td class="p-6">
-                            <div class="text-sm font-bold text-gray-700 mb-1"><?= $u['position'] ?? 'Anggota' ?></div>
+                            <div class="text-sm font-bold text-gray-700 mb-1"><?= htmlspecialchars($u['position'] ?? 'Anggota', ENT_QUOTES, 'UTF-8') ?></div>
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Kepala Lab'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
-                                <?= $u['role'] ?>
+                                <?= htmlspecialchars($u['role'], ENT_QUOTES, 'UTF-8') ?>
                             </span>
                             <?php if ($u['role'] == 'User' && !empty($u['kelas'] ?? $u['class'] ?? '')): ?>
                                 <div class="mt-2 flex items-center gap-1.5">
                                     <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas:</span>
                                     <span class="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-mono">
-                                        <?= $u['kelas'] ?? $u['class'] ?? '' ?>
+                                        <?= htmlspecialchars($u['kelas'] ?? $u['class'] ?? '', ENT_QUOTES, 'UTF-8') ?>
                                     </span>
                                 </div>
                             <?php endif; ?>
                         </td>
                         <td class="p-6">
-                            <div class="text-sm text-gray-600 user-email"><i class="fas fa-envelope text-gray-300 mr-2"></i><?= $u['email'] ?></div>
-                            <div class="text-xs text-gray-500 mt-1"><i class="fas fa-phone text-gray-300 mr-2"></i><?= $u['no_telp'] ?? '-' ?></div>
+                            <div class="text-sm text-gray-600 user-email"><i class="fas fa-envelope text-gray-300 mr-2"></i><?= htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8') ?></div>
+                            <div class="text-xs text-gray-500 mt-1"><i class="fas fa-phone text-gray-300 mr-2"></i><?= htmlspecialchars($u['no_telp'] ?? '-', ENT_QUOTES, 'UTF-8') ?></div>
                         </td>
                         <td class="p-6 text-center">
                             <?php if($u['id'] != $_SESSION['user_id']): ?>
                                 <div class="flex justify-center gap-2">
-                                    <button onclick='openUserModal("edit", <?= json_encode($u) ?>)' class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center justify-center"><i class="fas fa-edit"></i></button>
-                                    <button onclick="triggerDeleteUser(<?= $u['id'] ?>)" class="w-8 h-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition flex items-center justify-center"><i class="fas fa-trash"></i></button>
+                                    <button onclick='openUserModal("edit", <?= json_encode(array_merge($u, ['id_hash' => HashHelper::encode((int)($u['id'] ?? 0))])) ?>)' class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center justify-center"><i class="fas fa-edit"></i></button>
+                                    <button onclick="triggerDeleteUser(<?= (int)$u['id'] ?>)" class="w-8 h-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition flex items-center justify-center"><i class="fas fa-trash"></i></button>
                                 </div>
                             <?php else: ?>
                                 <span class="text-[10px] text-gray-400 italic">Akun Anda</span>
@@ -95,8 +95,8 @@
         <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
             
             <div class="text-xs text-gray-500 font-bold uppercase tracking-wide">
-                Halaman <span class="text-blue-600"><?= $pagination['current'] ?></span> dari <?= $pagination['total_pages'] ?> 
-                <span class="normal-case text-gray-400 font-medium ml-1">(Total <?= $pagination['total_items'] ?> User)</span>
+                Halaman <span class="text-blue-600"><?= (int)$pagination['current'] ?></span> dari <?= (int)$pagination['total_pages'] ?> 
+                <span class="normal-case text-gray-400 font-medium ml-1">(Total <?= (int)$pagination['total_items'] ?> User)</span>
             </div>
 
             <div class="flex items-center gap-2">
@@ -123,7 +123,7 @@
                     for ($i = $startPage; $i <= $endPage; $i++): 
                         $activeClass = ($i == $pagination['current']) ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/30' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
                 ?>
-                    <a href="<?= buildUserUrl($i) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition shadow-sm <?= $activeClass ?>"><?= $i ?></a>
+                    <a href="<?= buildUserUrl($i) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition shadow-sm <?= $activeClass ?>"><?= (int)$i ?></a>
                 <?php endfor; ?>
 
                 <?php if ($pagination['current'] < $pagination['total_pages']): ?>

@@ -36,3 +36,8 @@ vendor/
 # =========================
 *.bak
 *.old
+
+# Runtime directories
+storage/logs/
+public/uploads/*
+!public/uploads/.htaccess

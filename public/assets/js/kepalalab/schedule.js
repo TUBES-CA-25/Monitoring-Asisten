@@ -1,10 +1,17 @@
-const BASE_URL = window.APP_CONFIG.baseUrl;
+// [BARU] Halaman ini dimuat ulang lewat navigasi AJAX (SPA-like) di global.js,
+// yang mempertahankan JS realm yang sama antar halaman. Deklarasi top-level
+// dengan const/let TIDAK BISA dieksekusi dua kali dalam realm yang sama
+// (SyntaxError: Identifier '...' has already been declared) - begitu pengguna
+// meninggalkan halaman Jadwal lalu kembali lagi, seluruh script ini gagal
+// jalan dari baris pertama, sehingga kalender & titik warna penanda jenis
+// jadwal "hilang" tanpa pesan apapun. var aman didekralasikan ulang.
+var BASE_URL = window.APP_CONFIG.baseUrl;
     // --- 1. DATA SETUP ---
-    const rawEvents = window.APP_CONFIG.rawEvents || [];
-    
-    let calendar;
-    let selectedDateStr = new Date().toISOString().split('T')[0];
-    let currentFilter = 'all';
+    var rawEvents = window.APP_CONFIG.rawEvents || [];
+
+    var calendar;
+    var selectedDateStr = new Date().toISOString().split('T')[0];
+    var currentFilter = 'all';
 
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
@@ -36,9 +43,9 @@ const BASE_URL = window.APP_CONFIG.baseUrl;
                 }
             },
 
-            datesSet: function() { renderCustomLayers(); }
+            datesSet: function() { _iclabsFadeCalendar(calendarEl); renderCustomLayers(); }
         });
-        
+
         calendar.render();
 
         const filterInput = document.getElementById('searchFilterInput');
@@ -55,6 +62,17 @@ const BASE_URL = window.APP_CONFIG.baseUrl;
             });
         }
     });
+
+    // [BARU] Transisi fade halus setiap kali tampilan kalender berganti
+    // (bulan baru / filter baru) - murni kosmetik, tidak menyentuh render FullCalendar.
+    function _iclabsFadeCalendar(calendarEl) {
+        var harness = calendarEl.querySelector('.fc-view-harness');
+        if (!harness) return;
+        harness.classList.add('fc-fade-init');
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () { harness.classList.remove('fc-fade-init'); });
+        });
+    }
 
     // --- 2. LOGIC TANGGAL (SAMA PERSIS DENGAN ADMIN) ---
     function isEventOnDate(evt, checkDateStr) {

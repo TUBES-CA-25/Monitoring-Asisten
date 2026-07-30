@@ -1,0 +1,15 @@
+# [Item 4 – Security] Cegah eksekusi file PHP/script yang mungkin
+# ter-upload ke folder ini (salah satu vektor serangan web shell).
+# Validasi MIME type di PHP sudah ditambahkan, ini adalah lapis kedua.
+<FilesMatch "\.(php|php3|php4|php5|php7|phtml|phar|pl|py|cgi|sh|shtml|asp|aspx)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Nonaktifkan directory listing
+Options -Indexes -ExecCGI

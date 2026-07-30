@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
     initClock();
-    initSearch();
 });
 
 function initClock() {
@@ -29,75 +28,84 @@ function initClock() {
     setInterval(updateClock, 1000);
 }
 
-function initSearch() {
-    const input = document.getElementById('searchUser');
-    if (!input) return;
+// [BARU] Pencarian sebelumnya hanya menyaring baris yang SUDAH dimuat di
+// halaman saat ini (client-side, per-halaman pagination) — sekarang memakai
+// form GET penuh (search/role/jabatan/angkatan) yang diproses server, sama
+// seperti admin/users.php, sehingga hasilnya konsisten dengan pagination.
 
-    input.addEventListener('keyup', searchTable);
-}
+// [BARU] Admin & Kepala Lab tidak memiliki jabatan/angkatan asisten — kedua
+// filter tsb dinonaktifkan otomatis saat salah satu role tsb dipilih.
+// <select disabled> otomatis tidak ikut terkirim saat form di-submit.
+window.handleUserRoleFilterChange = function (sel) {
+    const jabatanSel  = document.getElementById('filterJabatanSelect');
+    const angkatanSel = document.getElementById('filterAngkatanSelect');
+    const lock = (sel.value === 'Admin' || sel.value === 'Kepala Lab');
 
-function searchTable() {
-    const input = document.getElementById('searchUser');
-    const filter = input.value.toLowerCase();
-    const rows = document.getElementsByClassName('user-row');
-
-    Array.from(rows).forEach(row => {
-        const name = row.querySelector('.user-name')?.innerText.toLowerCase() || '';
-        const email = row.querySelector('.user-email')?.innerText.toLowerCase() || '';
-        const nim = row.querySelector('.user-nim')?.innerText.toLowerCase() || '';
-
-        const visible =
-            name.includes(filter) ||
-            email.includes(filter) ||
-            nim.includes(filter);
-
-        row.style.display = visible ? '' : 'none';
+    [jabatanSel, angkatanSel].forEach((el) => {
+        if (!el) return;
+        el.disabled = lock;
+        if (lock) el.value = '';
     });
-}
+
+    sel.form.submit();
+};
 
 function openDetailModal(userData) {
-    const modal = document.getElementById('modalDetail');
+    const modal   = document.getElementById('modalDetail');
     const content = document.getElementById('modalContent');
-
     if (!modal || !content) return;
 
     const val = (v) => (v && String(v).trim() !== '') ? v : '-';
     const genderMap = { 'L': 'Laki-laki', 'P': 'Perempuan' };
 
-    setText('detailName',  val(userData.name));
-    setText('detailEmail', val(userData.email));
-    setText('detailRole',  val(userData.role));
-    setText('detailPosition', val(userData.position));
-    setText('detailPhone', val(userData.no_telp));
-    setText('detailAddress', val(userData.alamat));
-    setText('detailGender', userData.jenis_kelamin ? (genderMap[userData.jenis_kelamin] || userData.jenis_kelamin) : '-');
-    setText('detailLab',   val(userData.lab_name));
+    setText('detailName',     val(userData.name));
+    setText('detailEmail',    val(userData.email));
+    setText('detailRole',     val(userData.role));
+    setText('detailPosition', val(userData.position || userData.jabatan));
+    setText('detailPhone',    val(userData.no_telp));
+    setText('detailAddress',  val(userData.alamat));
+    setText('detailGender',   userData.jenis_kelamin ? (genderMap[userData.jenis_kelamin] || userData.jenis_kelamin) : '-');
+    setText('detailLab',      val(userData.lab_name));
 
-    const isUser = userData.role === 'User';
+    // Status profil (is_completed)
+    renderStatus(userData.is_completed);
 
-    // Kolom khusus Asisten/User
-    const nimC       = document.getElementById('modalNimContainer');
-    const prodiC     = document.getElementById('modalProdiContainer');
-    const classC     = document.getElementById('modalClassContainer');
-    const angkatanC  = document.getElementById('modalAngkatanContainer');
-    const peminatanC = document.getElementById('modalPeminatanContainer');
-    const labC       = document.getElementById('modalLabContainer');
+    // Status akun (ACTIVE / INACTIVE)
+    const accEl = document.getElementById('detailAccountStatus');
+    if (accEl) {
+        const isActive = !userData.status_account || userData.status_account === 'ACTIVE';
+        accEl.className = 'w-full px-4 py-2.5 rounded-xl border text-xs font-bold text-center uppercase '
+            + (isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200');
+        accEl.innerHTML = isActive
+            ? '<i class="fas fa-check-circle mr-1"></i>Aktif'
+            : '<i class="fas fa-ban mr-1"></i>Nonaktif';
+    }
 
-    [nimC, prodiC, classC, angkatanC, peminatanC].forEach(el => {
+    // Tanggal bergabung
+    if (userData.created_at) {
+        const d = new Date(userData.created_at);
+        setText('detailCreatedAt', d.toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'}));
+    } else {
+        setText('detailCreatedAt', '-');
+    }
+
+    const isUser = (userData.role === 'User');
+    ['modalNimContainer','modalProdiContainer','modalClassContainer',
+     'modalAngkatanContainer','modalPeminatanContainer'].forEach(id => {
+        const el = document.getElementById(id);
         if (el) el.style.display = isUser ? '' : 'none';
     });
-    // Laboratorium: sembunyikan untuk Admin (Kepala Lab bisa punya lab, jadi tetap tampil)
+    const labC = document.getElementById('modalLabContainer');
     if (labC) labC.style.display = userData.role === 'Admin' ? 'none' : '';
 
     if (isUser) {
-        setText('detailNim',      val(userData.nim));
-        setText('detailProdi',    val(userData.prodi));
-        setText('detailClass',    val(userData.kelas));
-        setText('detailAngkatan', val(userData.angkatan));
+        setText('detailNim',       val(userData.nim));
+        setText('detailProdi',     val(userData.prodi));
+        setText('detailClass',     val(userData.kelas));
+        setText('detailAngkatan',  val(userData.angkatan));
         setText('detailPeminatan', val(userData.peminatan));
     }
 
-    renderStatus(userData.is_completed);
     renderPhoto(userData);
 
     modal.classList.remove('hidden');

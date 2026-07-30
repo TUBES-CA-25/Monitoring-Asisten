@@ -1,16 +1,23 @@
-(function loadChartJS() {
-    if (window.Chart) return;
+// [BARU] Sebelumnya chart.js dimuat manual di sini via document.head.appendChild
+// karena tidak pernah ada mekanisme vendor_js untuk halaman ini (dashboard
+// user hanya memuat <script> inline di dalam #mainContent, yang tidak
+// dieksekusi browser saat halaman dicapai lewat navigasi AJAX). Sekarang
+// chart.js dimuat dengan benar via $data['vendor_js'] di UserController::
+// dashboard() (dirender di footer, dikelola ulang oleh global.js di setiap
+// navigasi AJAX) - workaround manual ini sudah tidak diperlukan lagi.
+//
+// [PENTING] var (bukan let/const) di top-level script ini secara sengaja:
+// script ini dimuat ulang (script tag baru) setiap kali halaman dashboard
+// dikunjungi via AJAX navigation (lihat global.js _iclabsLoadPageScripts).
+// let/const top-level akan melempar "Identifier ... has already been
+// declared" pada kunjungan kedua karena binding lexical tetap ada di scope
+// global walau elemen <script> lama sudah dihapus dari DOM.
+if (window.Chart && window.ChartDataLabels) { Chart.register(window.ChartDataLabels); }
 
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-    script.onload = () => initChart();
-    document.head.appendChild(script);
-})();
-
-let chartInstance = null;
-let currentType = 'bar';
-let shouldReload = false;
-let chartData = {};
+var chartInstance = null;
+var currentType = 'bar';
+var shouldReload = false;
+var chartData = {};
 
 document.addEventListener('DOMContentLoaded', () => {
     const jsonEl = document.getElementById('chart-data');
@@ -60,12 +67,12 @@ function initChart() {
     }
 
     const dataSet = chartData[filter] || { labels: [], data: [] };
+    const total = (dataSet.data || []).reduce((a, b) => a + b, 0);
 
     if (chartInstance) chartInstance.destroy();
 
-    const bgColors = currentType === 'pie'
-        ? ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6']
-        : '#cbd5e1';
+    const pieColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
+    const bgColors = currentType === 'pie' ? pieColors : '#3b82f6';
 
     const labelText =
         filter === 'daily' ? 'Status Hadir' :
@@ -79,23 +86,43 @@ function initChart() {
             datasets: [{
                 label: labelText,
                 data: dataSet.data,
-                backgroundColor: currentType === 'bar' ? '#cbd5e1' : bgColors,
-                hoverBackgroundColor: '#3b82f6',
-                borderColor: '#64748b',
-                borderWidth: 1,
-                borderRadius: 4,
+                backgroundColor: bgColors,
+                hoverBackgroundColor: currentType === 'pie' ? pieColors : '#2563eb',
+                borderColor: currentType === 'pie' ? '#fff' : '#2563eb',
+                borderWidth: currentType === 'pie' ? 3 : 2,
+                borderRadius: currentType === 'pie' ? 0 : 8,
+                maxBarThickness: 46,
                 tension: 0.4,
-                fill: currentType === 'line'
+                fill: currentType === 'line',
+                pointBackgroundColor: '#3b82f6',
+                pointRadius: currentType === 'line' ? 4 : 0,
+                hoverOffset: currentType === 'pie' ? 10 : 0
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: { duration: 500, easing: 'easeOutQuart' },
             scales: currentType === 'pie' ? {} : {
-                y: { beginAtZero: true, grid: { display: false }, ticks: { precision: 0 } },
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { precision: 0 } },
                 x: { grid: { display: false } }
             },
-            plugins: { legend: { display: currentType === 'pie' } }
+            plugins: {
+                legend: {
+                    display: currentType === 'pie',
+                    position: 'right',
+                    labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 11, weight: '600' } }
+                },
+                tooltip: { backgroundColor: '#1e293b', padding: 10, cornerRadius: 8, titleFont: { weight: '700' } },
+                datalabels: total > 0 ? {
+                    color: currentType === 'pie' ? '#fff' : '#475569',
+                    anchor: currentType === 'bar' ? 'end' : 'center',
+                    align: currentType === 'bar' ? 'top' : 'center',
+                    offset: 4,
+                    font: { weight: '700', size: 11 },
+                    formatter: (v) => (v > 0 ? v : '')
+                } : false
+            }
         }
     });
 }

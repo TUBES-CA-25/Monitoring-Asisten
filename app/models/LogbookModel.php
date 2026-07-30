@@ -1,4 +1,12 @@
 <?php
+require_once __DIR__ . '/../services/AttendanceAutoService.php';
+// [BARU] Dibutuhkan untuk UserModel::WORK_DAYS_MAX_DOW (lihat
+// getUnifiedLogbook()) - di-require eksplisit di sini karena Controller::
+// model() memakai require_once PER MODEL YANG DIMINTA; endpoint yang
+// memanggil getUnifiedLogbook() tidak semuanya turut memuat UserModel
+// lebih dulu (mis. AdminController::getLogsByUser()).
+require_once __DIR__ . '/UserModel.php';
+
 class LogbookModel {
     private $db;
 
@@ -306,100 +314,203 @@ class LogbookModel {
         }
     }
 
-    public function getUnifiedLogbook($userId) {
-        $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
+    /**
+     * getUnifiedLogbook — Riwayat lengkap logbook seorang asisten.
+     *
+     * Menampilkan semua hari sejak profil asisten ter-verifikasi (is_completed=1),
+     * dengan status hadir/izin/alpha dihitung dari data presensi dan izin.
+     *
+     * @param  int $userId   ID user asisten
+     * @param  int $page     Halaman (default 1)
+     * @param  int $perPage  Baris per halaman (default 30)
+     * @return array {data, total, hadir, izin, alpha, page, per_page, total_pages}
+     */
+    public function getUnifiedLogbook($userId, $page = 1, $perPage = 30) {
+        // 1. Ambil profil: id_profil + tanggal_bergabung (dari profile.created_at)
+        $this->db->query("SELECT id_profil, created_at FROM profile
+                          WHERE id_user = :uid AND is_completed = 1
+                          ORDER BY id_profil DESC LIMIT 1");
         $this->db->bind(':uid', $userId);
-        $res = $this->db->single();
-        if(!$res) return [];
-        $pId = $res['id_profil'];
+        $prof = $this->db->single();
 
-        $sqlPresensi = "SELECT 
-                            pr.id_presensi, pr.tanggal, pr.waktu_presensi, pr.waktu_pulang, 
-                            pr.foto_presensi, pr.foto_pulang, pr.status as status_db,
-                            l.id_logbook, l.detail_aktivitas, l.is_verified
-                        FROM presensi pr
-                        LEFT JOIN logbook l ON pr.id_presensi = l.id_presensi
-                        WHERE pr.id_profil = :pid";
-        $this->db->query($sqlPresensi);
-        $this->db->bind(':pid', $pId);
-        $rawPresensi = $this->db->resultSet();
+        // Fallback: jika profil belum lengkap, ambil tanpa filter is_completed
+        if (!$prof) {
+            $this->db->query("SELECT id_profil, created_at FROM profile WHERE id_user = :uid LIMIT 1");
+            $this->db->bind(':uid', $userId);
+            $prof = $this->db->single();
+        }
+        if (!$prof) return ['data'=>[],'total'=>0,'hadir'=>0,'izin'=>0,'alpha'=>0,'page'=>1,'per_page'=>$perPage,'total_pages'=>0];
 
-        $sqlIzin = "SELECT * FROM izin 
-                    WHERE id_profil = :pid AND status_approval = 'Approved'";
-        $this->db->query($sqlIzin);
-        $this->db->bind(':pid', $pId);
-        $rawIzin = $this->db->resultSet();
+        $pId        = $prof['id_profil'];
 
-        $unifiedData = [];
-        $today = new DateTime();
-        
-        for ($i = 0; $i < 30; $i++) {
-            $checkDate = (clone $today)->modify("-$i days")->format('Y-m-d');
-            $entry = [
-                'date' => $checkDate,
-                'status' => 'Alpha', 
-                'color' => 'red',    
-                'time_in' => '-',
-                'time_out' => '-',
-                'proof_in' => null,  
-                'proof_out' => null,
-                'proof_izin' => null, 
-                'activity' => 'Tidak Hadir',
-                'is_locked' => true, 
-                'log_id' => null,    
-                'id_ref' => null,    
-                'can_reset' => false 
-            ];
-
-            $foundP = array_filter($rawPresensi, fn($row) => $row['tanggal'] == $checkDate);
-            if (!empty($foundP)) {
-                $p = reset($foundP);
-                $entry['status'] = 'Hadir';
-                $entry['color'] = 'green';
-                $entry['time_in'] = $p['waktu_presensi'] ? date('H:i', strtotime($p['waktu_presensi'])) : '-';
-                $entry['time_out'] = $p['waktu_pulang'] ? date('H:i', strtotime($p['waktu_pulang'])) : '-';
-                $entry['proof_in'] = $p['foto_presensi'];
-                $entry['proof_out'] = $p['foto_pulang'];
-                $entry['activity'] = $p['detail_aktivitas'] ?? '';
-                $entry['log_id'] = $p['id_logbook'];
-                $entry['id_ref'] = $p['id_presensi'];
-                
-                $entry['is_locked'] = false; 
-                $entry['can_reset'] = true; 
-            } 
-            else {
-                foreach ($rawIzin as $iz) {
-                    if ($checkDate >= $iz['start_date'] && $checkDate <= $iz['end_date']) {
-                        $entry['status'] = $iz['tipe'];
-                        $entry['color'] = 'yellow';
-                        
-                        $entry['time_in'] = '-'; 
-                        
-                        $entry['proof_izin'] = $iz['file_bukti'];
-                        
-                        $entry['activity'] = ($iz['deskripsi'] ?? '') . " (Pengajuan Izin)";
-                        
-                        $entry['id_ref'] = $iz['id_izin'];
-                        $entry['is_locked'] = true; 
-                        $entry['can_reset'] = false;
-                        break;
-                    }
-                }
+        // [BARU - SINKRONISASI DATA] Sebelumnya titik mulai HANYA memakai
+        // profile.created_at, sementara UserModel::calculateRealAlpha()
+        // (dipakai di dashboard admin/kepala lab/user & modal detail
+        // asisten) memakai attendance_reset_at jika lebih baru dari
+        // created_at (di-set saat admin "Reset Presensi"). Akibatnya jumlah
+        // Alpha di halaman Logbook jauh lebih besar daripada di
+        // dashboard/modal - keduanya menghitung rentang hari yang beda.
+        // Disamakan di sini supaya kedua tempat menghitung rentang hari
+        // yang PERSIS SAMA.
+        $startDate = date('Y-m-d', strtotime($prof['created_at']));
+        try {
+            $this->db->query("SELECT attendance_reset_at FROM profile WHERE id_profil = :pid");
+            $this->db->bind(':pid', $pId);
+            $resetRow = $this->db->single();
+            $resetAt  = $resetRow['attendance_reset_at'] ?? null;
+            if ($resetAt && $resetAt > $startDate) {
+                $startDate = date('Y-m-d', strtotime($resetAt));
             }
-
-            if ($entry['status'] == 'Alpha') {
-                if ($checkDate == date('Y-m-d') && date('H:i') < '18:00') {
-                    continue; 
-                }
-                $entry['time_out'] = '18:00'; 
-                $entry['activity'] = 'Tidak Hadir (Alpha)';
-            }
-
-            $unifiedData[] = $entry;
+        } catch (\Throwable $e) {
+            // Kolom belum ada (migration v7 belum dijalankan) - abaikan
         }
 
-        return $unifiedData;
+        $today      = new DateTime();
+        $yesterday  = (clone $today)->modify('-1 day');
+
+        // Jangan tampilkan hari ini kecuali sudah melewati jam 18:00
+        $endDate = (date('H:i') >= '18:00')
+            ? $today->format('Y-m-d')
+            : $yesterday->format('Y-m-d');
+
+        if ($startDate > $endDate) {
+            return ['data'=>[],'total'=>0,'hadir'=>0,'izin'=>0,'alpha'=>0,'page'=>1,'per_page'=>$perPage,'total_pages'=>0];
+        }
+
+        // 2. Ambil semua presensi + logbook dari rentang tersebut
+        $this->db->query("SELECT pr.id_presensi, pr.tanggal, pr.waktu_presensi,
+                                 pr.waktu_pulang, pr.foto_presensi, pr.foto_pulang,
+                                 pr.status AS status_db, pr.late_minutes,
+                                 l.id_logbook, l.detail_aktivitas, l.is_verified
+                          FROM presensi pr
+                          LEFT JOIN logbook l ON pr.id_presensi = l.id_presensi
+                          WHERE pr.id_profil = :pid
+                            AND pr.tanggal BETWEEN :s AND :e");
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':s',   $startDate);
+        $this->db->bind(':e',   $endDate);
+        $rawPresensi = $this->db->resultSet();
+
+        // 3. Ambil semua izin yang disetujui
+        $this->db->query("SELECT * FROM izin
+                          WHERE id_profil = :pid AND status_approval = 'Approved'
+                            AND end_date >= :s AND start_date <= :e");
+        $this->db->bind(':pid', $pId);
+        $this->db->bind(':s',   $startDate);
+        $this->db->bind(':e',   $endDate);
+        $rawIzin = $this->db->resultSet();
+
+        // 4. Susun index presensi dan izin berdasarkan tanggal untuk O(1) lookup
+        $presensiByDate = [];
+        foreach ($rawPresensi as $p) { $presensiByDate[$p['tanggal']] = $p; }
+        $izinByDate = [];
+        foreach ($rawIzin as $iz) {
+            $d0 = new DateTime($iz['start_date']);
+            $d1 = new DateTime($iz['end_date']);
+            $d1->modify('+1 day');
+            for ($d = clone $d0; $d < $d1; $d->modify('+1 day')) {
+                $dk = $d->format('Y-m-d');
+                if ($dk >= $startDate && $dk <= $endDate) $izinByDate[$dk] = $iz;
+            }
+        }
+
+        // 5. Bangun daftar hari dari endDate mundur ke startDate
+        $autoService = new AttendanceAutoService();
+        $allEntries = [];
+        $cHadir = 0; $cIzin = 0; $cAlpha = 0;
+
+        $cur = new DateTime($endDate);
+        $beg = new DateTime($startDate);
+        while ($cur >= $beg) {
+            $dateStr = $cur->format('Y-m-d');
+            $entry = [
+                'date'       => $dateStr,
+                'status'     => 'Alpha',
+                'color'      => 'red',
+                'time_in'    => '-',
+                'time_out'   => '-',
+                'proof_in'   => null,
+                'proof_out'  => null,
+                'proof_izin' => null,
+                'activity'   => 'Tidak Hadir (Alpha)',
+                'is_locked'  => true,
+                'log_id'     => null,
+                'id_ref'     => null,
+                'can_reset'  => false,
+                'late_minutes' => 0,
+                // [BARU] Penanda "pulang lebih cepat" - dihitung ulang dari
+                // waktu_pulang (bukan disimpan sebagai kolom), sama seperti
+                // AttendanceModel::clockOut() menghitungnya saat checkout.
+                'is_early_checkout' => false,
+            ];
+
+            if (isset($presensiByDate[$dateStr])) {
+                $p  = $presensiByDate[$dateStr];
+                $st = $p['status_db'] ?? 'Hadir';  // 'Hadir', 'Terlambat', dll.
+                $entry['status']    = ($st === 'Terlambat') ? 'Terlambat' : 'Hadir';
+                $entry['color']     = 'green';
+                $entry['time_in']   = $p['waktu_presensi'] ? date('H:i', strtotime($p['waktu_presensi'])) : '-';
+                $entry['time_out']  = $p['waktu_pulang']   ? date('H:i', strtotime($p['waktu_pulang']))   : '-';
+                $entry['proof_in']  = $p['foto_presensi'];
+                $entry['proof_out'] = $p['foto_pulang'];
+                $entry['activity']  = $p['detail_aktivitas'] ?? '';
+                $entry['log_id']    = $p['id_logbook'];
+                $entry['id_ref']    = $p['id_presensi'];
+                $entry['is_locked'] = false;
+                $entry['can_reset'] = true;
+                $entry['late_minutes'] = (int)($p['late_minutes'] ?? 0);
+                $entry['is_early_checkout'] = !empty($p['waktu_pulang']) && $autoService->isEarlyCheckout($p['waktu_pulang']);
+                $cHadir++;
+            } elseif (isset($izinByDate[$dateStr])) {
+                $iz = $izinByDate[$dateStr];
+                $entry['status']     = $iz['tipe'];  // 'Izin' atau 'Sakit'
+                $entry['color']      = 'yellow';
+                $entry['proof_izin'] = $iz['file_bukti'];
+                $entry['activity']   = ($iz['deskripsi'] ?? '') . ' (Pengajuan Izin)';
+                $entry['id_ref']     = $iz['id_izin'];
+                $cIzin++;
+            } elseif ((int) $cur->format('N') > \UserModel::WORK_DAYS_MAX_DOW) {
+                // [BARU - SINKRONISASI DATA] UserModel::calculateRealAlpha()
+                // (dipakai di dashboard admin/kepala lab/user & modal detail
+                // asisten) HANYA menghitung Alpha untuk hari kerja (Senin-
+                // Sabtu, N<=6) - Minggu tidak pernah dihitung sebagai Alpha
+                // sama sekali. Sebelumnya di sini SEMUA hari tanpa presensi/
+                // izin dihitung Alpha termasuk Minggu, membuat jumlah Alpha
+                // di Logbook jauh lebih besar & tidak sinkron dengan
+                // dashboard/modal - mempengaruhi penilaian kinerja asisten
+                // secara tidak adil. Ditandai "Libur" (bukan Alpha, tidak
+                // menambah $cAlpha) supaya kedua tempat menghitung angka
+                // yang sama persis.
+                $entry['status']   = 'Libur';
+                $entry['color']    = 'gray';
+                $entry['activity'] = 'Hari Libur (Minggu)';
+            } else {
+                $cAlpha++;
+            }
+
+            $allEntries[] = $entry;
+            $cur->modify('-1 day');
+        }
+
+        // 6. Pagination
+        $total      = count($allEntries);
+        $totalPages = $perPage > 0 ? (int)ceil($total / $perPage) : 1;
+        $page       = max(1, min((int)$page, max(1, $totalPages)));
+        $offset     = ($page - 1) * $perPage;
+        $paginatedEntries = array_slice($allEntries, $offset, $perPage);
+
+        return [
+            'data'        => $paginatedEntries,
+            'total'       => $total,
+            'hadir'       => $cHadir,
+            'izin'        => $cIzin,
+            'alpha'       => $cAlpha,
+            'page'        => $page,
+            'per_page'    => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
+
 
     public function resetLogUser($logId, $userId) {
         // [BARU - Modul 3 V3] Ownership validation: cek dulu apakah log_id

@@ -20,44 +20,79 @@
     </div>
 
     <div class="max-w-7xl mx-auto space-y-6 animate-enter">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col lg:flex-row items-center justify-between gap-4 relative overflow-hidden">
+        <div class="space-y-6">
+
+            <!-- [FIX] Filter Data sebelumnya berbagi grid 2-kolom dengan kartu
+                 "Ekspor Laporan" (lg:grid-cols-2), sementara grid filter di
+                 dalamnya JUGA berubah ke lg:grid-cols-3 pada breakpoint yang
+                 SAMA (1024px) — akibatnya di lebar ~1024-1279px filter hanya
+                 mendapat separuh lebar tapi harus memuat 3 kolom, sehingga
+                 tanggal & select terpotong dan tidak terbaca. Filter Data kini
+                 dibuat full-width sendiri (baris terpisah dari Ekspor Laporan)
+                 dan memakai flex-wrap + min-width per field agar field selalu
+                 tampil utuh. -->
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 relative overflow-hidden">
                 <div class="absolute right-0 top-0 h-full w-16 bg-blue-50/50 skew-x-12 transform origin-bottom-left"></div>
-                
-                <div class="relative z-10 flex items-center gap-2 flex-shrink-0 self-start lg:self-center">
-                    <div class="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                        <i class="fas fa-filter"></i>
+
+                <div class="relative z-10 flex flex-col xl:flex-row xl:items-center gap-4">
+                    <div class="flex items-center gap-2 shrink-0">
+                        <div class="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                            <i class="fas fa-filter"></i>
+                        </div>
+                        <h3 class="font-extrabold text-gray-700 whitespace-nowrap">Filter Data</h3>
                     </div>
-                    <h3 class="font-extrabold text-gray-700">Filter Data</h3>
+
+                    <form class="w-full">
+                        <div class="flex flex-wrap gap-2">
+                            <div class="flex items-center gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200 flex-1 min-w-[160px]">
+                                <span class="text-[10px] text-gray-400 font-bold uppercase shrink-0">Dari</span>
+                                <input type="date" name="start_date" value="<?= htmlspecialchars($start_date, ENT_QUOTES, 'UTF-8') ?>" class="bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 outline-none p-0 w-full min-w-0">
+                            </div>
+                            <div class="flex items-center gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200 flex-1 min-w-[160px]">
+                                <span class="text-[10px] text-gray-400 font-bold uppercase shrink-0">Sampai</span>
+                                <input type="date" name="end_date" value="<?= htmlspecialchars($end_date, ENT_QUOTES, 'UTF-8') ?>" class="bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 outline-none p-0 w-full min-w-0">
+                            </div>
+
+                            <div class="bg-gray-50 border border-gray-200 rounded-xl flex-1 min-w-[150px]">
+                                <select name="jabatan" class="w-full bg-transparent text-gray-700 text-xs font-bold p-2.5 outline-none cursor-pointer">
+                                    <option value="">Semua Jabatan</option>
+                                    <?php foreach(($jabatan_list ?? []) as $jab): ?>
+                                    <option value="<?= htmlspecialchars($jab, ENT_QUOTES, 'UTF-8') ?>" <?= (($selected_jabatan ?? '') == $jab) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($jab, ENT_QUOTES, 'UTF-8') ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="bg-gray-50 border border-gray-200 rounded-xl flex-1 min-w-[150px]">
+                                <select name="angkatan" class="w-full bg-transparent text-gray-700 text-xs font-bold p-2.5 outline-none cursor-pointer">
+                                    <option value="">Semua Angkatan</option>
+                                    <?php foreach(($angkatan_list ?? []) as $ang): ?>
+                                    <option value="<?= htmlspecialchars($ang, ENT_QUOTES, 'UTF-8') ?>" <?= (($selected_angkatan ?? '') == $ang) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($ang, ENT_QUOTES, 'UTF-8') ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="bg-gray-50 border border-gray-200 rounded-xl flex-[2] min-w-[220px]">
+                                <select name="assistant_id" class="w-full bg-transparent text-gray-700 text-xs font-bold p-2.5 outline-none cursor-pointer">
+                                    <option value="">Semua Asisten</option>
+                                    <?php foreach($assistants_list as $ast): ?>
+                                        <option value="<?= $ast['id_user'] ?>" <?= ($selected_assistant == $ast['id_user']) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($ast['nama'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($ast['nim'], ENT_QUOTES, 'UTF-8') ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-700 transition shadow-md font-bold text-xs shrink-0">
+                                <i class="fas fa-search"></i>
+                                <span>Filter</span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
-
-                <form class="relative z-10 flex flex-col gap-3 w-full lg:w-auto">
-                    <div class="grid grid-cols-2 gap-2 w-full">
-                        <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
-                            <span class="text-[10px] text-gray-400 font-bold uppercase mr-1">Dari</span>
-                            <input type="date" name="start_date" value="<?= $start_date ?>" class="bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 outline-none p-0 w-full">
-                        </div>
-                        <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
-                            <span class="text-[10px] text-gray-400 font-bold uppercase mr-1">Sampai</span>
-                            <input type="date" name="end_date" value="<?= $end_date ?>" class="bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 outline-none p-0 w-full">
-                        </div>
-                    </div>
-
-                    <div class="flex gap-2 w-full">
-                        <select name="assistant_id" class="flex-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl p-2.5 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer">
-                            <option value="">Semua Asisten</option>
-                            <?php foreach($assistants_list as $ast): ?>
-                                <option value="<?= $ast['id_user'] ?>" <?= ($selected_assistant == $ast['id_user']) ? 'selected' : '' ?>>
-                                    <?= $ast['nama'] ?> (<?= $ast['nim'] ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center justify-center hover:bg-blue-700 transition shadow-md font-bold text-xs" title="Terapkan Filter">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-                </form>
             </div>
 
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden">
@@ -73,8 +108,16 @@
                 <div class="relative z-10 flex gap-3 w-full sm:w-auto justify-end">
                     <?php 
                         // Deteksi Role untuk Link Export
-                        $roleLink = strtolower(str_replace(' ', '', $_SESSION['role'])); 
-                        $qs = "start_date=" . $start_date . "&end_date=" . $end_date . "&assistant_id=" . $selected_assistant;
+                        $roleLink = strtolower(str_replace(' ', '', $_SESSION['role']));
+                        // [FIX] jabatan/angkatan sebelumnya tidak ikut dikirim ke exportPdf/exportCsv,
+                        // sehingga hasil ekspor tidak sesuai dengan filter yang sedang aktif di layar.
+                        $qs = http_build_query([
+                            'start_date'   => $start_date,
+                            'end_date'     => $end_date,
+                            'assistant_id' => $selected_assistant,
+                            'jabatan'      => $selected_jabatan ?? '',
+                            'angkatan'     => $selected_angkatan ?? '',
+                        ]);
                     ?>
                     <a href="<?= BASE_URL ?>/<?= $roleLink ?>/exportPdf?<?= $qs ?>" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 border border-red-100 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white hover:shadow-lg transition group">
                         <i class="fas fa-file-pdf text-lg group-hover:scale-110 transition"></i> <span>PDF</span>
@@ -92,114 +135,50 @@
             <table class="w-full text-left border-collapse">
                 <thead class="bg-gray-50 text-xs font-bold text-gray-400 uppercase border-b border-gray-100">
                     <tr>
-                        <th class="p-5 pl-8 w-[250px]">Asisten</th>
-                        <th class="p-5 text-center w-[150px]">Tanggal</th>
-                        <th class="p-5 text-center">Masuk</th>
-                        <th class="p-5 text-center">Pulang</th>
-                        <th class="p-5 text-center">Keterlambatan</th>
+                        <th class="p-5 pl-8">Asisten</th>
+                        <th class="p-5 text-center">Hadir</th>
+                        <th class="p-5 text-center">Izin / Sakit</th>
+                        <th class="p-5 text-center">Tidak Hadir</th>
+                        <th class="p-5 text-center">Tepat Waktu</th>
+                        <th class="p-5 text-center">Terlambat</th>
                         <th class="p-5 text-center">Durasi Kerja</th>
-                        <th class="p-5 text-center">Status</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
                     <?php 
                     if(!empty($attendance_list)): 
                         $currentDateGroup = '';
-                        foreach($attendance_list as $row): 
-                            $rowDate = date('d F Y', strtotime($row['tanggal']));
-                            $status = $row['status'];
-                            
-                            // Visual Grouping: Tampilkan Header Tanggal jika berbeda dari baris sebelumnya
-                            // Ini berguna jika kita melihat data banyak user dalam rentang tanggal
-                            if ($currentDateGroup != $rowDate && empty($selected_assistant)): 
-                                $currentDateGroup = $rowDate;
-                    ?>
-                        <tr class="bg-blue-50/50 border-b border-blue-100">
-                            <td colspan="7" class="px-5 py-2 text-[10px] font-extrabold text-blue-600 uppercase tracking-widest">
-                                <i class="far fa-calendar-alt mr-1"></i> <?= $rowDate ?>
-                            </td>
-                        </tr>
-                    <?php endif; 
-                        
-                        // Avatar Logic
-                        $avatarUrl = "https://ui-avatars.com/api/?name=" . urlencode($row['name']) . "&background=random";
-                        if (!empty($row['photo_profile']) && file_exists('uploads/profile/' . $row['photo_profile'])) {
-                            $avatarUrl = BASE_URL . '/uploads/profile/' . $row['photo_profile'];
-                        }
-                    ?>
-                    <tr class="hover:bg-gray-50 transition duration-150 group">
-                        <td class="p-5 pl-8">
-                            <div class="flex items-center gap-4">
-                                <img src="<?= $avatarUrl ?>" class="w-10 h-10 rounded-full border border-gray-200 shadow-sm object-cover">
-                                <div>
-                                    <div class="font-bold text-gray-800 text-sm"><?= $row['name'] ?></div>
-                                    <div class="text-[10px] text-gray-400 font-mono mt-0.5"><?= $row['nim'] ?? '-' ?></div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="p-5 text-center">
-                            <span class="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                <?= date('d/m/Y', strtotime($row['tanggal'])) ?>
-                            </span>
-                        </td>
-                        <td class="p-5 text-center">
-                            <span class="font-mono text-xs font-bold <?= $row['waktu_presensi'] ? 'text-green-600' : 'text-gray-300' ?>">
-                                <?= $row['waktu_presensi'] ? date('H:i', strtotime($row['waktu_presensi'])) : '-' ?>
-                            </span>
-                        </td>
-                        <td class="p-5 text-center">
-                            <span class="font-mono text-xs font-bold <?= $row['waktu_pulang'] ? 'text-red-600' : 'text-gray-300' ?>">
-                                <?= $row['waktu_pulang'] ? date('H:i', strtotime($row['waktu_pulang'])) : '-' ?>
-                            </span>
-                        </td>
-                        <td class="p-5 text-center">
-                            <?php
-                                // [BARU - Modul 1 V3] late_minutes dihitung otomatis saat check-in.
-                                $lateMinutes = $row['late_minutes'] ?? null;
-                            ?>
-                            <?php if (!empty($lateMinutes) && $lateMinutes > 0): ?>
-                                <span class="px-2 py-1 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-700 border-amber-200">
-                                    <?= $lateMinutes ?> menit
-                                </span>
-                            <?php elseif ($row['waktu_presensi']): ?>
-                                <span class="text-xs text-gray-400">Tepat waktu</span>
-                            <?php else: ?>
-                                <span class="text-xs text-gray-300">-</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="p-5 text-center">
-                            <?php
-                                // [BARU - Modul 1 V3] work_duration (menit) dihitung otomatis saat check-out.
-                                $workDuration = $row['work_duration'] ?? null;
-                            ?>
-                            <?php if ($workDuration !== null): ?>
-                                <?php
-                                    $durH = intdiv((int) $workDuration, 60);
-                                    $durM = (int) $workDuration % 60;
-                                    $durLabel = $durH > 0 ? "{$durH}j {$durM}m" : "{$durM}m";
-                                ?>
-                                <span class="font-mono text-xs font-bold text-gray-600"><?= $durLabel ?></span>
-                            <?php else: ?>
-                                <span class="text-xs text-gray-300">-</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="p-5 text-center">
-                            <?php 
-                                $statusClass = match($status) {
-                                    'Hadir' => 'bg-green-100 text-green-700 border-green-200',
-                                    'Terlambat' => 'bg-amber-100 text-amber-700 border-amber-200',
-                                    'Sakit' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                                    'Izin'  => 'bg-blue-100 text-blue-700 border-blue-200',
-                                    'Alpha' => 'bg-red-100 text-red-700 border-red-200',
-                                    default => 'bg-gray-100 text-gray-500 border-gray-200'
-                                };
-                            ?>
-                            <span class="px-3 py-1 rounded-full text-[10px] font-bold border <?= $statusClass ?> shadow-sm">
-                                <?= $status == '-' ? 'Belum Hadir' : $status ?>
-                            </span>
-                        </td>
-                    </tr>
-                    <?php endforeach; else: ?>
+                        ?>
+<?php
+foreach($attendance_list as $row):
+    $dm = (int)($row['total_durasi_menit'] ?? 0);
+    $durasiTampil = ($dm > 0) ? floor($dm/60).'j '.($dm%60).'m' : '-';
+?>
+<tr class="border-b border-gray-100 hover:bg-blue-50/30 transition">
+    <td class="p-5 pl-8">
+        <div class="flex items-center gap-3">
+            <?php $ph = !empty($row['photo_profile']) ? BASE_URL.'/uploads/profile/'.$row['photo_profile'] : null; ?>
+            <?php if ($ph): ?>
+                <img src="<?= $ph ?>" class="w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0">
+            <?php else: ?>
+                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs shrink-0">
+                    <?= strtoupper(substr($row['name']??'A',0,1)) ?>
+                </div>
+            <?php endif; ?>
+            <div>
+                <p class="font-bold text-gray-800 text-xs"><?= htmlspecialchars($row['name']??'-', ENT_QUOTES, 'UTF-8') ?></p>
+                <p class="text-gray-400 text-[10px]"><?= htmlspecialchars($row['nim']??'-', ENT_QUOTES, 'UTF-8') ?></p>
+            </div>
+        </div>
+    </td>
+    <td class="p-5 text-center"><span class="bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full"><?= $row['total_hadir'] ?></span></td>
+    <td class="p-5 text-center"><span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-full"><?= $row['total_izin'] ?></span></td>
+    <td class="p-5 text-center"><span class="bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 rounded-full"><?= $row['total_alpa'] ?></span></td>
+    <td class="p-5 text-center"><span class="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full"><?= $row['total_tepat_waktu']??0 ?></span></td>
+    <td class="p-5 text-center"><span class="bg-orange-100 text-orange-700 text-xs font-bold px-2.5 py-1 rounded-full"><?= $row['total_terlambat']??0 ?></span></td>
+    <td class="p-5 text-center text-gray-700 text-xs font-bold"><?= $durasiTampil ?></td>
+</tr>
+<?php endforeach; else: ?>
                     <tr>
                         <td colspan="7" class="p-12 text-center">
                             <div class="flex flex-col items-center justify-center opacity-50">

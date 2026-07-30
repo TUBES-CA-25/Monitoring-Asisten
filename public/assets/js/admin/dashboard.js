@@ -1,21 +1,27 @@
 // ==========================================
     // 1. LOGIKA QR CODE (REAL TIME)
     // ==========================================
-    const qrDataIn = window.APP_CONFIG.qrIn || '';
-    const qrDataOut = window.APP_CONFIG.qrOut || '';
-    const qrcodeContainer = document.getElementById("qrcode");
-    
+    // [PENTING] var (bukan const/let) di top-level script ini secara sengaja:
+    // script ini dimuat ulang (script tag baru) setiap kali halaman dashboard
+    // dikunjungi via AJAX navigation (lihat global.js _iclabsLoadPageScripts).
+    // const/let top-level akan melempar "Identifier ... has already been
+    // declared" pada kunjungan kedua karena binding lexical tetap ada di
+    // scope global walau elemen <script> lama sudah dihapus dari DOM.
+    var qrDataIn = window.APP_CONFIG.qrIn || '';
+    var qrDataOut = window.APP_CONFIG.qrOut || '';
+    var qrcodeContainer = document.getElementById("qrcode");
+
     // Inisialisasi QR Code jika elemen ada
-    let qrCodeObj = null;
+    var qrCodeObj = null;
     if (qrcodeContainer) {
         qrCodeObj = new QRCode(qrcodeContainer, { width: 200, height: 200 });
     }
 
-    let qrInterval = null;
-    let currentMode = 'check_in';
+    var qrInterval = null;
+    var currentMode = 'check_in';
 
-    const roleSegment = window.location.href.includes('kepalalab') ? 'kepalalab' : 'admin';
-    const qrFetchUrl = `${window.APP_CONFIG.baseUrl}/${roleSegment}/getQrAjax`;
+    var roleSegment = window.location.href.includes('kepalalab') ? 'kepalalab' : 'admin';
+    var qrFetchUrl = `${window.APP_CONFIG.baseUrl}/${roleSegment}/getQrAjax`;
 
     function openQRModal() {
         document.getElementById('qrModal').classList.remove('hidden');
@@ -82,9 +88,9 @@
         }
     }
 
-    let modalChartInstance = null;
-    let currentModalChartType = 'doughnut'; // Default
-    let currentStatsData = { hadir: 0, izin: 0, alpa: 0 }; // Simpan data sementara
+    var modalChartInstance = null;
+    var currentModalChartType = 'doughnut'; // Default
+    var currentStatsData = { hadir: 0, izin: 0, alpa: 0 }; // Simpan data sementara
 
     function openDetailModal(user) {
         const modal = document.getElementById('detailModal');
@@ -168,8 +174,10 @@
         // 5. UPDATE BUTTON JADWAL LENGKAP
         const btnSchedule = document.getElementById('btnSchedule');
         const currentRole = window.location.href.includes('kepalalab') ? 'kepalalab' : 'admin';
+        // [BARU] Gunakan id_hash (dari PHP) agar URL tidak mengekspos integer
+        const safeId = user.id_hash || user.id_user || user.id;
         if (btnSchedule) {
-            btnSchedule.href = `${window.APP_CONFIG.baseUrl}/${currentRole}/assistantSchedule/${user.id_user}`;
+            btnSchedule.href = `${window.APP_CONFIG.baseUrl}/${currentRole}/assistantSchedule/${safeId}`;
         }
 
         // 6. ANIMASI BUKA MODAL
@@ -203,19 +211,34 @@
                     label: 'Total',
                     data: chartData,
                     backgroundColor: bgColors,
-                    borderWidth: 0,
-                    borderRadius: type === 'bar' ? 4 : 0,
-                    hoverOffset: 4
+                    borderWidth: type === 'doughnut' ? 3 : 0,
+                    borderColor: '#fff',
+                    borderRadius: type === 'bar' ? 6 : 0,
+                    maxBarThickness: 40,
+                    hoverOffset: 6
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: { duration: 450, easing: 'easeOutQuart' },
                 plugins: {
-                    legend: { display: type !== 'bar', position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
-                    tooltip: { enabled: total > 0 }
+                    legend: {
+                        display: type !== 'bar',
+                        position: 'right',
+                        labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, font: { size: 10, weight: '600' } }
+                    },
+                    tooltip: { enabled: total > 0, backgroundColor: '#1e293b', padding: 8, cornerRadius: 8 },
+                    datalabels: total > 0 ? {
+                        color: type === 'bar' ? '#475569' : '#fff',
+                        anchor: type === 'bar' ? 'end' : 'center',
+                        align: type === 'bar' ? 'top' : 'center',
+                        offset: 4,
+                        font: { weight: '700', size: 10 },
+                        formatter: (v) => (v > 0 ? v : '')
+                    } : false
                 },
-                scales: type === 'bar' ? { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } : { y: { display: false }, x: { display: false } },
+                scales: type === 'bar' ? { y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } : { y: { display: false }, x: { display: false } },
                 cutout: type === 'doughnut' ? '70%' : 0
             }
         });
@@ -244,23 +267,29 @@
     // ==========================================
     // 3. CHART UTAMA DASHBOARD (GLOBAL)
     // ==========================================
-    const chartData = window.APP_CONFIG.chartData || {};
-    let chartInstance = null;
-    let currentType = 'bar';
+    // Plugin ornamen (angka langsung di atas/di dalam chart) - dimuat via
+    // vendor_js sebagai window.ChartDataLabels, didaftarkan sekali di sini.
+    if (window.Chart && window.ChartDataLabels) { Chart.register(window.ChartDataLabels); }
+
+    var chartData = window.APP_CONFIG.chartData || {};
+    var chartInstance = null;
+    var currentType = 'bar';
 
     function initChart() {
         const ctx = document.getElementById('adminChart').getContext('2d');
         const filterEl = document.getElementById('chartFilter');
-        
+
         // Fallback jika elemen tidak ditemukan/data kosong
         if(!filterEl || !chartData) return;
 
         const filter = filterEl.value;
         const dataSet = chartData[filter] || { labels: [], data: [] };
+        const total = (dataSet.data || []).reduce((a, b) => a + b, 0);
 
         if(chartInstance) chartInstance.destroy();
 
-        const bgColors = currentType === 'pie' ? ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'] : '#6366f1';
+        const pieColors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+        const bgColors = currentType === 'pie' ? pieColors : '#6366f1';
         const borderColor = currentType === 'pie' ? '#ffffff' : '#4f46e5';
 
         chartInstance = new Chart(ctx, {
@@ -271,18 +300,39 @@
                     label: 'Total Kehadiran',
                     data: dataSet.data,
                     backgroundColor: bgColors,
+                    hoverBackgroundColor: currentType === 'pie' ? pieColors : '#4338ca',
                     borderColor: borderColor,
                     borderWidth: 2,
-                    borderRadius: currentType === 'pie' ? 0 : 6,
+                    borderRadius: currentType === 'pie' ? 0 : 8,
+                    maxBarThickness: 46,
                     tension: 0.4,
-                    fill: currentType === 'line'
+                    fill: currentType === 'line',
+                    pointBackgroundColor: '#6366f1',
+                    pointRadius: currentType === 'line' ? 4 : 0,
+                    hoverOffset: currentType === 'pie' ? 10 : 0
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: currentType === 'pie' ? {} : { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } },
-                plugins: { legend: { display: currentType === 'pie' } }
+                animation: { duration: 500, easing: 'easeOutQuart' },
+                scales: currentType === 'pie' ? {} : { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } },
+                plugins: {
+                    legend: {
+                        display: currentType === 'pie',
+                        position: 'right',
+                        labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 11, weight: '600' } }
+                    },
+                    tooltip: { backgroundColor: '#1e293b', padding: 10, cornerRadius: 8, titleFont: { weight: '700' } },
+                    datalabels: total > 0 ? {
+                        color: currentType === 'pie' ? '#fff' : '#475569',
+                        anchor: currentType === 'bar' ? 'end' : 'center',
+                        align: currentType === 'bar' ? 'top' : 'center',
+                        offset: 4,
+                        font: { weight: '700', size: 11 },
+                        formatter: (v) => (v > 0 ? v : '')
+                    } : false
+                }
             }
         });
     }
@@ -321,7 +371,7 @@ if (typeof window._currentDetailUser === 'undefined') window._currentDetailUser 
 
 // Patch openDetailModal agar menyimpan user ke window._currentDetailUser
 // dan menangani tampilan overlay & tombol untuk akun nonaktif.
-const _origOpenDetail = window.openDetailModal
+var _origOpenDetail = window.openDetailModal
     ? window.openDetailModal.bind(window)
     : null;
 

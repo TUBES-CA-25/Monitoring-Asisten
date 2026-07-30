@@ -41,20 +41,51 @@
     };
 
     /* ── Init ───────────────────────────────────────────── */
-    document.addEventListener('DOMContentLoaded', function () {
+    // Inisialisasi QR: dijalankan segera (script dimuat di akhir body, DOM sudah siap)
+    // + fallback DOMContentLoaded untuk ketepatan sinkronisasi.
+    function initQRPage() {
         var qrIn  = safeParse(cfg.qrIn);
         var qrOut = safeParse(cfg.qrOut);
 
         // Cache data awal kedua mode
         window._qrData = { in: qrIn ? JSON.stringify(qrIn) : null, out: qrOut ? JSON.stringify(qrOut) : null };
 
-        // Tampilkan mode default (masuk)
-        setMode('in');
+        // Render QR mode default (masuk).
+        // Gunakan requestAnimationFrame agar browser selesai layout sebelum QRCode.js
+        // membuat canvas — mencegah QR tidak muncul saat pertama kali halaman dibuka.
+        if (typeof QRCode !== 'undefined') {
+            setMode('in');
+        } else {
+            // QRCode.js belum siap (jarang terjadi) — coba setelah render berikutnya
+            requestAnimationFrame(function () {
+                if (typeof QRCode !== 'undefined') { setMode('in'); }
+            });
+        }
 
         // Background timer untuk refresh otomatis kedua mode
         startBgTimer('in');
         startBgTimer('out');
-    });
+
+        // Jam live (update setiap detik)
+        function updateQrClock() {
+            var now = new Date();
+            var opts = { day: '2-digit', month: 'long', year: 'numeric' };
+            var tOpts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            var elDate = document.getElementById('liveDate');
+            var elTime = document.getElementById('liveTime');
+            if (elDate) elDate.innerText = now.toLocaleDateString('id-ID', opts);
+            if (elTime) elTime.innerText = now.toLocaleTimeString('id-ID', tOpts).replace(/\./g, ':');
+        }
+        setInterval(updateQrClock, 1000);
+        updateQrClock();
+    }
+
+    // Call immediately (DOM is ready when scripts load at end of body)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initQRPage);
+    } else {
+        initQRPage(); // DOM sudah siap — langsung render QR
+    }
 
     /* ── Parse JSON aman ────────────────────────────────── */
     function safeParse(v) {
@@ -62,26 +93,39 @@
     }
 
     /* ── Ganti mode (toggle) ────────────────────────────── */
-    window.setMode = function (mode) {
+    // [PENTING] Deklarasi function biasa (bukan window.setMode = function...)
+    // agar di-hoisting ke atas scope IIFE ini. initQRPage() di atas memanggil
+    // setMode('in') SAAT DIPANGGIL — pada navigasi AJAX (readyState sudah
+    // 'complete') initQRPage() dieksekusi SEGERA saat script disisipkan,
+    // yaitu SEBELUM baris ini tereksekusi secara berurutan. Tanpa hoisting,
+    // setMode belum terdefinisi saat dipanggil → "setMode is not defined"
+    // dan QR gagal tampil setiap kali halaman ini dibuka lewat navigasi AJAX.
+    function setMode(mode) {
         currentMode = mode;
         var mc = modeConfig[mode];
 
         // Update header card
+        // [PENTING] String class di bawah ini HARUS tetap sinkron dengan
+        // markup statis di admin/qr_page.php (termasuk varian lg: untuk
+        // layout desktop) - setMode() dipanggil SEGERA saat halaman dimuat
+        // (initQRPage -> setMode('in')), jadi apapun yang di-set di sini
+        // menimpa class hasil render PHP sebelum pengguna sempat melihatnya.
         var header = document.getElementById('qrCardHeader');
-        if (header) header.className = mc.headerCls + ' px-5 py-3.5 flex items-center gap-3';
+        if (header) header.className = mc.headerCls + ' px-5 py-3.5 lg:px-7 lg:py-5 flex items-center gap-3';
 
         var icon = document.getElementById('qrCardIcon');
-        if (icon) icon.innerHTML = '<i class="fas ' + mc.icon + ' text-white"></i>';
+        if (icon) icon.innerHTML = '<i class="fas ' + mc.icon + ' text-white lg:text-lg"></i>';
 
         var titleEl = document.getElementById('qrCardTitle');
         if (titleEl) titleEl.innerHTML =
-            '<h2 class="font-extrabold leading-tight text-base">' + mc.title + '</h2>' +
-            '<p class="' + mc.subtitleCls + ' text-[11px]">' + mc.subtitle + '</p>';
+            '<h2 class="font-extrabold leading-tight text-base lg:text-xl">' + mc.title + '</h2>' +
+            '<p class="' + mc.subtitleCls + ' text-[11px] lg:text-sm">' + mc.subtitle + '</p>';
 
-        // Update QR border/pulse
+        // Update QR border/pulse (ukuran w-full/max-w tetap dipertahankan -
+        // itulah yang membuat QR fleksibel mengikuti frame container-nya)
         var wrap = document.getElementById('qrWrap');
         if (wrap) {
-            wrap.className = 'rounded-2xl border-4 p-3 bg-white qr-pulse-' + (mode === 'in' ? 'in' : 'out') + ' ' + mc.borderCls;
+            wrap.className = 'rounded-2xl border-4 p-3 lg:p-4 bg-white qr-pulse-' + (mode === 'in' ? 'in' : 'out') + ' ' + mc.borderCls + ' w-full max-w-[288px] lg:max-w-[360px] mx-auto';
         }
 
         // Toggle pill & button styles
@@ -97,25 +141,55 @@
                 pill.className = 'toggle-pill absolute top-1 left-1 w-[calc(50%-4px)] h-[calc(100%-8px)] rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 shadow-md shadow-orange-300/40 z-0';
             }
         }
-        if (btnIn)  btnIn.className  = 'relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition ' + (mode === 'in'  ? 'text-white'  : 'text-gray-500');
-        if (btnOut) btnOut.className = 'relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition ' + (mode === 'out' ? 'text-white' : 'text-gray-500');
+        if (btnIn)  btnIn.className  = 'relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 lg:py-3.5 rounded-xl text-sm lg:text-base font-bold transition ' + (mode === 'in'  ? 'text-white'  : 'text-gray-500');
+        if (btnOut) btnOut.className = 'relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 lg:py-3.5 rounded-xl text-sm lg:text-base font-bold transition ' + (mode === 'out' ? 'text-white' : 'text-gray-500');
 
         // Render QR untuk mode ini
         renderQR(window._qrData[mode]);
-    };
+    }
+    window.setMode = setMode;
 
     /* ── Render QR ──────────────────────────────────────── */
+    // [BARU] Ekstrak URL deep-link dari data QR jika tersedia.
+    // QR baru mengandung JSON: { type, token, scan_url }.
+    // scan_url dipakai sebagai isi QR sehingga Google Lens / scanner
+    // eksternal langsung membuka halaman presensi di browser.
+    // scan.js (in-app) tetap bekerja: ia mengekstrak token dari ?t= & ?a=.
+    function qrContentFrom(raw) {
+        if (!raw) return null;
+        try {
+            var obj = JSON.parse(raw);
+            if (obj && obj.scan_url) return obj.scan_url; // preferensi: URL
+        } catch (e) {}
+        return raw; // fallback: raw string (format lama)
+    }
+
+    // [DIUBAH] Ukuran QR sekarang FLEKSIBEL - diukur langsung dari lebar
+    // #qrBox yang sebenarnya (ditentukan CSS: w-full dibatasi max-width
+    // per breakpoint, lihat qr_page.php), bukan dua nilai breakpoint
+    // tetap. QR selalu di-generate ULANG persis di resolusi itu supaya
+    // pas & tajam di dalam bingkainya di ukuran layar manapun.
+    function measuredQrSize() {
+        var box = document.getElementById('qrBox');
+        if (!box) return 256;
+        var w = Math.round(box.getBoundingClientRect().width);
+        return w > 0 ? w : 256;
+    }
+
     function renderQR(text) {
         var box = document.getElementById('qrBox');
         if (!box) return;
+        var size = measuredQrSize(); // ukur SEBELUM box dikosongkan
         box.innerHTML = '';
         if (qrObj) { try { qrObj.clear(); } catch(e){} qrObj = null; }
         if (!text) return;
 
+        var content = qrContentFrom(text); // URL atau raw JSON
+
         qrObj = new QRCode(box, {
-            text         : text,
-            width        : 256,
-            height       : 256,
+            text         : content,
+            width        : size,
+            height       : size,
             colorDark    : '#1e293b',
             colorLight   : '#ffffff',
             correctLevel : QRCode.CorrectLevel.H
@@ -179,26 +253,24 @@
         startBgTimer(currentMode);
     };
 
-    document.addEventListener('DOMContentLoaded', () => {
-        initClock();
+    /* ── Regenerasi QR saat ukuran frame-nya berubah cukup signifikan ───
+       Supaya QR tetap tajam (bukan di-stretch CSS dari bitmap lama) saat
+       lebar #qrBox berubah, mis. jendela browser di-resize melewati
+       breakpoint lg. Threshold 10px mencegah regenerasi berlebihan untuk
+       perubahan sub-pixel kecil. */
+    var lastQrSize = measuredQrSize();
+    var resizeTimer = null;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () {
+            var size = measuredQrSize();
+            if (Math.abs(size - lastQrSize) >= 10) {
+                lastQrSize = size;
+                if (window._qrData && window._qrData[currentMode]) {
+                    renderQR(window._qrData[currentMode]);
+                }
+            }
+        }, 200);
     });
-
-    function initClock() {
-        updateClock();
-        setInterval(updateClock, 1000);
-    }
-
-    function updateClock() {
-        const now = new Date();
-
-        const dateOptions = { day: '2-digit', month: 'long', year: 'numeric' };
-        const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-
-        const elDate = document.getElementById('liveDate');
-        const elTime = document.getElementById('liveTime');
-
-        if (elDate) elDate.innerText = now.toLocaleDateString('id-ID', dateOptions);
-        if (elTime) elTime.innerText = now.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':');
-    }
 
 })();

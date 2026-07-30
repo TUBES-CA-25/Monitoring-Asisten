@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 13, 2026 at 06:05 PM
+-- Generation Time: Jul 30, 2026 at 11:57 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.4.7
 
@@ -39,8 +39,10 @@ CREATE TABLE `attendance_recycle_bin` (
   `date_reset` datetime NOT NULL DEFAULT current_timestamp() COMMENT 'Waktu reset dilakukan',
   `jumlah_presensi` int(11) DEFAULT 0,
   `jumlah_logbook` int(11) DEFAULT 0,
+  `jumlah_izin` int(11) DEFAULT 0 COMMENT 'Jumlah record izin yang diarsipkan',
   `data_presensi` longtext DEFAULT NULL COMMENT 'JSON array seluruh baris presensi yang di-reset',
   `data_logbook` longtext DEFAULT NULL COMMENT 'JSON array seluruh baris logbook yang di-reset',
+  `data_izin` longtext DEFAULT NULL COMMENT 'JSON array data izin yang turut di-reset',
   `id_admin` int(11) NOT NULL COMMENT 'id_user Admin yang melakukan reset',
   `status` enum('archived','restored','deleted') NOT NULL DEFAULT 'archived' COMMENT '"archived"=tersimpan di bin, "restored"=sudah dikembalikan, "deleted"=dihapus permanen'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Recycle bin untuk presensi & logbook yang di-reset';
@@ -49,34 +51,10 @@ CREATE TABLE `attendance_recycle_bin` (
 -- Dumping data for table `attendance_recycle_bin`
 --
 
-INSERT INTO `attendance_recycle_bin` (`id_bin`, `reset_scope`, `reset_label`, `id_profil`, `nama_asisten`, `jabatan_asisten`, `date_data_start`, `date_data_end`, `date_reset`, `jumlah_presensi`, `jumlah_logbook`, `data_presensi`, `data_logbook`, `id_admin`, `status`) VALUES
-(1, 'all', 'Semua Asisten', 47, 'Ahmad Fadyl Sapri', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(2, 'all', 'Semua Asisten', 45, 'Andi Ahsan Ashuri', 'Asisten 2', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(3, 'all', 'Semua Asisten', 46, 'Andi Ikhlas Mallomo', 'Asisten 2', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(4, 'all', 'Semua Asisten', 48, 'Andi Rifqi Aunur Rahman', 'Asisten 2', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(5, 'all', 'Semua Asisten', 38, 'Arya Bintang Kusuma Wijaya', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(6, 'all', 'Semua Asisten', 51, 'Dewi Ernita Rahma', 'Asisten 1', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(7, 'all', 'Semua Asisten', 50, 'Fadia Syakinah Amalia', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(8, 'all', 'Semua Asisten', 32, 'Ghiffary Agys Al Baihaqy', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(9, 'all', 'Semua Asisten', 37, 'Karima', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(10, 'all', 'Semua Asisten', 40, 'Kharisma Suchy Aisyah', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(11, 'all', 'Semua Asisten', 31, 'M Rivaldi Juliadin', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(12, 'all', 'Semua Asisten', 43, 'MEKAR WANGI. R', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(13, 'all', 'Semua Asisten', 34, 'Muh. Fahmi Ashar', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(14, 'all', 'Semua Asisten', 36, 'Muhammad Nabil Bassalam', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(15, 'all', 'Semua Asisten', 49, 'Muhammad Sa\'Ad Wahid', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(16, 'all', 'Semua Asisten', 41, 'NAJIYAH N. NGABITO', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(17, 'all', 'Semua Asisten', 56, 'Nendra Rizkullah Izzatul Ibad', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(18, 'all', 'Semua Asisten', 54, 'Nur Alisa', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(19, 'all', 'Semua Asisten', 3, 'Nurfajri Mukmin Saputra', 'Asisten 2', '2026-07-13', '2026-07-13', '2026-07-13 21:48:50', 1, 1, '[{\"id_presensi\":59,\"id_profil\":3,\"tanggal\":\"2026-07-13\",\"waktu_presensi\":\"07:00:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"19:00:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":16,\"detail_aktivitas\":\"\",\"is_verified\":1}]', '[{\"id_presensi\":59,\"id_profil\":3,\"tanggal\":\"2026-07-13\",\"waktu_presensi\":\"07:00:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"19:00:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":16,\"detail_aktivitas\":\"\",\"is_verified\":1}]', 2, 'archived'),
-(20, 'all', 'Semua Asisten', 53, 'Nurul Aulia Badawi', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(21, 'all', 'Semua Asisten', 39, 'Nurul Qamri Ramadhina', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(22, 'all', 'Semua Asisten', 55, 'Rahmat Setiawan Rahman', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(23, 'all', 'Semua Asisten', 44, 'Rahmawati', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(24, 'all', 'Semua Asisten', 35, 'Rayhan Firrizqi', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(25, 'all', 'Semua Asisten', 42, 'Rendi Pratama', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(26, 'all', 'Semua Asisten', 33, 'Saefullah Ahmad Ariiq. Sr', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived'),
-(27, 'all', 'Semua Asisten', 52, 'Tiara Mulya Pratiwi', 'Asisten Pendamping', NULL, NULL, '2026-07-13 21:48:50', 0, 0, '[]', '[]', 2, 'archived');
+INSERT INTO `attendance_recycle_bin` (`id_bin`, `reset_scope`, `reset_label`, `id_profil`, `nama_asisten`, `jabatan_asisten`, `date_data_start`, `date_data_end`, `date_reset`, `jumlah_presensi`, `jumlah_logbook`, `jumlah_izin`, `data_presensi`, `data_logbook`, `data_izin`, `id_admin`, `status`) VALUES
+(19, 'all', 'Semua Asisten', 3, 'Nurfajri Mukmin Saputra', 'Asisten 2', '2026-07-13', '2026-07-13', '2026-07-13 21:48:50', 1, 1, 0, '[{\"id_presensi\":59,\"id_profil\":3,\"tanggal\":\"2026-07-13\",\"waktu_presensi\":\"07:00:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"19:00:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":16,\"detail_aktivitas\":\"\",\"is_verified\":1}]', '[{\"id_presensi\":59,\"id_profil\":3,\"tanggal\":\"2026-07-13\",\"waktu_presensi\":\"07:00:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"19:00:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":16,\"detail_aktivitas\":\"\",\"is_verified\":1}]', NULL, 2, 'restored'),
+(28, 'single', 'Nurfajri Mukmin Saputra', 3, 'Nurfajri Mukmin Saputra', 'Asisten 2', '2026-07-13', '2026-07-17', '2026-07-30 09:40:36', 3, 3, 0, '[{\"id_presensi\":60,\"id_profil\":3,\"tanggal\":\"2026-07-13\",\"waktu_presensi\":\"09:54:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"21:54:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":17,\"detail_aktivitas\":\"\",\"is_verified\":1},{\"id_presensi\":63,\"id_profil\":3,\"tanggal\":\"2026-07-14\",\"waktu_presensi\":\"07:45:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"16:45:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":20,\"detail_aktivitas\":\"\",\"is_verified\":1},{\"id_presensi\":62,\"id_profil\":3,\"tanggal\":\"2026-07-17\",\"waktu_presensi\":\"07:44:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"16:00:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":19,\"detail_aktivitas\":\"\",\"is_verified\":1}]', '[{\"id_presensi\":60,\"id_profil\":3,\"tanggal\":\"2026-07-13\",\"waktu_presensi\":\"09:54:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"21:54:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":17,\"detail_aktivitas\":\"\",\"is_verified\":1},{\"id_presensi\":63,\"id_profil\":3,\"tanggal\":\"2026-07-14\",\"waktu_presensi\":\"07:45:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"16:45:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":20,\"detail_aktivitas\":\"\",\"is_verified\":1},{\"id_presensi\":62,\"id_profil\":3,\"tanggal\":\"2026-07-17\",\"waktu_presensi\":\"07:44:00\",\"foto_presensi\":\"admin_manual.jpg\",\"waktu_pulang\":\"16:00:00\",\"foto_pulang\":null,\"status\":\"Hadir\",\"late_minutes\":null,\"work_duration\":null,\"id_logbook\":19,\"detail_aktivitas\":\"\",\"is_verified\":1}]', '[]', 2, 'restored'),
+(30, 'single', 'ZZ Test Deactivate Dummy', 99901, 'ZZ Test Deactivate Dummy', 'Asisten 2', NULL, NULL, '2026-07-30 09:54:49', 0, 0, 0, NULL, NULL, '[]', 2, 'deleted');
 
 -- --------------------------------------------------------
 
@@ -397,8 +375,12 @@ CREATE TABLE `logbook` (
 --
 
 INSERT INTO `logbook` (`id_logbook`, `id_profil`, `id_presensi`, `detail_aktivitas`, `keterangan`, `is_verified`) VALUES
-(17, 3, 60, '', NULL, 1),
-(18, 46, 61, '', NULL, 1);
+(18, 46, 61, '', NULL, 1),
+(22, 45, 68, '', NULL, 1),
+(23, 45, 69, '', NULL, 1),
+(24, 3, 70, '', NULL, 1),
+(25, 3, 71, '', NULL, 1),
+(26, 3, 72, '', NULL, 1);
 
 -- --------------------------------------------------------
 
@@ -424,8 +406,12 @@ CREATE TABLE `presensi` (
 --
 
 INSERT INTO `presensi` (`id_presensi`, `id_profil`, `tanggal`, `waktu_presensi`, `foto_presensi`, `waktu_pulang`, `foto_pulang`, `status`, `late_minutes`, `work_duration`) VALUES
-(60, 3, '2026-07-13', '09:54:00', 'admin_manual.jpg', '21:54:00', NULL, 'Hadir', NULL, NULL),
-(61, 46, '2026-07-13', '11:51:00', 'admin_manual.jpg', '23:51:00', NULL, 'Hadir', NULL, NULL);
+(61, 46, '2026-07-13', '11:51:00', 'admin_manual.jpg', '23:51:00', NULL, 'Hadir', NULL, NULL),
+(68, 45, '2026-07-29', '08:46:00', 'admin_manual.jpg', '14:48:00', NULL, 'Hadir', NULL, NULL),
+(69, 45, '2026-07-28', '14:48:00', 'admin_manual.jpg', '20:52:00', NULL, 'Hadir', NULL, NULL),
+(70, 3, '2026-07-13', '07:00:00', 'admin_manual.jpg', '19:00:00', NULL, 'Hadir', 0, NULL),
+(71, 3, '2026-07-14', '07:45:00', 'admin_manual.jpg', '16:45:00', NULL, 'Hadir', 0, NULL),
+(72, 3, '2026-07-17', '07:44:00', 'admin_manual.jpg', '16:00:00', NULL, 'Hadir', 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -448,43 +434,45 @@ CREATE TABLE `profile` (
   `jabatan` enum('Kepala Lab','Laboran','Koordinator Asisten','Asisten 1','Asisten 2','Asisten Pendamping') DEFAULT NULL,
   `peminatan` varchar(255) DEFAULT NULL,
   `photo_profile` varchar(255) DEFAULT 'default.jpg',
-  `is_completed` tinyint(1) DEFAULT 0 COMMENT '0=Belum Lengkap, 1=Sudah Lengkap'
+  `is_completed` tinyint(1) DEFAULT 0 COMMENT '0=Belum Lengkap, 1=Sudah Lengkap',
+  `attendance_reset_at` datetime DEFAULT NULL COMMENT 'Waktu terakhir data presensi di-reset. calculateRealAlpha mulai dari tanggal ini, bukan dari created_at.',
+  `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `profile`
 --
 
-INSERT INTO `profile` (`id_profil`, `id_user`, `id_lab`, `nim`, `nama`, `kelas`, `angkatan`, `prodi`, `alamat`, `no_telp`, `jenis_kelamin`, `jabatan`, `peminatan`, `photo_profile`, `is_completed`) VALUES
-(1, 1, NULL, NULL, ' Ir. Huzain Azis, S.Kom., M.Cs., MTA.', NULL, NULL, NULL, 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08114484875', 'L', 'Kepala Lab', NULL, '1769533666_6978f0e27cab8.jpeg', 1),
-(2, 2, NULL, NULL, 'Fatimah AR. Tuasamu, S.Kom., MTA, MCF', NULL, NULL, '', 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08534186497', 'P', 'Laboran', NULL, '1768721611_696c8ccb66f2c.jpeg', 1),
-(3, 3, 1, '13120230033', 'Nurfajri Mukmin Saputra', 'A1', NULL, 'Sistem Informasi', 'Kabupaten Bantaeng, Provinsi Sulawesi Selatan', '0853332084', 'L', 'Asisten 2', 'Multimedia', '1768722382_696c8fceac85d.jpeg', 1),
-(31, 55, NULL, '13020240021', 'M Rivaldi Juliadin', NULL, NULL, NULL, 'Jln. Pampang 5', '081282575933', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(32, 56, NULL, '13020240331', 'Ghiffary Agys Al Baihaqy', NULL, NULL, NULL, 'Jl. Bung Perumahan Pesona Bukit Maghfirah F/9', '082346950561', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(33, 57, NULL, '13020240012', 'Saefullah Ahmad Ariiq. Sr', NULL, NULL, NULL, 'Jln. Daya raya Perum Graha Cendekia blok C No.20', '088704259516', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(34, 58, NULL, '13020240333', 'Muh. Fahmi Ashar', NULL, NULL, NULL, 'jl. Yusuf Bauty, Manggarupi Kab. Gowa', '088242980774', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(35, 59, NULL, '13020240014', 'Rayhan Firrizqi', NULL, NULL, NULL, 'Jl. Sukaria Raya, lorong 8', '082397851510', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(36, 60, NULL, '13020240060', 'Muhammad Nabil Bassalam', NULL, NULL, NULL, 'Telkomas', '085953707203', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(37, 61, NULL, '13120240038', 'Karima', NULL, NULL, NULL, 'Kec. Moncongloe', '081944264168', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(38, 62, NULL, '13020240263', 'Arya Bintang Kusuma Wijaya', NULL, NULL, NULL, 'Paccerakkang', '081245588197', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(39, 63, NULL, '13020240028', 'Nurul Qamri Ramadhina', NULL, NULL, NULL, 'Jl. Timah 3 Blok A27 No12 Ballaparang, Rappocini', '085754534342', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(40, 64, NULL, '13020240009', 'Kharisma Suchy Aisyah', NULL, NULL, NULL, 'Jl. Swadaya No.6, Masale, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231', '082199153095', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(41, 65, NULL, '13020240041', 'NAJIYAH N. NGABITO', NULL, NULL, NULL, 'Jalan Pampang V No. 5, Pampang, Panakkukang, Makassar', '085342009360', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(42, 66, NULL, '13020240184', 'Rendi Pratama', NULL, NULL, NULL, 'Cozy Living, Jl. Perintis Kemerdekaan 8 Lrg. 3, Kec. Tamalanrea, Kota Makassar, Sulawesi Selatan, Kamar', '081241456546', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(43, 67, NULL, '13020240206', 'MEKAR WANGI. R', 'B4', NULL, NULL, 'Bumi Antang Permai', '081289026799', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(44, 68, NULL, '13020240048', 'Rahmawati', 'B1', NULL, NULL, 'Maros Tanralili', '082140700737', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(45, 69, NULL, '13020230224', 'Andi Ahsan Ashuri', 'A7', NULL, NULL, 'Pettarani, Makassar', '085657376669', 'L', 'Asisten 2', NULL, 'default.jpg', 0),
-(46, 70, NULL, '13020230251', 'Andi Ikhlas Mallomo', 'A7', NULL, NULL, 'Jl. Printis Kemerdekaan 3', '0882019450791', 'L', 'Asisten 2', NULL, 'default.jpg', 0),
-(47, 71, NULL, '13020240237', 'Ahmad Fadyl Sapri', 'A6', NULL, NULL, 'Jl. Inspeksi PAM timur', '082393172077', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(48, 72, NULL, '13020230219', 'Andi Rifqi Aunur Rahman', 'A7', NULL, NULL, 'Perumnas BTP Blok H.lama No.509, Tamalanrea, Kec. Tamalanrea, Kota Makassar, Sulawesi Selatan 90245', '088246700573', 'L', 'Asisten 2', NULL, 'default.jpg', 0),
-(49, 73, NULL, '13020240203', 'Muhammad Sa\'Ad Wahid', 'A6', '2024', 'Teknik Informatika', 'Jl. Urip Sumoharjo no.86', '082288873939', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(50, 74, NULL, '13020240338', 'Fadia Syakinah Amalia', 'B1', NULL, NULL, 'Jl. Racing Sinri Jala No.27b, Karampuang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231', '082298470695', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(51, 75, NULL, '13020220323', 'Dewi Ernita Rahma', 'B5', NULL, NULL, 'Jl. Kakatua II, Lr 3 No. 29 D, RT 007/RW 004, Kel. Parang, Kec. Mamajang, Kota Makassar, Sulawesi Selatan 90133', '085216090040', 'P', 'Asisten 1', NULL, 'default.jpg', 0),
-(52, 76, NULL, '13020240152', 'Tiara Mulya Pratiwi', 'B3', NULL, NULL, 'Jl. Moh. Jufri X, Tammua, Kec. Tallo, Kota Makassar, Sulawesi Selatan.', '082193739474', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(53, 77, NULL, '13020240004', 'Nurul Aulia Badawi', 'B1-Ti', NULL, NULL, 'Perumahan Bumi Findaria Mas 2 Blok K No. 118 Jl. Poros Pammajengan Moncongloe, Kec. Moncongloe, Kab. Maros, Sulawesi Selatan', '082136293919', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(54, 78, NULL, '13020240161', 'Nur Alisa', 'B3', NULL, NULL, 'Maros, jl.Damai Ongkoe', '0882022416033', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(55, 79, NULL, '13020240305', 'Rahmat Setiawan Rahman', 'A4', NULL, NULL, 'Jalan Baji Ampe 1, Kecamatan Mamajang, Kota Makassar', '089637457854', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0),
-(56, 80, NULL, '13020240036', 'Nendra Rizkullah Izzatul Ibad', 'A1', NULL, NULL, 'Makassar, Makassar City, South Sulawesi, Indonesia', '081244960404', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0);
+INSERT INTO `profile` (`id_profil`, `id_user`, `id_lab`, `nim`, `nama`, `kelas`, `angkatan`, `prodi`, `alamat`, `no_telp`, `jenis_kelamin`, `jabatan`, `peminatan`, `photo_profile`, `is_completed`, `attendance_reset_at`, `created_at`) VALUES
+(1, 1, NULL, NULL, ' Ir. Huzain Azis, S.Kom., M.Cs., MTA.', NULL, NULL, NULL, 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08114484875', 'L', 'Kepala Lab', NULL, '1769533666_6978f0e27cab8.jpeg', 1, NULL, '2026-01-03 13:23:53'),
+(2, 2, NULL, NULL, 'Fatimah AR. Tuasamu, S.Kom., MTA, MCF', NULL, NULL, '', 'Jl. Urip Sumoharjo No.km.5, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231, Indonesia', '08534186497', 'P', 'Laboran', NULL, '1768721611_696c8ccb66f2c.jpeg', 1, NULL, '2026-01-03 13:23:53'),
+(3, 3, 1, '13120230033', 'Nurfajri Mukmin Saputra', 'A1', NULL, 'Sistem Informasi', 'Kabupaten Bantaeng, Provinsi Sulawesi Selatan', '0853332084', 'L', 'Asisten 2', 'Multimedia', '1768722382_696c8fceac85d.jpeg', 1, NULL, '2026-01-03 13:23:53'),
+(31, 55, NULL, '13020240021', 'M Rivaldi Juliadin', NULL, NULL, NULL, 'Jln. Pampang 5', '081282575933', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(32, 56, NULL, '13020240331', 'Ghiffary Agys Al Baihaqy', NULL, NULL, NULL, 'Jl. Bung Perumahan Pesona Bukit Maghfirah F/9', '082346950561', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(33, 57, NULL, '13020240012', 'Saefullah Ahmad Ariiq. Sr', NULL, NULL, NULL, 'Jln. Daya raya Perum Graha Cendekia blok C No.20', '088704259516', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(34, 58, NULL, '13020240333', 'Muh. Fahmi Ashar', NULL, NULL, NULL, 'jl. Yusuf Bauty, Manggarupi Kab. Gowa', '088242980774', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(35, 59, NULL, '13020240014', 'Rayhan Firrizqi', NULL, NULL, NULL, 'Jl. Sukaria Raya, lorong 8', '082397851510', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(36, 60, NULL, '13020240060', 'Muhammad Nabil Bassalam', NULL, NULL, NULL, 'Telkomas', '085953707203', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(37, 61, NULL, '13120240038', 'Karima', NULL, NULL, NULL, 'Kec. Moncongloe', '081944264168', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(38, 62, NULL, '13020240263', 'Arya Bintang Kusuma Wijaya', NULL, NULL, NULL, 'Paccerakkang', '081245588197', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(39, 63, NULL, '13020240028', 'Nurul Qamri Ramadhina', NULL, NULL, NULL, 'Jl. Timah 3 Blok A27 No12 Ballaparang, Rappocini', '085754534342', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(40, 64, NULL, '13020240009', 'Kharisma Suchy Aisyah', NULL, NULL, NULL, 'Jl. Swadaya No.6, Masale, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231', '082199153095', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(41, 65, NULL, '13020240041', 'NAJIYAH N. NGABITO', NULL, NULL, NULL, 'Jalan Pampang V No. 5, Pampang, Panakkukang, Makassar', '085342009360', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(42, 66, NULL, '13020240184', 'Rendi Pratama', NULL, NULL, NULL, 'Cozy Living, Jl. Perintis Kemerdekaan 8 Lrg. 3, Kec. Tamalanrea, Kota Makassar, Sulawesi Selatan, Kamar', '081241456546', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(43, 67, NULL, '13020240206', 'MEKAR WANGI. R', 'B4', NULL, NULL, 'Bumi Antang Permai', '081289026799', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(44, 68, NULL, '13020240048', 'Rahmawati', 'B1', NULL, NULL, 'Maros Tanralili', '082140700737', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(45, 69, NULL, '13020230224', 'Andi Ahsan Ashuri', 'A7', NULL, NULL, 'Pettarani, Makassar', '085657376669', 'L', 'Asisten 2', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(46, 70, NULL, '13020230251', 'Andi Ikhlas Mallomo', 'A7', NULL, NULL, 'Jl. Printis Kemerdekaan 3', '0882019450791', 'L', 'Asisten 2', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(47, 71, NULL, '13020240237', 'Ahmad Fadyl Sapri', 'A6', NULL, NULL, 'Jl. Inspeksi PAM timur', '082393172077', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(48, 72, NULL, '13020230219', 'Andi Rifqi Aunur Rahman', 'A7', NULL, NULL, 'Perumnas BTP Blok H.lama No.509, Tamalanrea, Kec. Tamalanrea, Kota Makassar, Sulawesi Selatan 90245', '088246700573', 'L', 'Asisten 2', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(49, 73, NULL, '13020240203', 'Muhammad Sa\'Ad Wahid', 'A6', '2024', 'Teknik Informatika', 'Jl. Urip Sumoharjo no.86', '082288873939', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(50, 74, NULL, '13020240338', 'Fadia Syakinah Amalia', 'B1', NULL, NULL, 'Jl. Racing Sinri Jala No.27b, Karampuang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231', '082298470695', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(51, 75, NULL, '13020220323', 'Dewi Ernita Rahma', 'B5', NULL, NULL, 'Jl. Kakatua II, Lr 3 No. 29 D, RT 007/RW 004, Kel. Parang, Kec. Mamajang, Kota Makassar, Sulawesi Selatan 90133', '085216090040', 'P', 'Asisten 1', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(52, 76, NULL, '13020240152', 'Tiara Mulya Pratiwi', 'B3', NULL, NULL, 'Jl. Moh. Jufri X, Tammua, Kec. Tallo, Kota Makassar, Sulawesi Selatan.', '082193739474', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(53, 77, NULL, '13020240004', 'Nurul Aulia Badawi', 'B1-Ti', NULL, NULL, 'Perumahan Bumi Findaria Mas 2 Blok K No. 118 Jl. Poros Pammajengan Moncongloe, Kec. Moncongloe, Kab. Maros, Sulawesi Selatan', '082136293919', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(54, 78, NULL, '13020240161', 'Nur Alisa', 'B3', NULL, NULL, 'Maros, jl.Damai Ongkoe', '0882022416033', 'P', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(55, 79, NULL, '13020240305', 'Rahmat Setiawan Rahman', 'A4', NULL, NULL, 'Jalan Baji Ampe 1, Kecamatan Mamajang, Kota Makassar', '089637457854', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42'),
+(56, 80, NULL, '13020240036', 'Nendra Rizkullah Izzatul Ibad', 'A1', NULL, NULL, 'Makassar, Makassar City, South Sulawesi, Indonesia', '081244960404', 'L', 'Asisten Pendamping', NULL, 'default.jpg', 0, NULL, '2026-06-15 06:32:42');
 
 -- --------------------------------------------------------
 
@@ -507,10 +495,8 @@ CREATE TABLE `qr_code` (
 --
 
 INSERT INTO `qr_code` (`id_qr`, `tipe`, `token_code`, `generated_at`, `valid_until`, `used_by_user_id`, `used_at`) VALUES
-(338, 'Presensi', '42d0f99717cb1b7e236c3aafb001635c', '2026-07-14 00:00:00', '2026-07-14 00:03:00', NULL, NULL),
-(339, 'Pulang', '24fa8ba1c218066303ae9c1e0107c70f', '2026-07-14 00:00:00', '2026-07-14 00:03:00', NULL, NULL),
-(340, 'Presensi', 'e9156542f817965919df0ff658d01fb1', '2026-07-14 00:02:48', '2026-07-14 00:05:48', NULL, NULL),
-(341, 'Pulang', 'f56bad5823ce5b4b41acc168380977a3', '2026-07-14 00:02:48', '2026-07-14 00:05:48', NULL, NULL);
+(653, 'Presensi', 'a00db844f98e19e5943d5b012bd2e3598c6cd9733b311273', '2026-07-30 17:49:40', '2026-07-30 17:52:40', NULL, NULL),
+(654, 'Pulang', 'e48b4ea267fc2893e5068056206ff7c5a136deb4208ea1d5', '2026-07-30 17:49:40', '2026-07-30 17:52:40', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -527,6 +513,13 @@ CREATE TABLE `recycle_bin_conflicts` (
   `conflict_type` varchar(50) DEFAULT 'presensi_overlap' COMMENT 'Jenis konflik: presensi_overlap, logbook_duplicate',
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `recycle_bin_conflicts`
+--
+
+INSERT INTO `recycle_bin_conflicts` (`id_conflict`, `id_bin`, `id_profil`, `nama_asisten`, `tanggal`, `conflict_type`, `created_at`) VALUES
+(1, 28, 3, 'Nurfajri Mukmin Saputra', '2026-07-13', 'presensi_overlap', '2026-07-30 11:22:06');
 
 -- --------------------------------------------------------
 
@@ -757,7 +750,7 @@ ALTER TABLE `user_google_token`
 -- AUTO_INCREMENT for table `attendance_recycle_bin`
 --
 ALTER TABLE `attendance_recycle_bin`
-  MODIFY `id_bin` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `id_bin` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
 
 --
 -- AUTO_INCREMENT for table `dosen`
@@ -817,31 +810,31 @@ ALTER TABLE `lab`
 -- AUTO_INCREMENT for table `logbook`
 --
 ALTER TABLE `logbook`
-  MODIFY `id_logbook` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id_logbook` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `presensi`
 --
 ALTER TABLE `presensi`
-  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
+  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
 
 --
 -- AUTO_INCREMENT for table `profile`
 --
 ALTER TABLE `profile`
-  MODIFY `id_profil` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=57;
+  MODIFY `id_profil` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=99902;
 
 --
 -- AUTO_INCREMENT for table `qr_code`
 --
 ALTER TABLE `qr_code`
-  MODIFY `id_qr` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=342;
+  MODIFY `id_qr` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=655;
 
 --
 -- AUTO_INCREMENT for table `recycle_bin_conflicts`
 --
 ALTER TABLE `recycle_bin_conflicts`
-  MODIFY `id_conflict` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_conflict` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `reset_log`
@@ -853,7 +846,7 @@ ALTER TABLE `reset_log`
 -- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
+  MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=99902;
 
 --
 -- AUTO_INCREMENT for table `user_google_token`

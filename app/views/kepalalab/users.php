@@ -23,11 +23,54 @@
     <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="bg-gradient-to-r from-blue-600 to-cyan-500 circuit-pattern relative overflow-hidden p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <h3 class="font-bold text-white uppercase tracking-wide text-sm">Daftar User</h3>
-            
-            <div class="relative w-full sm:w-72">
-                <i class="fas fa-search absolute left-4 top-3.5 text-blue-100 text-xs"></i>
-                <input type="text" id="searchUser" oninput="searchTable()" onkeyup="searchTable()" placeholder="Cari nama, email, atau NIM..." class="w-full pl-10 pr-4 py-2.5 bg-white/15 border border-white/25 text-white placeholder-blue-100 rounded-xl text-sm focus:outline-none focus:bg-white/25 transition">
-            </div>
+
+            <?php
+                // [BARU] Sebelumnya halaman ini hanya punya pencarian client-side
+                // (hanya menyaring baris yang sudah dimuat di halaman saat ini) —
+                // padahal controller sudah menyiapkan filter role/jabatan/angkatan
+                // sejak lama. Disamakan dengan admin/users.php: form GET penuh,
+                // dan jabatan/angkatan otomatis nonaktif saat role Admin/Kepala Lab
+                // dipilih (lihat handleUserRoleFilterChange di kepalalab/users.js).
+                $roleLocksJabatanAngkatan = in_array($filter_role ?? '', ['Admin', 'Kepala Lab'], true);
+            ?>
+            <form action="<?= BASE_URL ?>/kepalalab/manageUsers" method="GET" class="flex flex-wrap gap-2 items-center">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-3 text-blue-100 text-xs"></i>
+                    <input type="text" name="search" value="<?= htmlspecialchars($search_keyword ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                           placeholder="Cari nama, email, NIM..." autocomplete="off"
+                           class="pl-8 pr-3 py-2 rounded-xl bg-white/10 text-white placeholder-blue-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/20 w-52">
+                </div>
+                <select name="role" id="filterRoleSelect" onchange="handleUserRoleFilterChange(this)" class="px-3 py-2 rounded-xl bg-white/10 text-white text-xs font-medium border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 cursor-pointer">
+                    <option value="">Semua Role</option>
+                    <option value="Kepala Lab" <?= (($filter_role??'')=='Kepala Lab')?'selected':'' ?>>Kepala Lab</option>
+                    <option value="Admin" <?= (($filter_role??'')=='Admin')?'selected':'' ?>>Admin</option>
+                    <option value="User" <?= (($filter_role??'')=='User')?'selected':'' ?>>Asisten</option>
+                </select>
+                <select name="jabatan" id="filterJabatanSelect" onchange="this.form.submit()" <?= $roleLocksJabatanAngkatan ? 'disabled title="Tidak berlaku untuk role Admin/Kepala Lab"' : '' ?> class="px-3 py-2 rounded-xl bg-white/10 text-white text-xs font-medium border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                    <option value="">Semua Jabatan</option>
+                    <?php foreach(($jabatan_list ?? []) as $jab): ?>
+                    <option value="<?= htmlspecialchars($jab, ENT_QUOTES, 'UTF-8') ?>" <?= (($filter_jabatan??'')==$jab)?'selected':'' ?>>
+                        <?= htmlspecialchars($jab, ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <select name="angkatan" id="filterAngkatanSelect" onchange="this.form.submit()" <?= $roleLocksJabatanAngkatan ? 'disabled title="Tidak berlaku untuk role Admin/Kepala Lab"' : '' ?> class="px-3 py-2 rounded-xl bg-white/10 text-white text-xs font-medium border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                    <option value="">Semua Angkatan</option>
+                    <?php foreach(($angkatan_list ?? []) as $ang): ?>
+                    <option value="<?= htmlspecialchars($ang, ENT_QUOTES, 'UTF-8') ?>" <?= (($filter_angkatan??'')==$ang)?'selected':'' ?>>
+                        <?= htmlspecialchars($ang, ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <button type="submit" class="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold border border-white/20 transition">
+                    <i class="fas fa-search mr-1"></i>Cari
+                </button>
+                <?php if (($search_keyword ?? '') || ($filter_role ?? '') || ($filter_jabatan ?? '') || ($filter_angkatan ?? '')): ?>
+                <a href="<?= BASE_URL ?>/kepalalab/manageUsers" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-blue-200 text-xs font-medium border border-white/10 transition">
+                    <i class="fas fa-times"></i> Reset
+                </a>
+                <?php endif; ?>
+            </form>
         </div>
 
         <div class="overflow-x-auto">
@@ -85,7 +128,7 @@
                                 
                                 <div>
                                     <div class="font-bold text-gray-800 text-sm user-name leading-tight mb-1">
-                                        <?= $u['name'] ?>
+                                        <?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>
                                     </div>
                                     <?php if ($u['role'] === 'User' && !empty($u['nim'])): ?>
                                     <div class="text-[10px] font-mono text-gray-400 mb-1 user-nim"><?= htmlspecialchars($u['nim']) ?></div>
@@ -94,7 +137,7 @@
                                         <?= $statusBadge ?>
                                         <?php if ($u['role'] == 'User'): ?>
                                             <span class="text-[10px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 user-nim">
-                                                <?= $u['nim'] ?? '-' ?>
+                                                <?= htmlspecialchars($u['nim'] ?? '-', ENT_QUOTES, 'UTF-8') ?>
                                             </span>
                                         <?php endif; ?>
                                     </div>
@@ -103,15 +146,15 @@
                         </td>
 
                         <td class="p-6">
-                            <div class="text-sm font-bold text-gray-700 mb-1"><?= $u['position'] ?? 'Anggota' ?></div>
+                            <div class="text-sm font-bold text-gray-700 mb-1"><?= htmlspecialchars($u['position'] ?? 'Anggota', ENT_QUOTES, 'UTF-8') ?></div>
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase <?= $u['role']=='Admin'?'bg-purple-50 text-purple-600 border-purple-100':($u['role']=='Kepala Lab'?'bg-red-50 text-red-600 border-red-100':'bg-blue-50 text-blue-600 border-blue-100') ?>">
-                                <?= $u['role'] ?>
+                                <?= htmlspecialchars($u['role'], ENT_QUOTES, 'UTF-8') ?>
                             </span>
                             <?php if ($u['role'] == 'User' && !empty($u['kelas'])): ?>
                                 <div class="mt-2 flex items-center gap-1.5">
                                     <span class="text-[10px] font-bold text-gray-400 uppercase">Kelas:</span>
                                     <span class="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-mono">
-                                        <?= $u['kelas'] ?>
+                                        <?= htmlspecialchars($u['kelas'], ENT_QUOTES, 'UTF-8') ?>
                                     </span>
                                 </div>
                             <?php endif; ?>
@@ -121,11 +164,11 @@
                             <div class="space-y-1.5">
                                 <div class="flex items-center gap-2 text-sm text-gray-600 user-email">
                                     <div class="w-6 flex justify-center"><i class="fas fa-envelope text-gray-300 text-xs"></i></div>
-                                    <span class="truncate max-w-[200px]" title="<?= $u['email'] ?>"><?= $u['email'] ?></span>
+                                    <span class="truncate max-w-[200px]" title="<?= htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8') ?></span>
                                 </div>
                                 <div class="flex items-center gap-2 text-xs text-gray-500">
                                     <div class="w-6 flex justify-center"><i class="fas fa-phone text-gray-300 text-[10px]"></i></div>
-                                    <span class="font-mono"><?= $u['no_telp'] ?? '-' ?></span>
+                                    <span class="font-mono"><?= htmlspecialchars($u['no_telp'] ?? '-', ENT_QUOTES, 'UTF-8') ?></span>
                                 </div>
                             </div>
                         </td>
@@ -140,6 +183,49 @@
                 </tbody>
             </table>
         </div>
+
+        <?php if (isset($pagination) && $pagination['total_pages'] > 1): ?>
+        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+
+            <div class="text-xs text-gray-500 font-bold uppercase tracking-wide">
+                Halaman <span class="text-blue-600"><?= (int)$pagination['current'] ?></span> dari <?= (int)$pagination['total_pages'] ?>
+                <span class="normal-case text-gray-400 font-medium ml-1">(Total <?= (int)$pagination['total_items'] ?> User)</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <?php
+                    if (!function_exists('buildKepalaLabUserUrl')) {
+                        function buildKepalaLabUserUrl($page) {
+                            $params = $_GET;
+                            $params['page'] = $page;
+                            return BASE_URL . '/kepalalab/manageUsers?' . http_build_query($params);
+                        }
+                    }
+                ?>
+
+                <?php if ($pagination['current'] > 1): ?>
+                    <a href="<?= buildKepalaLabUserUrl($pagination['current'] - 1) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm"><i class="fas fa-chevron-left text-xs"></i></a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed"><i class="fas fa-chevron-left text-xs"></i></span>
+                <?php endif; ?>
+
+                <?php
+                    $startPage = max(1, $pagination['current'] - 2);
+                    $endPage = min($pagination['total_pages'], $pagination['current'] + 2);
+                    for ($i = $startPage; $i <= $endPage; $i++):
+                        $activeClass = ($i == $pagination['current']) ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/30' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                ?>
+                    <a href="<?= buildKepalaLabUserUrl($i) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition shadow-sm <?= $activeClass ?>"><?= (int)$i ?></a>
+                <?php endfor; ?>
+
+                <?php if ($pagination['current'] < $pagination['total_pages']): ?>
+                    <a href="<?= buildKepalaLabUserUrl($pagination['current'] + 1) ?>" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition shadow-sm"><i class="fas fa-chevron-right text-xs"></i></a>
+                <?php else: ?>
+                    <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-300 cursor-not-allowed"><i class="fas fa-chevron-right text-xs"></i></span>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -238,9 +324,20 @@
                 </div>
 
                 <!-- Status Verifikasi -->
-                <div class="md:col-span-2">
-                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status Verifikasi Akun</label>
+                <!-- Status Verifikasi + Status Akun -->
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status Profil</label>
                     <div id="detailStatus" class="w-full px-4 py-2.5 rounded-xl border text-xs font-bold text-center uppercase">-</div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status Akun</label>
+                    <div id="detailAccountStatus" class="w-full px-4 py-2.5 rounded-xl border text-xs font-bold text-center uppercase">-</div>
+                </div>
+
+                <!-- Tanggal Bergabung -->
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tanggal Bergabung</label>
+                    <div id="detailCreatedAt" class="input-readonly w-full px-4 py-2.5 rounded-xl border text-xs font-semibold text-gray-700">-</div>
                 </div>
 
                 <!-- Alamat -->

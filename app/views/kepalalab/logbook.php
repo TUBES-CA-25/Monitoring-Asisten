@@ -35,14 +35,14 @@
                 <?php foreach($assistants as $ast): ?>
                 <div onclick="loadLogs(<?= $ast['id'] ?>, '<?= htmlspecialchars($ast['name'], ENT_QUOTES) ?>', '<?= $ast['photo_profile'] ?? '' ?>', this)" 
                      class="assistant-card p-3 rounded-2xl cursor-pointer flex items-center justify-between group" 
-                     data-name="<?= strtolower($ast['name']) ?>">
+                     data-name="<?= htmlspecialchars(strtolower($ast['name']), ENT_QUOTES, 'UTF-8') ?>">
                     
                     <div class="flex items-center gap-3">
                         <img src="<?= !empty($ast['photo_profile']) ? BASE_URL.'/uploads/profile/'.$ast['photo_profile'] : 'https://ui-avatars.com/api/?name='.urlencode($ast['name']).'&background=random' ?>" 
                              class="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm">
                         <div>
-                            <h4 class="font-bold text-gray-800 text-sm leading-tight"><?= $ast['name'] ?></h4>
-                            <p class="text-[10px] text-gray-500 font-medium mt-0.5"><?= $ast['position'] ?? 'Anggota' ?></p>
+                            <h4 class="font-bold text-gray-800 text-sm leading-tight"><?= htmlspecialchars($ast['name'], ENT_QUOTES, 'UTF-8') ?></h4>
+                            <p class="text-[10px] text-gray-500 font-medium mt-0.5"><?= htmlspecialchars($ast['position'] ?? 'Anggota', ENT_QUOTES, 'UTF-8') ?></p>
                         </div>
                     </div>
                     
@@ -73,6 +73,22 @@
                     </div>
                     </div>
 
+                <div id="liveStatsBar" class="hidden px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-3 text-xs shrink-0">
+                    <span class="text-gray-400 font-bold uppercase tracking-wide text-[10px]">Ringkasan:</span>
+                    <span class="flex items-center gap-1 font-bold text-green-600">
+                        <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                        Hadir: <span id="countHadir" class="tabular-nums">0</span>
+                    </span>
+                    <span class="flex items-center gap-1 font-bold text-yellow-600">
+                        <span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>
+                        Izin/Sakit: <span id="countIzin" class="tabular-nums">0</span>
+                    </span>
+                    <span class="flex items-center gap-1 font-bold text-red-600">
+                        <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                        Alpha: <span id="countAlpha" class="tabular-nums">0</span>
+                    </span>
+                </div>
+
                 <div class="flex-1 overflow-y-auto p-0 custom-scrollbar">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-white sticky top-0 z-10 shadow-sm text-xs font-bold text-gray-400 uppercase">
@@ -88,6 +104,7 @@
                         <tbody id="logsTableBody" class="divide-y divide-gray-50 text-sm text-gray-700">
                         </tbody>
                     </table>
+                    <div id="logPaginationBar" class="hidden border-t border-gray-100 bg-gray-50 px-4"></div>
                 </div>
             </div>
         </div>
