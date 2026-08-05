@@ -126,6 +126,15 @@ define('ASSET_URL', BASE_URL . '/assets');
 define('UPLOAD_PATH', ROOT_PATH . '/public/uploads/');
 define('UPLOAD_URL', BASE_URL . '/uploads/');
 
+// [BARU] Lokasi default lab - dipakai saat Admin mengubah data kehadiran
+// asisten lewat halaman Logbook (AdminController::saveLogbookAdmin /
+// LogbookModel::saveLogAdmin). Admin tidak sedang berada di lokasi fisik
+// saat mengedit, jadi tidak ada koordinat GPS nyata untuk diverifikasi -
+// nilai tetap ini dipakai supaya presensi.lokasi_masuk/lokasi_pulang selalu
+// terisi valid, dan tetap bisa dipakai meski titik koordinat asli lab
+// berubah/tidak diketahui di kemudian hari.
+define('DEFAULT_ATTENDANCE_LOCATION', 'Fakultas Ilmu Komputer UMI, Jl. Inspeksi Kanal No.2, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231');
+
 // Pastikan folder upload yang dibutuhkan selalu tersedia
 foreach (['attendance', 'leaves', 'profile'] as $iclabs_upload_dir) {
     $iclabs_full_path = UPLOAD_PATH . $iclabs_upload_dir;

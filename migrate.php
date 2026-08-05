@@ -54,7 +54,6 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require __DIR__ . '/app/config/config.php';
-require __DIR__ . '/app/core/Database.php';
 
 function iclabs_migrate_out(string $msg): void {
     fwrite(STDOUT, $msg . PHP_EOL);
@@ -62,33 +61,6 @@ function iclabs_migrate_out(string $msg): void {
 
 function iclabs_migrate_err(string $msg): void {
     fwrite(STDERR, $msg . PHP_EOL);
-}
-
-/**
- * Pecah isi file .sql menjadi statement individual (dipisah ';' di akhir
- * baris). Cukup untuk gaya migrasi di project ini (SET/ALTER/CREATE/
- * INSERT/PREPARE/EXECUTE/DEALLOCATE biasa - tanpa stored procedure/
- * DELIMITER) dan lebih portabel daripada mengandalkan dukungan
- * multi-statement bawaan driver PDO (tidak selalu aktif di semua hosting).
- */
-function iclabs_split_sql(string $sql): array {
-    $statements = [];
-    $buffer = '';
-    foreach (explode("\n", $sql) as $line) {
-        $trimmed = trim($line);
-        if ($trimmed === '' || strpos($trimmed, '--') === 0) {
-            continue;
-        }
-        $buffer .= $line . "\n";
-        if (substr(rtrim($line), -1) === ';') {
-            $statements[] = $buffer;
-            $buffer = '';
-        }
-    }
-    if (trim($buffer) !== '') {
-        $statements[] = $buffer;
-    }
-    return $statements;
 }
 
 $argvFlags = array_slice($argv, 1);
@@ -100,8 +72,35 @@ iclabs_migrate_out(' ICLABS - Migration Runner');
 iclabs_migrate_out(' Database: ' . DB_NAME . '@' . DB_HOST);
 iclabs_migrate_out('==================================================');
 
+// [DIPERBAIKI] Sebelumnya memakai Database::getConnection() (koneksi
+// biasa) lalu memecah tiap file .sql jadi statement individual & meng-exec
+// satu-satu (iclabs_split_sql() + loop exec()). Pola idempotency di semua
+// file migrations/*.sql (SET @ddl := IF(...); PREPARE stmt FROM @ddl;
+// EXECUTE stmt; DEALLOCATE PREPARE stmt;) ternyata memicu CRASH PHP native
+// (exit code 255, tanpa exception yang bisa ditangkap) saat PREPARE/EXECUTE/
+// DEALLOCATE dikirim sebagai perintah PDO::exec() TERPISAH satu sama lain -
+// bug interaksi PDO/mysqlnd dengan siklus hidup prepared statement
+// server-side MySQL, direproduksi konsisten di lingkungan ini.
+//
+// Perbaikannya BUKAN mengubah isi file migrasi (semuanya tetap valid SQL
+// standar), melainkan mengubah CARA migrate.php mengeksekusinya: koneksi
+// terpisah dengan PDO::MYSQL_ATTR_MULTI_STATEMENTS diaktifkan, lalu seluruh
+// isi file dikirim sebagai SATU pemanggilan exec() (bukan dipecah per
+// statement). Diverifikasi tidak crash untuk seluruh file migrasi yang ada
+// (termasuk yang punya 4 blok PREPARE/DEALLOCATE sekaligus).
+//
+// Koneksi KHUSUS untuk skrip ini saja (bukan lewat Database.php) karena
+// MYSQL_ATTR_MULTI_STATEMENTS harus diaktifkan saat construct PDO - kalau
+// dipasang di Database.php akan berlaku ke SELURUH query aplikasi web
+// (termasuk yang menerima input mentah tanpa parameter binding di
+// beberapa tempat lama), yang tidak diinginkan sebagai default global.
 try {
-    $pdo = (new Database())->getConnection();
+    $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+        PDO::ATTR_ERRMODE               => PDO::ERRMODE_EXCEPTION,
+        PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
+    ]);
+    $pdo->exec("SET time_zone = '+08:00'");
 } catch (\Throwable $e) {
     iclabs_migrate_err('Gagal konek ke database: ' . $e->getMessage());
     exit(1);
@@ -178,27 +177,28 @@ foreach ($pending as $f) {
     }
 
     try {
-        $pdo->beginTransaction();
-
-        foreach (iclabs_split_sql($sql) as $statement) {
-            $statement = trim($statement);
-            if ($statement === '') {
-                continue;
-            }
-            $pdo->exec($statement);
-        }
+        // [DIPERBAIKI] Sebelumnya dibungkus beginTransaction()/commit() -
+        // tapi MySQL melakukan IMPLICIT COMMIT di setiap statement DDL
+        // (ALTER/CREATE TABLE), yang memutus transaksi begitu statement DDL
+        // pertama di file dieksekusi. Explicit commit() di akhir jadi selalu
+        // gagal dengan "There is no active transaction" walau perubahan
+        // skemanya sendiri sudah BERHASIL diterapkan - bug ini sebelumnya
+        // tidak pernah ketahuan karena migrasi selalu crash duluan (lihat
+        // catatan PDO::MYSQL_ATTR_MULTI_STATEMENTS di atas) sebelum sampai
+        // ke commit(). Karena DDL tidak benar-benar transactional di MySQL,
+        // membungkusnya dengan transaksi cuma memberi rasa aman palsu -
+        // dihapus. Setiap file migrasi SUDAH idempotent (cek
+        // information_schema sebelum ALTER/CREATE), jadi aman dijalankan
+        // ulang kalau terhenti di tengah jalan akibat sebab lain.
+        $pdo->exec($sql);
 
         $ins = $pdo->prepare('INSERT INTO schema_migrations (filename) VALUES (:f)');
         $ins->execute([':f' => $name]);
 
-        $pdo->commit();
         iclabs_migrate_out('   OK');
     } catch (\Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
         iclabs_migrate_err('   GAGAL: ' . $e->getMessage());
-        iclabs_migrate_err("   Migrasi dihentikan di $name (belum tercatat selesai, aman dijalankan ulang setelah diperbaiki).");
+        iclabs_migrate_err("   Migrasi dihentikan di $name (belum tercatat selesai, aman dijalankan ulang setelah diperbaiki - file migrasi bersifat idempotent).");
         $failed = true;
         break;
     }

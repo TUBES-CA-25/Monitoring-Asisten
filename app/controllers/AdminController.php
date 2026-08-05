@@ -1604,35 +1604,58 @@ class AdminController extends Controller {
 
     public function saveLogbookAdmin() {
         $this->checkAccess(['Admin']);
-        
+
         $fileName = null;
         if (isset($_FILES['proof_file']['name']) && $_FILES['proof_file']['name'] != "") {
             $status = $_POST['status'];
             $folder = ($status == 'Hadir') ? 'attendance' : 'leaves';
             $targetDir = UPLOAD_PATH . "$folder/";
-            
+
             if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-            
+
             $ext = pathinfo($_FILES["proof_file"]["name"], PATHINFO_EXTENSION);
             $fileName = "admin_edit_" . time() . "." . $ext;
-            
+
             move_uploaded_file($_FILES["proof_file"]["tmp_name"], $targetDir . $fileName);
         }
 
+        // [BARU] Foto presensi PULANG - sebelumnya field "proof_file_out" ada
+        // di form tapi tidak pernah dibaca di sini sama sekali (dead field).
+        // Hanya relevan untuk status Hadir, disimpan di folder yang sama
+        // dengan foto datang.
+        $fileNameOut = null;
+        if (isset($_FILES['proof_file_out']['name']) && $_FILES['proof_file_out']['name'] != "") {
+            $targetDir = UPLOAD_PATH . "attendance/";
+            if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+
+            $ext = pathinfo($_FILES["proof_file_out"]["name"], PATHINFO_EXTENSION);
+            $fileNameOut = "admin_edit_out_" . time() . "." . $ext;
+
+            move_uploaded_file($_FILES["proof_file_out"]["tmp_name"], $targetDir . $fileNameOut);
+        }
+
         $data = [
-            'user_id'  => $_POST['user_id'], 
-            'date'     => $_POST['date'], 
+            'user_id'  => $_POST['user_id'],
+            'date'     => $_POST['date'],
             'status'   => $_POST['status'],
-            'time_in'  => $_POST['time_in'] ?? null, 
-            'time_out' => $_POST['time_out'] ?? null, 
+            'time_in'  => $_POST['time_in'] ?? null,
+            'time_out' => $_POST['time_out'] ?? null,
             'activity' => $_POST['activity'],
-            'file'     => $fileName 
+            'file'     => $fileName,
+            'file_out' => $fileNameOut,
+            // [BARU] Admin tidak sedang berada di lokasi fisik lab saat
+            // mengedit lewat Logbook, jadi tidak ada koordinat GPS nyata
+            // untuk diverifikasi - selalu pakai lokasi default lab (lihat
+            // config.php) supaya kolom lokasi tetap terisi valid.
+            'lokasi_masuk'  => DEFAULT_ATTENDANCE_LOCATION,
+            'lokasi_pulang' => DEFAULT_ATTENDANCE_LOCATION,
         ];
-        
-        if ($this->model('LogbookModel')->saveLogAdmin($data)) {
-            echo json_encode(['status'=>'success', 'message'=>'Data berhasil disimpan.']); 
+
+        $result = $this->model('LogbookModel')->saveLogAdmin($data);
+        if ($result['ok']) {
+            echo json_encode(['status'=>'success', 'message'=>'Data berhasil disimpan.']);
         } else {
-            echo json_encode(['status'=>'error', 'message'=>'Gagal menyimpan data.']);
+            echo json_encode(['status'=>'error', 'message'=> $result['error'] ?? 'Gagal menyimpan data.']);
         }
     }
     

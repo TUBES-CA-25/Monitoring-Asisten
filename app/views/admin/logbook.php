@@ -168,13 +168,24 @@
 
             <div class="grid grid-cols-1 gap-4" id="uploadContainer">
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5" id="labelProofMain">Upload Bukti (Datang/Izin)</label>
-                    <input type="file" name="proof_file" id="inputProof" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5" id="labelProofMain">Upload Bukti (Datang/Izin) <span id="proofMainRequiredMark" class="text-red-500">*</span></label>
+                    <input type="file" name="proof_file" id="inputProof" accept="image/*" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs">
+                    <div class="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1.5">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span><?= htmlspecialchars(DEFAULT_ATTENDANCE_LOCATION, ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <p id="proofMainExistingNote" class="hidden text-[10px] text-gray-400 mt-1"><i class="fas fa-check-circle text-green-500"></i> Foto sudah ada sebelumnya - biarkan kosong jika tidak ingin menggantinya.</p>
                 </div>
-                
+
                 <div id="proofOutContainer">
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Upload Bukti Pulang</label>
-                    <input type="file" name="proof_file_out" id="inputProofOut" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Upload Bukti Pulang <span id="proofOutRequiredMark" class="hidden text-red-500">*</span></label>
+                    <input type="file" name="proof_file_out" id="inputProofOut" accept="image/*" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs">
+                    <div class="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1.5">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span><?= htmlspecialchars(DEFAULT_ATTENDANCE_LOCATION, ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <p id="proofOutExistingNote" class="hidden text-[10px] text-gray-400 mt-1"><i class="fas fa-check-circle text-green-500"></i> Foto sudah ada sebelumnya - biarkan kosong jika tidak ingin menggantinya.</p>
+                    <p class="text-[10px] text-gray-400 mt-1">Boleh dikosongkan jika jam pulang belum diisi - asisten wajib scan presensi pulang sendiri nanti.</p>
                 </div>
             </div>
 

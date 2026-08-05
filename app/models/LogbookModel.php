@@ -144,6 +144,11 @@ class LogbookModel {
         return $this->db->resultSet();
     }
 
+    // [DIUBAH] Return value sekarang array ['ok'=>bool, 'error'=>string|null]
+    // (sebelumnya bool polos) - dibutuhkan agar pesan validasi wajib-upload
+    // (lihat blok status=='Hadir' di bawah) bisa disampaikan spesifik ke
+    // admin, bukan cuma "Gagal menyimpan data." generik. Satu-satunya
+    // pemanggil: AdminController::saveLogbookAdmin().
     public function saveLogAdmin($data) {
         try {
             $this->db->getConnection()->beginTransaction();
@@ -151,12 +156,19 @@ class LogbookModel {
             $this->db->query("SELECT id_profil FROM profile WHERE id_user = :uid");
             $this->db->bind(':uid', $data['user_id']);
             $pid = $this->db->single()['id_profil'] ?? null;
-            if(!$pid) return false;
+            if(!$pid) {
+                $this->db->getConnection()->rollBack();
+                return ['ok' => false, 'error' => 'Pengguna tidak ditemukan.'];
+            }
 
             $date = $data['date'];
             $status = $data['status'];
+            $timeOut = !empty($data['time_out']) ? $data['time_out'] : null;
 
-            $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :date");
+            // [BARU] foto_presensi/foto_pulang disertakan supaya validasi
+            // "wajib upload" di bawah tahu apakah entri ini SUDAH punya foto
+            // dari sebelumnya (edit tanpa ganti foto = tidak dipaksa upload ulang).
+            $this->db->query("SELECT id_presensi, foto_presensi, foto_pulang FROM presensi WHERE id_profil = :pid AND tanggal = :date");
             $this->db->bind(':pid', $pid);
             $this->db->bind(':date', $date);
             $existPresensi = $this->db->single();
@@ -167,35 +179,69 @@ class LogbookModel {
             $existIzin = $this->db->single();
 
             if ($status == 'Hadir') {
+                // [BARU] Validasi wajib upload foto (poin 1 & 2 permintaan):
+                // - Jam masuk & foto datang wajib untuk status Hadir.
+                // - Foto pulang HANYA wajib begitu jam pulang diisi.
+                // Sudah divalidasi juga di client (logbook.js), tapi
+                // divalidasi ulang di sini karena client tidak bisa dipercaya.
+                if (empty($data['time_in'])) {
+                    $this->db->getConnection()->rollBack();
+                    return ['ok' => false, 'error' => 'Jam masuk wajib diisi untuk status Hadir.'];
+                }
+                $hasExistingIn = $existPresensi && !empty($existPresensi['foto_presensi']);
+                if (empty($data['file']) && !$hasExistingIn) {
+                    $this->db->getConnection()->rollBack();
+                    return ['ok' => false, 'error' => 'Foto presensi datang wajib diupload.'];
+                }
+                if ($timeOut) {
+                    $hasExistingOut = $existPresensi && !empty($existPresensi['foto_pulang']);
+                    if (empty($data['file_out']) && !$hasExistingOut) {
+                        $this->db->getConnection()->rollBack();
+                        return ['ok' => false, 'error' => 'Foto presensi pulang wajib diupload karena jam pulang sudah diisi.'];
+                    }
+                }
+
                 if ($existIzin) {
                     $this->db->query("DELETE FROM izin WHERE id_izin = :id");
                     $this->db->bind(':id', $existIzin['id_izin']);
                     $this->db->execute();
                 }
 
-                $file = $data['file'] ?? ($existPresensi ? null : 'admin_manual.jpg'); 
-                
+                $file = $data['file'] ?? ($existPresensi ? null : 'admin_manual.jpg');
+
                 if ($existPresensi) {
                     $idPresensi = $existPresensi['id_presensi'];
-                    $sql = "UPDATE presensi SET waktu_presensi = :tin, waktu_pulang = :tout";
+                    $sql = "UPDATE presensi SET waktu_presensi = :tin, waktu_pulang = :tout, lokasi_masuk = :lokin";
                     if ($data['file']) $sql .= ", foto_presensi = :foto";
+                    if ($timeOut) {
+                        $sql .= ", lokasi_pulang = :lokout";
+                        if (!empty($data['file_out'])) $sql .= ", foto_pulang = :fotoOut";
+                    }
                     $sql .= " WHERE id_presensi = :id";
-                    
+
                     $this->db->query($sql);
                     $this->db->bind(':tin', $data['time_in']);
-                    $this->db->bind(':tout', $data['time_out']);
+                    $this->db->bind(':tout', $timeOut);
+                    $this->db->bind(':lokin', $data['lokasi_masuk']);
                     $this->db->bind(':id', $idPresensi);
                     if ($data['file']) $this->db->bind(':foto', $data['file']);
+                    if ($timeOut) {
+                        $this->db->bind(':lokout', $data['lokasi_pulang']);
+                        if (!empty($data['file_out'])) $this->db->bind(':fotoOut', $data['file_out']);
+                    }
                     $this->db->execute();
                 } else {
-                    $sql = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, waktu_pulang, status, foto_presensi) 
-                            VALUES (:pid, :date, :tin, :tout, 'Hadir', :foto)";
+                    $sql = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, waktu_pulang, status, foto_presensi, foto_pulang, lokasi_masuk, lokasi_pulang)
+                            VALUES (:pid, :date, :tin, :tout, 'Hadir', :foto, :fotoOut, :lokin, :lokout)";
                     $this->db->query($sql);
                     $this->db->bind(':pid', $pid);
                     $this->db->bind(':date', $date);
                     $this->db->bind(':tin', $data['time_in']);
-                    $this->db->bind(':tout', $data['time_out']);
+                    $this->db->bind(':tout', $timeOut);
                     $this->db->bind(':foto', $file);
+                    $this->db->bind(':fotoOut', $timeOut ? ($data['file_out'] ?? null) : null);
+                    $this->db->bind(':lokin', $data['lokasi_masuk']);
+                    $this->db->bind(':lokout', $timeOut ? $data['lokasi_pulang'] : null);
                     $this->db->execute();
                     $idPresensi = $this->db->getConnection()->lastInsertId();
                 }
@@ -230,18 +276,18 @@ class LogbookModel {
                     $this->db->query($sql);
                     $this->db->bind(':id', $existIzin['id_izin']);
                 } else {
-                    $sql = "INSERT INTO izin (id_profil, tipe, start_date, end_date, deskripsi, file_bukti, status_approval) 
+                    $sql = "INSERT INTO izin (id_profil, tipe, start_date, end_date, deskripsi, file_bukti, status_approval)
                             VALUES (:pid, :type, :date, :date, :desc, :file, 'Approved')";
                     $this->db->query($sql);
                     $this->db->bind(':pid', $pid);
                     $this->db->bind(':date', $date);
                     $this->db->bind(':file', $data['file'] ?? null);
                 }
-                
+
                 $this->db->bind(':type', $status);
-                $this->db->bind(':desc', $data['activity']); 
+                $this->db->bind(':desc', $data['activity']);
                 if ($existIzin && $data['file']) $this->db->bind(':file', $data['file']);
-                
+
                 $this->db->execute();
             }
 
@@ -259,11 +305,11 @@ class LogbookModel {
             }
 
             $this->db->getConnection()->commit();
-            return true;
+            return ['ok' => true];
 
         } catch (Exception $e) {
             $this->db->getConnection()->rollBack();
-            return false;
+            return ['ok' => false, 'error' => 'Terjadi kesalahan sistem saat menyimpan.'];
         }
     }
 

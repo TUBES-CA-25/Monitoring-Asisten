@@ -14,6 +14,11 @@
     let currentResetType = null;
     let currentLogPage = 1;
     let currentPerPage = 30;
+    // [BARU] Dipakai validasi upload wajib di logForm submit: apakah entri
+    // yang sedang diedit SUDAH punya foto datang/pulang sebelumnya (kalau
+    // sudah, admin tidak dipaksa upload ulang setiap kali mengedit field lain).
+    let currentHasProofIn = false;
+    let currentHasProofOut = false;
 
     // [BARU – Tahap 35] Update stats bar atas tabel setelah setiap renderTable()
     function updateLiveStats(hadir, izin, alpha) {
@@ -42,17 +47,37 @@
         const timeFields = document.getElementById('timeFields');
         const proofOutContainer = document.getElementById('proofOutContainer');
         const labelProofMain = document.getElementById('labelProofMain');
+        const proofMainRequiredMark = document.getElementById('proofMainRequiredMark');
 
         if (status === 'Hadir') {
             timeFields.classList.remove('hidden'); timeFields.classList.add('grid');
             proofOutContainer.classList.remove('hidden');
             labelProofMain.innerText = "Upload Bukti Datang";
+            proofMainRequiredMark?.classList.remove('hidden');
         } else {
             timeFields.classList.add('hidden'); timeFields.classList.remove('grid');
             proofOutContainer.classList.add('hidden');
             labelProofMain.innerText = "Upload Bukti Izin/Sakit";
+            // Bukti izin/sakit tetap wajib (validasi lain di luar status Hadir
+            // sudah ada di server) - tanda "*" tetap tampil.
+            proofMainRequiredMark?.classList.remove('hidden');
         }
+        updateProofOutRequiredMark();
     }
+
+    // [BARU] Foto pulang HANYA wajib begitu Jam Pulang sudah diisi (lihat
+    // poin 2 permintaan: presensi datang wajib, presensi pulang menyusul
+    // belakangan begitu jam pulang diisi admin ATAU oleh asisten sendiri
+    // lewat scan QR - tidak wajib diisi bersamaan).
+    function updateProofOutRequiredMark() {
+        const status = document.getElementById('inputStatus').value;
+        const timeOut = document.getElementById('inputOut').value;
+        const mark = document.getElementById('proofOutRequiredMark');
+        if (!mark) return;
+        mark.classList.toggle('hidden', !(status === 'Hadir' && timeOut));
+    }
+    const inputOutEl = document.getElementById('inputOut');
+    if (inputOutEl) inputOutEl.addEventListener('input', updateProofOutRequiredMark);
 
     // Ganti asisten yang dipilih (klik kartu di daftar) — reset ke halaman 1
     // lalu ambil data logbook lengkap sejak akun asisten dibuat (real-time,
@@ -227,10 +252,16 @@
         document.getElementById('logModal').classList.remove('hidden');
         document.getElementById('inputUserId').value = currentUserId;
 
+        // Reset input file (browser tidak izinkan di-set via .value, harus reset manual)
+        document.getElementById('inputProof').value = '';
+        document.getElementById('inputProofOut').value = '';
+
         if(mode == 'add') {
             document.getElementById('modalTitle').innerText = 'Tambah Log Manual';
             document.getElementById('logForm').reset();
             document.getElementById('inputStatus').value = 'Hadir';
+            currentHasProofIn = false;
+            currentHasProofOut = false;
         } else {
             document.getElementById('modalTitle').innerText = 'Edit ' + log.date;
             document.getElementById('inputDate').value = log.date;
@@ -245,16 +276,54 @@
 
             let cleanActivity = log.activity.replace('Tidak Hadir (Alpha)', '').replace(' (Pengajuan Izin)', '');
             document.getElementById('inputActivity').value = cleanActivity;
+
+            // [BARU] Lacak apakah foto datang/pulang sudah ada sebelumnya -
+            // dipakai validasi submit supaya admin tidak dipaksa upload ulang
+            // kalau cuma mengedit field lain (mis. keterangan aktivitas).
+            currentHasProofIn = !!(log.proof_in && log.proof_in !== '-');
+            currentHasProofOut = !!(log.proof_out && log.proof_out !== '-');
         }
+
+        document.getElementById('proofMainExistingNote')?.classList.toggle('hidden', !currentHasProofIn);
+        document.getElementById('proofOutExistingNote')?.classList.toggle('hidden', !currentHasProofOut);
+
         toggleTimeFields();
     }
 
     function closeLogModal() { document.getElementById('logModal').classList.add('hidden'); }
 
+    // [BARU] Validasi wajib upload foto sebelum submit (poin 1 & 2 permintaan):
+    // - Status "Hadir" -> jam masuk & foto datang wajib (kecuali entri lama
+    //   yang sudah punya foto & tidak diganti).
+    // - Foto pulang HANYA wajib begitu jam pulang diisi - kalau jam pulang
+    //   dikosongkan, asisten yang bersangkutan wajib scan presensi pulang
+    //   sendiri nanti (sudah tercatat "sudah datang" di sistem).
+    function validateLogFormBeforeSubmit() {
+        const status = document.getElementById('inputStatus').value;
+        if (status !== 'Hadir') return null;
+
+        const timeIn = document.getElementById('inputIn').value;
+        const timeOut = document.getElementById('inputOut').value;
+        const proofIn = document.getElementById('inputProof').files.length > 0;
+        const proofOut = document.getElementById('inputProofOut').files.length > 0;
+
+        if (!timeIn) return 'Jam masuk wajib diisi untuk status Hadir.';
+        if (!proofIn && !currentHasProofIn) return 'Foto presensi datang wajib diupload.';
+        if (timeOut && !proofOut && !currentHasProofOut) return 'Foto presensi pulang wajib diupload karena jam pulang sudah diisi.';
+        return null;
+    }
+
     const logForm = document.getElementById('logForm');
     if (logForm) {
         logForm.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            const validationError = validateLogFormBeforeSubmit();
+            if (validationError) {
+                showCustomAlert('error', 'Data Belum Lengkap', validationError);
+                return;
+            }
+
             const fd = new FormData(this);
             fetch(`${window.APP_CONFIG.baseUrl}/admin/saveLogbookAdmin`, { method: 'POST', body: fd })
             .then(res => res.json())
