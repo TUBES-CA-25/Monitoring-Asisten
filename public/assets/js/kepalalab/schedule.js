@@ -48,6 +48,11 @@ var BASE_URL = window.APP_CONFIG.baseUrl;
 
         calendar.render();
 
+        // [BARU] Popover pemilih bulan & tahun - lihat
+        // public/assets/js/common/calendar_month_year_picker.js. Dipanggil di
+        // sini (setelah render) supaya .fc-toolbar-title sudah ada di DOM.
+        if (window.initCalendarMonthYearPicker) window.initCalendarMonthYearPicker(calendar, calendarEl);
+
         const filterInput = document.getElementById('searchFilterInput');
         if (filterInput) {
             filterInput.addEventListener('keyup', function() {

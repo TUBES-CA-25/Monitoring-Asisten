@@ -67,6 +67,12 @@ var rawEvents = window.APP_CONFIG.rawEvents || [];
         });
 
         calendar.render();
+
+        // [BARU] Popover pemilih bulan & tahun - lihat
+        // public/assets/js/common/calendar_month_year_picker.js. Dipanggil di
+        // sini (setelah render) supaya .fc-toolbar-title sudah ada di DOM.
+        if (window.initCalendarMonthYearPicker) window.initCalendarMonthYearPicker(calendar, calendarEl);
+
         renderUpcomingList();
     });
 

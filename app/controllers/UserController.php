@@ -602,6 +602,11 @@ class UserController extends Controller {
 
         $data['page_css'][] = ASSET_URL . '/css/user/schedule.css';
         $data['page_js'][]  = ASSET_URL . '/js/user/schedule.js';
+        // Popover pemilih bulan/tahun (dipakai bersama admin/kepalalab/user) -
+        // fungsi initCalendarMonthYearPicker() didefinisikan top-level, jadi
+        // aman dimuat sebelum/sesudah user/schedule.js (lihat catatan di
+        // common/calendar_month_year_picker.js).
+        $data['page_js'][]  = ASSET_URL . '/js/common/calendar_month_year_picker.js';
         $data['vendor_js'] = ['https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'];  // FullCalendar — loaded before schedule.js
 
         $data['js_config'] = [
