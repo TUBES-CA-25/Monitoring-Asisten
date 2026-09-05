@@ -960,36 +960,29 @@ class KepalaLabController extends Controller {
 
             $photoName = $currentUser['photo_profile'];
             $targetDir = UPLOAD_PATH . 'profile/';
-            // [BARU - Audit Validasi Foto] hanya terima JPG/JPEG/PNG, selaras
-            // dengan accept="image/png, image/jpeg, image/jpg" pada input file.
-            $allowedExtensions = ['jpg', 'jpeg', 'png'];
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
 
             if (!empty($_POST['cropped_image'])) {
                 $dataImg = $_POST['cropped_image'];
                 if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
                     $type = strtolower($type[1]); 
                     if (!in_array($type, $allowedExtensions)) {
-                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
+                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
                         exit;
                     }
-                    $dataImg = substr($dataImg, strpos($dataImg, ',') + 1);
-                    $decodedData = base64_decode($dataImg);
-                    if ($decodedData !== false) {
-                        if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-                        $fileName = time() . '_' . uniqid() . '.' . $type;
-                        if (file_put_contents($targetDir . $fileName, $decodedData)) {
-                            $photoName = $fileName;
-                            $_SESSION['photo'] = $fileName;
-                            if ($currentUser['photo_profile'] && $currentUser['photo_profile'] != 'default.jpg' && file_exists($targetDir . $currentUser['photo_profile'])) {
-                                unlink($targetDir . $currentUser['photo_profile']);
-                            }
-                        }
+                    $savedName = ImageHelper::saveProfilePhotoAsWebp($dataImg, $targetDir, $currentUser['photo_profile']);
+                    if ($savedName) {
+                        $photoName = $savedName;
+                        $_SESSION['photo'] = $savedName;
+                    } else {
+                        echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan foto. Cek izin folder profile.']);
+                        exit;
                     }
                 }
             } elseif (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 $fileExt = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
                 if (!in_array($fileExt, $allowedExtensions)) {
-                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
+                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
                     exit;
                 }
                 // [Item 4] Validasi MIME type dari isi file
@@ -997,14 +990,13 @@ class KepalaLabController extends Controller {
                     echo json_encode(['status' => 'error', 'title' => 'File Tidak Valid', 'message' => 'File gambar tidak valid. Pastikan file adalah gambar asli.']);
                     exit;
                 }
-                if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-                $fileName = time() . '_' . uniqid() . '.' . $fileExt;
-                if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetDir . $fileName)) {
-                    $photoName = $fileName;
-                    $_SESSION['photo'] = $fileName;
-                    if ($currentUser['photo_profile'] && $currentUser['photo_profile'] != 'default.jpg' && file_exists($targetDir . $currentUser['photo_profile'])) {
-                        unlink($targetDir . $currentUser['photo_profile']);
-                    }
+                $savedName = ImageHelper::saveProfilePhotoAsWebp($_FILES['photo'], $targetDir, $currentUser['photo_profile']);
+                if ($savedName) {
+                    $photoName = $savedName;
+                    $_SESSION['photo'] = $savedName;
+                } else {
+                    echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan foto. Cek izin folder profile.']);
+                    exit;
                 }
             }
 

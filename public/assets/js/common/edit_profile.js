@@ -212,7 +212,10 @@
       if (!cropper) return;
 
       const canvas = cropper.getCroppedCanvas({ width: 500, height: 500 });
-      const base64Image = canvas.toDataURL("image/jpeg");
+      let base64Image = canvas.toDataURL("image/webp", 0.85);
+      if (!base64Image.startsWith("data:image/webp")) {
+        base64Image = canvas.toDataURL("image/jpeg", 0.85);
+      }
 
       previewImg.src = base64Image;
       croppedInput.value = base64Image;

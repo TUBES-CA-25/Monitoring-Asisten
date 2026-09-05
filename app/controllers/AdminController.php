@@ -246,68 +246,38 @@ class AdminController extends Controller {
 
             $photoName = 'default.jpg';
             $targetDir = UPLOAD_PATH . 'profile/';
-            // [DIUBAH - Fitur Crop Foto] hanya terima JPG/JPEG/PNG (selaras
-            // dengan accept="image/png, image/jpeg, image/jpg" pada input
-            // file, dan dengan edit_profile.php yang sudah lebih dulu
-            // memvalidasi 3 ekstensi ini). 'webp' yang sebelumnya diizinkan
-            // di sini dihapus untuk konsistensi.
-            $allowedExtensions = ['jpg', 'jpeg', 'png'];
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
 
-            // [BARU - Fitur Crop Foto] Sama seperti common/edit_profile.php:
-            // jika admin memotong foto lewat Cropper.js, hasilnya dikirim
-            // sebagai data URL base64 di $_POST['cropped_image'].
             if (!empty($_POST['cropped_image'])) {
                 $dataImg = $_POST['cropped_image'];
                 if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
                     $type = strtolower($type[1]);
-                    if (in_array($type, $allowedExtensions)) {
-                        $dataImg = substr($dataImg, strpos($dataImg, ',') + 1);
-                        $decodedData = base64_decode($dataImg);
-                        if ($decodedData !== false) {
-                            if (!file_exists($targetDir)) {
-                                mkdir($targetDir, 0777, true);
-                            }
-                            $newFileName = time() . '_' . uniqid() . '.' . $type;
-                            if (file_put_contents($targetDir . $newFileName, $decodedData)) {
-                                $photoName = $newFileName;
-                            } else {
-                                echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal menyimpan hasil crop foto. Cek izin folder profile.']);
-                                exit;
-                            }
-                        }
+                    if (!in_array($type, $allowedExtensions)) {
+                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
+                        exit;
+                    }
+                    $savedName = ImageHelper::saveProfilePhotoAsWebp($dataImg, $targetDir);
+                    if ($savedName) {
+                        $photoName = $savedName;
                     } else {
-                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
+                        echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan foto. Cek izin folder profile.']);
                         exit;
                     }
                 }
             } elseif (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-                if (!file_exists($targetDir)) {
-                    mkdir($targetDir, 0777, true);
-                }
-                
                 $fileExtension = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
-                
-                if (in_array($fileExtension, $allowedExtensions)) {
-                    // [Item 4] Validasi MIME type
-                    if (!$this->validateImageMime($_FILES['photo']['tmp_name'] ?? '')) {
-                        echo json_encode(['status'=>'error','message'=>'File gambar tidak valid.']); exit;
-                    }
-                    if ($_FILES["photo"]["size"] <= 2048000) {
-                        $newFileName = time() . '_' . uniqid() . '.' . $fileExtension;
-                        $targetFilePath = $targetDir . $newFileName;
-
-                        if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
-                            $photoName = $newFileName;
-                        } else {
-                            echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal memindahkan file. Cek izin folder profile di Windows/Mac Anda.']);
-                            exit;
-                        }
-                    } else {
-                        echo json_encode(['status' => 'error', 'title' => 'File Terlalu Besar', 'message' => 'Ukuran foto maksimal adalah 2MB.']);
-                        exit;
-                    }
+                if (!in_array($fileExtension, $allowedExtensions)) {
+                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
+                    exit;
+                }
+                if (!$this->validateImageMime($_FILES['photo']['tmp_name'] ?? '')) {
+                    echo json_encode(['status'=>'error','message'=>'File gambar tidak valid.']); exit;
+                }
+                $savedName = ImageHelper::saveProfilePhotoAsWebp($_FILES['photo'], $targetDir);
+                if ($savedName) {
+                    $photoName = $savedName;
                 } else {
-                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
+                    echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan file foto.']);
                     exit;
                 }
             }
@@ -372,10 +342,7 @@ class AdminController extends Controller {
             $oldUser = $this->model('UserModel')->getUserById($userId);
             $photoName = $oldUser['photo_profile'];
             $targetDir = UPLOAD_PATH . 'profile/';
-            // [DIUBAH - Fitur Crop Foto] hanya terima JPG/JPEG/PNG, selaras
-            // dengan accept="image/png, image/jpeg, image/jpg" dan
-            // common/edit_profile.php. 'webp' dihapus untuk konsistensi.
-            $allowedExtensions = ['jpg', 'jpeg', 'png'];
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
 
             // [BARU - Fitur Crop Foto] hasil potong dari Cropper.js (lihat
             // common/edit_profile.php untuk pola yang sama).
@@ -384,23 +351,15 @@ class AdminController extends Controller {
                 if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
                     $type = strtolower($type[1]);
                     if (in_array($type, $allowedExtensions)) {
-                        $dataImg = substr($dataImg, strpos($dataImg, ',') + 1);
-                        $decodedData = base64_decode($dataImg);
-                        if ($decodedData !== false) {
-                            if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-                            $newFileName = time() . '_' . uniqid() . '.' . $type;
-                            if (file_put_contents($targetDir . $newFileName, $decodedData)) {
-                                if ($oldUser['photo_profile'] && $oldUser['photo_profile'] != 'default.jpg' && file_exists($targetDir . $oldUser['photo_profile'])) {
-                                    unlink($targetDir . $oldUser['photo_profile']);
-                                }
-                                $photoName = $newFileName;
-                            } else {
-                                echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal menyimpan hasil crop foto. Cek izin folder profile.']);
-                                exit;
-                            }
+                        $savedName = ImageHelper::saveProfilePhotoAsWebp($dataImg, $targetDir, $oldUser['photo_profile']);
+                        if ($savedName) {
+                            $photoName = $savedName;
+                        } else {
+                            echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal menyimpan hasil crop foto. Cek izin folder profile.']);
+                            exit;
                         }
                     } else {
-                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
+                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
                         exit;
                     }
                 }
@@ -408,17 +367,18 @@ class AdminController extends Controller {
                 $fileType = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
 
                 if (in_array($fileType, $allowedExtensions)) {
-                    $fileName = time() . '_' . basename($_FILES["photo"]["name"]);
-                    $targetFilePath = $targetDir . $fileName;
-
-                    if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)) {
-                        if ($oldUser['photo_profile'] && $oldUser['photo_profile'] != 'default.jpg' && file_exists($targetDir . $oldUser['photo_profile'])) {
-                            unlink($targetDir . $oldUser['photo_profile']);
-                        }
-                        $photoName = $fileName;
+                    if (!$this->validateImageMime($_FILES['photo']['tmp_name'] ?? '')) {
+                        echo json_encode(['status'=>'error','message'=>'File gambar tidak valid.']); exit;
+                    }
+                    $savedName = ImageHelper::saveProfilePhotoAsWebp($_FILES['photo'], $targetDir, $oldUser['photo_profile']);
+                    if ($savedName) {
+                        $photoName = $savedName;
+                    } else {
+                        echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal menyimpan file foto. Cek izin folder profile.']);
+                        exit;
                     }
                 } else {
-                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
+                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
                     exit;
                 }
             }
@@ -1849,48 +1809,44 @@ class AdminController extends Controller {
             $currentUser = $userModel->getUserById($_SESSION['user_id']);
 
             $photoName = $currentUser['photo_profile'];
-                $targetDir = UPLOAD_PATH . 'profile/';
-            // [BARU - Audit Validasi Foto] hanya terima JPG/JPEG/PNG, selaras
-            // dengan accept="image/png, image/jpeg, image/jpg" pada input file.
-            $allowedExtensions = ['jpg', 'jpeg', 'png'];
+            $targetDir = UPLOAD_PATH . 'profile/';
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
 
             if (!empty($_POST['cropped_image'])) {
                 $dataImg = $_POST['cropped_image'];
                 if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
                     $type = strtolower($type[1]);
                     if (!in_array($type, $allowedExtensions)) {
-                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
+                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
                         exit;
                     }
-                    $dataImg = substr($dataImg, strpos($dataImg, ',') + 1);
-                    $decodedData = base64_decode($dataImg);
-                    if ($decodedData !== false) {
-                        if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-                        $fileName = time() . '_' . uniqid() . '.' . $type;
-                        if (file_put_contents($targetDir . $fileName, $decodedData)) {
-                            $photoName = $fileName;
-                            $_SESSION['photo'] = $fileName;
-                            if ($currentUser['photo_profile'] && $currentUser['photo_profile'] != 'default.jpg' && file_exists($targetDir . $currentUser['photo_profile'])) {
-                                unlink($targetDir . $currentUser['photo_profile']);
-                            }
-                        }
+                    $savedName = ImageHelper::saveProfilePhotoAsWebp($dataImg, $targetDir, $currentUser['photo_profile']);
+                    if ($savedName) {
+                        $photoName = $savedName;
+                        $_SESSION['photo'] = $savedName;
+                    } else {
+                        echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan foto. Cek izin folder profile.']);
+                        exit;
                     }
                 }
             } 
             elseif (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 $fileExt = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
                 if (!in_array($fileExt, $allowedExtensions)) {
-                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
+                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
                     exit;
                 }
-                if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
-                $fileName = time() . '_' . uniqid() . '.' . $fileExt;
-                if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetDir . $fileName)) {
-                    $photoName = $fileName;
-                    $_SESSION['photo'] = $fileName;
-                    if ($currentUser['photo_profile'] && $currentUser['photo_profile'] != 'default.jpg' && file_exists($targetDir . $currentUser['photo_profile'])) {
-                        unlink($targetDir . $currentUser['photo_profile']);
-                    }
+                if (!$this->validateImageMime($_FILES['photo']['tmp_name'])) {
+                    echo json_encode(['status' => 'error', 'title' => 'File Tidak Valid', 'message' => 'File gambar tidak valid. Pastikan file adalah gambar asli.']);
+                    exit;
+                }
+                $savedName = ImageHelper::saveProfilePhotoAsWebp($_FILES['photo'], $targetDir, $currentUser['photo_profile']);
+                if ($savedName) {
+                    $photoName = $savedName;
+                    $_SESSION['photo'] = $savedName;
+                } else {
+                    echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan foto. Cek izin folder profile.']);
+                    exit;
                 }
             }
 

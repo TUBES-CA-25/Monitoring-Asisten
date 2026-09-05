@@ -83,26 +83,25 @@ class UserApi {
 
         $photoName = null;
 
-        // 2. Logika Upload Foto menggunakan UPLOAD_PATH (cross-platform, aman dari perubahan CWD)
+        // 2. Logika Upload Foto menggunakan UPLOAD_PATH & konversi otomatis ke WebP
         if (isset($_FILES['photo_profile']) && $_FILES['photo_profile']['error'] === 0) {
             $targetDir = UPLOAD_PATH . 'profile/';
-            
-            if (!file_exists($targetDir)) {
-                mkdir($targetDir, 0777, true);
-            }
+            $fileExtension = strtolower(pathinfo($_FILES['photo_profile']['name'], PATHINFO_EXTENSION));
+            $allowTypes = ['jpg', 'png', 'jpeg', 'webp'];
 
-            $fileExtension = pathinfo($_FILES['photo_profile']['name'], PATHINFO_EXTENSION);
-            // Nama file unik berdasarkan profile ID dan timestamp
-            $photoName = "profile_" . $profilId . "_" . time() . "." . $fileExtension;
-            $targetFilePath = $targetDir . $photoName;
+            if (in_array($fileExtension, $allowTypes)) {
+                $stmtOld = $this->db->prepare("SELECT photo_profile FROM profile WHERE id_profil = :pid");
+                $stmtOld->execute([':pid' => $profilId]);
+                $oldPhoto = $stmtOld->fetchColumn();
 
-            $allowTypes = ['jpg', 'png', 'jpeg'];
-            if (in_array(strtolower($fileExtension), $allowTypes)) {
-                if (!move_uploaded_file($_FILES['photo_profile']['tmp_name'], $targetFilePath)) {
-                    ApiResponse::error('Gagal mengupload file ke server', 500);
+                $savedName = ImageHelper::saveProfilePhotoAsWebp($_FILES['photo_profile'], $targetDir, $oldPhoto ?: null);
+                if ($savedName) {
+                    $photoName = $savedName;
+                } else {
+                    ApiResponse::error('Gagal mengonversi dan mengupload file ke server', 500);
                 }
             } else {
-                ApiResponse::error('Format file tidak didukung', 400);
+                ApiResponse::error('Format file tidak didukung (harus JPG, JPEG, PNG, atau WEBP)', 400);
             }
         }
 

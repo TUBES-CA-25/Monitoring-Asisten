@@ -121,6 +121,7 @@ require_once '../app/core/Controller.php';
 require_once '../app/core/JwtHandler.php';
 require_once '../app/core/ApiResponse.php';
 require_once '../app/core/HashHelper.php'; // [BARU] Obfuskasi ID di URL
+require_once '../app/core/ImageHelper.php'; // Konversi & optimalisasi WebP foto profil
 
 // ====================================================================
 // 4. Load Kelas-kelas REST API (dikonsumsi aplikasi mobile)

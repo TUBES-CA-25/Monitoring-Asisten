@@ -39,10 +39,10 @@
                         <i class="fas fa-camera text-xs"></i>
                     </label>
                     
-                    <input type="file" name="photo" id="photoInput" class="hidden" accept="image/png, image/jpeg, image/jpg">
+                    <input type="file" name="photo" id="photoInput" class="hidden" accept="image/png, image/jpeg, image/jpg, image/webp">
                     <input type="hidden" name="cropped_image" id="croppedImage">
                 </div>
-                <p class="text-xs text-gray-400 mt-2">Format: JPG, PNG (Max 2MB)</p>
+                <p class="text-xs text-gray-400 mt-2">Format: JPG, PNG, WEBP (Max 2MB)</p>
             </div>
 
             <!-- [BARU - Edit Email/Password] Sama seperti form Tambah/Edit
