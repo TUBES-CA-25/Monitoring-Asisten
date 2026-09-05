@@ -4,13 +4,41 @@
 -- ============================================================
 
 -- 1. Kolom untuk mencatat user yang sudah memakai QR token ini
-ALTER TABLE `qr_code`
-    ADD COLUMN IF NOT EXISTS `used_by_user_id` INT NULL DEFAULT NULL
-        COMMENT 'id_user yang pertama kali meng-scan token ini. NULL = belum terpakai.'
-        AFTER `valid_until`,
-    ADD COLUMN IF NOT EXISTS `used_at` DATETIME NULL DEFAULT NULL
-        COMMENT 'Waktu pertama kali token di-scan.'
-        AFTER `used_by_user_id`;
+SET @has_used_by := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'qr_code'
+      AND COLUMN_NAME  = 'used_by_user_id'
+);
+
+SET @ddl_used_by := IF(
+    @has_used_by > 0,
+    'SELECT "Kolom qr_code.used_by_user_id sudah ada, skip." AS info',
+    'ALTER TABLE `qr_code` ADD COLUMN `used_by_user_id` INT NULL DEFAULT NULL COMMENT \'id_user yang pertama kali meng-scan token ini. NULL = belum terpakai.\' AFTER `valid_until`'
+);
+
+PREPARE stmt FROM @ddl_used_by;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @has_used_at := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'qr_code'
+      AND COLUMN_NAME  = 'used_at'
+);
+
+SET @ddl_used_at := IF(
+    @has_used_at > 0,
+    'SELECT "Kolom qr_code.used_at sudah ada, skip." AS info',
+    'ALTER TABLE `qr_code` ADD COLUMN `used_at` DATETIME NULL DEFAULT NULL COMMENT \'Waktu pertama kali token di-scan.\' AFTER `used_by_user_id`'
+);
+
+PREPARE stmt FROM @ddl_used_at;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 2. Tabel recycle bin untuk data presensi & logbook yang di-reset
 CREATE TABLE IF NOT EXISTS `attendance_recycle_bin` (

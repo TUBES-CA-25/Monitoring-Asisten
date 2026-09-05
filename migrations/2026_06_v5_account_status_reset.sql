@@ -4,8 +4,23 @@
 -- ============================================================
 
 -- 1. Kolom status akun user (ACTIVE/INACTIVE)
-ALTER TABLE `user`
-    ADD COLUMN IF NOT EXISTS `status_account` ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE' AFTER `role`;
+SET @has_status_account := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'user'
+      AND COLUMN_NAME  = 'status_account'
+);
+
+SET @ddl_status_account := IF(
+    @has_status_account > 0,
+    'SELECT "Kolom user.status_account sudah ada, skip." AS info',
+    'ALTER TABLE `user` ADD COLUMN `status_account` ENUM(\'ACTIVE\',\'INACTIVE\') NOT NULL DEFAULT \'ACTIVE\' AFTER `role`'
+);
+
+PREPARE stmt FROM @ddl_status_account;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 2. Tabel log setiap kali reset presensi dilakukan
 --    (global = semua asisten, single = satu asisten tertentu)
