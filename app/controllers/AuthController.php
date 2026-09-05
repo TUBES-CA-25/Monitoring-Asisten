@@ -5,12 +5,37 @@ class AuthController extends Controller {
 
     public function login() {
         if (isset($_SESSION['role'])) {
-            // Jika ada URL yang disimpan sebelum redirect ke login (mis. dari scan QR eksternal),
-            // kembalikan user ke sana setelah login berhasil.
-            $afterLogin = $_SESSION['redirect_after_login'] ?? null;
-            unset($_SESSION['redirect_after_login']);
-            header("Location: " . ($afterLogin ?: BASE_URL . $this->getRoleUrl($_SESSION['role'])));
-            exit;
+            $roleUrl = $this->getRoleUrl($_SESSION['role']);
+            $userId  = $_SESSION['user_id'] ?? null;
+            $userExists = false;
+            if ($userId) {
+                try {
+                    $userModel = $this->model('UserModel');
+                    $userExists = (bool) $userModel->getUserById($userId);
+                } catch (\Throwable $e) {
+                    $userExists = false;
+                }
+            }
+
+            if (!empty($roleUrl) && $userExists) {
+                $afterLogin = $_SESSION['redirect_after_login'] ?? null;
+                unset($_SESSION['redirect_after_login']);
+
+                if ($afterLogin) {
+                    $targetPath = trim(parse_url($afterLogin, PHP_URL_PATH) ?? '', '/');
+                    $basePath   = trim(parse_url(BASE_URL, PHP_URL_PATH) ?? '', '/');
+                    if ($targetPath === $basePath || $targetPath === $basePath . '/auth/login' || $targetPath === $basePath . '/auth') {
+                        $afterLogin = null;
+                    }
+                }
+
+                header("Location: " . ($afterLogin ?: BASE_URL . $roleUrl));
+                exit;
+            } else {
+                // Sesi kadaluarsa / user tidak ada di DB / role tidak valid:
+                // Bersihkan sesi agar tidak memicu infinite redirect loop
+                unset($_SESSION['role'], $_SESSION['user_id'], $_SESSION['profil_id'], $_SESSION['redirect_after_login'], $_SESSION['username'], $_SESSION['nama_user']);
+            }
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -177,8 +202,17 @@ class AuthController extends Controller {
 
 
     public function logout() {
+        if (session_status() == PHP_SESSION_NONE) session_start();
+        $_SESSION = [];
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
         session_destroy();
-        header("Location: " . BASE_URL);
+        header("Location: " . BASE_URL . "/auth/login");
         exit;
     }
 
@@ -195,7 +229,8 @@ class AuthController extends Controller {
         }
         // Jika ternyata akun sudah aktif kembali, redirect normal
         if (($_SESSION['status_account'] ?? 'ACTIVE') === 'ACTIVE') {
-            header("Location: " . BASE_URL . $this->getRoleUrl($_SESSION['role'] ?? ''));
+            $roleUrl = $this->getRoleUrl($_SESSION['role'] ?? '');
+            header("Location: " . BASE_URL . ($roleUrl ?: '/auth/login'));
             exit;
         }
         $data['judul'] = 'Akun Dinonaktifkan';
@@ -204,9 +239,16 @@ class AuthController extends Controller {
     }
 
     private function getRoleUrl($role) {
-        if ($role == 'User') return '/user/dashboard';
-        if ($role == 'Admin') return '/admin/dashboard';
-        if ($role == 'Kepala Lab') return '/kepalalab/dashboard';
+        $normalized = strtolower(trim((string)$role));
+        if ($normalized === 'user' || $normalized === 'asisten') {
+            return '/user/dashboard';
+        }
+        if ($normalized === 'admin' || $normalized === 'laboran') {
+            return '/admin/dashboard';
+        }
+        if ($normalized === 'kepala lab' || $normalized === 'kepalalab' || $normalized === 'super') {
+            return '/kepalalab/dashboard';
+        }
         return ''; 
     }
 }

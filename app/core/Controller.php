@@ -95,17 +95,20 @@ class Controller {
 
         // 3. Cek Role
         if (!empty($allowedRoles)) {
-            $userRole = $_SESSION['role'] ?? '';
+            $userRole = trim((string)($_SESSION['role'] ?? ''));
+            if (strcasecmp($userRole, 'asisten') === 0) {
+                $userRole = 'User';
+            }
+            if (strcasecmp($userRole, 'laboran') === 0) {
+                $userRole = 'Admin';
+            }
 
-            if (!in_array($userRole, $allowedRoles)) {
-                
-                // --- DISINI KITA PANGGIL TAMPILAN 403 KAMU ---
-                // Kita langsung panggil ErrorController, tidak perlu bikin echo manual lagi
+            $allowedLower = array_map('strtolower', $allowedRoles);
+            if (!in_array(strtolower($userRole), $allowedLower)) {
                 require_once '../app/controllers/ErrorController.php';
                 $error = new ErrorController();
-                $error->forbidden(); // <--- Ini akan membuka views/errors/403.php kamu
-                
-                exit; // Stop agar user tidak bisa lanjut
+                $error->forbidden();
+                exit;
             }
         }
     }
