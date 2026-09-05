@@ -102,8 +102,29 @@ try {
     ]);
     $pdo->exec("SET time_zone = '+08:00'");
 } catch (\Throwable $e) {
-    iclabs_migrate_err('Gagal konek ke database: ' . $e->getMessage());
-    exit(1);
+    // Tangani skenario jika database belum dibuat di MySQL (error 1049)
+    if ($e->getCode() == 1049 || stripos($e->getMessage(), 'Unknown database') !== false) {
+        try {
+            $rootPdo = new PDO('mysql:host=' . DB_HOST . ';charset=utf8mb4', DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            ]);
+            $rootPdo->exec("CREATE DATABASE IF NOT EXISTS `" . str_replace('`', '``', DB_NAME) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            unset($rootPdo);
+
+            $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE               => PDO::ERRMODE_EXCEPTION,
+                PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
+            ]);
+            $pdo->exec("SET time_zone = '+08:00'");
+            iclabs_migrate_out('Database `' . DB_NAME . '` belum ada dan telah dibuat otomatis.');
+        } catch (\Throwable $e2) {
+            iclabs_migrate_err('Gagal membuat database otomatis: ' . $e2->getMessage());
+            exit(1);
+        }
+    } else {
+        iclabs_migrate_err('Gagal konek ke database: ' . $e->getMessage());
+        exit(1);
+    }
 }
 
 // Tabel pelacak migrasi yang sudah diterapkan - dibuat otomatis kalau
@@ -146,6 +167,14 @@ foreach ($pending as $f) {
     iclabs_migrate_out('  - ' . basename($f));
 }
 
+// Cek apakah database masih kosong / baru
+$tableCheck = $pdo->query("SHOW TABLES LIKE 'user'")->fetchColumn();
+if (!$tableCheck) {
+    iclabs_migrate_out('');
+    iclabs_migrate_out('[INFO] Tabel inti sistem belum ditemukan (database baru/kosong).');
+    iclabs_migrate_out('[INFO] database/schema.sql akan otomatis diinisialisasi saat migrasi dijalankan.');
+}
+
 if ($statusOnly) {
     exit(0);
 }
@@ -155,6 +184,28 @@ if ($dryRun) {
     iclabs_migrate_out('[DRY RUN] Tidak ada perubahan yang dieksekusi.');
     iclabs_migrate_out('Jalankan "php migrate.php" (tanpa --dry-run) untuk benar-benar menerapkannya.');
     exit(0);
+}
+
+// Jika database baru/kosong, terapkan skema basis terlebih dahulu
+if (!$tableCheck) {
+    $baseSchemaFile = __DIR__ . '/database/schema.sql';
+    if (file_exists($baseSchemaFile)) {
+        iclabs_migrate_out('');
+        iclabs_migrate_out('Database baru/kosong terdeteksi.');
+        iclabs_migrate_out('>> Inisialisasi skema basis (database/schema.sql)...');
+        $schemaSql = file_get_contents($baseSchemaFile);
+        if ($schemaSql === false) {
+            iclabs_migrate_err('   GAGAL: Tidak bisa membaca database/schema.sql.');
+            exit(1);
+        }
+        try {
+            $pdo->exec($schemaSql);
+            iclabs_migrate_out('   OK (Tabel basis & data awal berhasil dibuat)');
+        } catch (\Throwable $e) {
+            iclabs_migrate_err('   GAGAL: ' . $e->getMessage());
+            exit(1);
+        }
+    }
 }
 
 iclabs_migrate_out('');

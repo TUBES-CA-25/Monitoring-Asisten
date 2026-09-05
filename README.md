@@ -92,13 +92,14 @@ php migrate.php             # terapkan semua migrasi yang tertunda
 
 **Cara kerja singkat:**
 - Membaca kredensial database yang sama dengan aplikasi (dari `.env` / `app/config/config.php`) — tidak perlu input ulang.
+- **Dukungan Instalasi Baru (Fresh Install):** Jika database belum dibuat di MySQL atau masih kosong, `migrate.php` akan otomatis membuat database dan menginisialisasi skema basis bersih (`database/schema.sql`) lengkap dengan master lab dan akun default (`admin@iclabs.com`, `super@iclabs.com`, `user@iclabs.com` / password: `password`).
 - Menjalankan setiap `migrations/*.sql` yang **belum** diterapkan (dilacak di tabel `schema_migrations`), berurutan sesuai nama file.
 - Aman dijalankan berulang kali — file yang sudah diterapkan otomatis dilewati, dan setiap file migrasi sendiri idempotent (mengecek `information_schema` sebelum mengubah struktur).
 - Seluruh migrasi bersifat **additive only** (tabel/kolom/nilai enum baru, tidak pernah menghapus/mengganti tipe kolom lama), sehingga endpoint REST API di `app/api/*.php` yang dipakai aplikasi mobile tetap kompatibel dengan versi mobile app yang lebih lama setelah migrasi dijalankan.
 
 **Sebelum menjalankan di server production yang belum pernah menerapkan
 migrasi ini: backup database terlebih dahulu.** Skrip akan berhenti dan
-melakukan rollback otomatis jika ada migrasi yang gagal di tengah jalan,
+memberikan pesan error jelas jika ada migrasi yang gagal di tengah jalan,
 tanpa menandainya sebagai selesai — cukup perbaiki masalahnya lalu jalankan
 `php migrate.php` lagi.
 
