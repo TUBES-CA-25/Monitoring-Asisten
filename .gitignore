@@ -43,6 +43,7 @@ vendor/
 *.sql
 !migrations/*.sql
 !database/*.sql
+!iclabs_db.sql
 
 # Runtime directories
 storage/logs/
