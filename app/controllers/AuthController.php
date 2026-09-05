@@ -22,6 +22,17 @@ class AuthController extends Controller {
             // ── [Item 9] Rate Limiting — Sistem Lockout Bertahap ─────────────
             // Setiap 3 percobaan salah = 1 ronde. Durasi lockout bertambah
             // 10 detik per ronde. Ronde ke-5 (15 total) → pesan hubungi admin.
+            $clientIp = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+            $ipLockoutKey = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'web_login_rl_' . md5($clientIp) . '.json';
+            $ipSec = ['failed_count' => 0, 'lockout_until' => 0, 'current_round' => 0];
+            if (file_exists($ipLockoutKey)) {
+                $raw = @file_get_contents($ipLockoutKey);
+                if ($raw) {
+                    $parsed = json_decode($raw, true);
+                    if (is_array($parsed)) $ipSec = $parsed;
+                }
+            }
+
             if (!isset($_SESSION['login_security'])) {
                 $_SESSION['login_security'] = [
                     'failed_count' => 0,
@@ -31,6 +42,11 @@ class AuthController extends Controller {
             }
             $sec  = &$_SESSION['login_security'];
             $now  = time();
+
+            // Sinkronisasi session dengan data IP rate limit (mencegah bypass hapus cookie)
+            if (($ipSec['lockout_until'] ?? 0) > ($sec['lockout_until'] ?? 0)) {
+                $sec = $ipSec;
+            }
 
             // Cek apakah sedang dalam lockout
             if ($sec['lockout_until'] > $now) {
@@ -48,6 +64,8 @@ class AuthController extends Controller {
             // Jika lockout sudah lewat, reset (tapi failed_count tetap untuk riwayat)
             if ($sec['lockout_until'] > 0 && $sec['lockout_until'] <= $now) {
                 $sec['lockout_until'] = 0;
+                $ipSec['lockout_until'] = 0;
+                @file_put_contents($ipLockoutKey, json_encode($ipSec));
             }
 
             try {
@@ -71,6 +89,9 @@ class AuthController extends Controller {
                     session_regenerate_id(true);
                     // [Item 9] Reset rate limit setelah login berhasil
                     unset($_SESSION['login_security']);
+                    if (file_exists($ipLockoutKey)) {
+                        @unlink($ipLockoutKey);
+                    }
 
                     $profile = $userModel->getUserById($user['id']);
 
@@ -118,6 +139,7 @@ class AuthController extends Controller {
                     $lockDuration          = $sec['current_round'] * 10; // 10, 20, 30, 40, 50 detik
                     $sec['lockout_until']  = $now + $lockDuration;
                     $contactAdmin          = $sec['current_round'] >= 5;
+                    @file_put_contents($ipLockoutKey, json_encode($sec));
                     // Override dengan respons lockout
                     ob_clean();
                     echo json_encode([
@@ -126,6 +148,8 @@ class AuthController extends Controller {
                         'round'         => $sec['current_round'],
                         'contact_admin' => $contactAdmin,
                     ]);
+                } else {
+                    @file_put_contents($ipLockoutKey, json_encode($sec));
                 }
                 exit;
             } catch (Exception $e) {

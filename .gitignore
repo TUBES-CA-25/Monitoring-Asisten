@@ -37,6 +37,13 @@ vendor/
 *.bak
 *.old
 
+# =========================
+# DATABASE DUMPS (DEPL-01)
+# =========================
+*.sql
+!migrations/*.sql
+!database/*.sql
+
 # Runtime directories
 storage/logs/
 public/uploads/*

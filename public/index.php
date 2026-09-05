@@ -87,59 +87,6 @@ ini_set('session.use_strict_mode', '1');   // Tolak session ID arbitrary
 if (!session_id()) session_start();
 date_default_timezone_set('Asia/Makassar');
 
-// ====================================================================
-// 4. AUTO-MIGRATION SCHEMA — kolom baru yang dibutuhkan sejak v7
-//    Dijalankan setiap request HANYA jika belum ada (idempoten & cepat).
-//    Menggunakan koneksi PDO langsung agar tidak perlu instantiate model.
-//    Wrapped try-catch: gagal silently jika DB belum terhubung.
-// ====================================================================
-try {
-    $__pdo = new PDO(
-        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-        DB_USER, DB_PASS,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT]
-    );
-
-    // profile.attendance_reset_at
-    if ($__pdo->query("SELECT attendance_reset_at FROM profile LIMIT 0") === false) {
-        $__pdo->exec("ALTER TABLE `profile` ADD COLUMN `attendance_reset_at` DATETIME NULL DEFAULT NULL");
-    }
-
-    // qr_code.used_by_user_id — untuk fitur single-use QR (token hangus setelah dipakai)
-    // Dibutuhkan oleh QrModel::getTokenData() dan QrModel::markTokenUsed()
-    if ($__pdo->query("SELECT used_by_user_id FROM qr_code LIMIT 0") === false) {
-        $__pdo->exec(
-            "ALTER TABLE `qr_code`
-             ADD COLUMN `used_by_user_id` INT NULL DEFAULT NULL,
-             ADD COLUMN `used_at`         DATETIME NULL DEFAULT NULL"
-        );
-    }
-
-    // profile.created_at — dibutuhkan LogbookModel::getUnifiedLogbook() untuk
-    // menentukan awal riwayat logbook seorang asisten.
-    // [PENTING] ALTER TABLE ... DEFAULT CURRENT_TIMESTAMP mengisi baris LAMA dengan
-    // waktu SAAT MIGRASI dijalankan, bukan tanggal bergabung asli — ini akan
-    // menyembunyikan seluruh riwayat logbook asisten yang sudah ada. Backfill
-    // dari `user`.`created_at` (tanggal akun dibuat, sudah akurat) agar riwayat lama tetap tampil.
-    if ($__pdo->query("SELECT created_at FROM profile LIMIT 0") === false) {
-        $__pdo->exec("ALTER TABLE `profile` ADD COLUMN `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP");
-        $__pdo->exec(
-            "UPDATE `profile` p
-             JOIN `user` u ON u.id_user = p.id_user
-             SET p.created_at = u.created_at"
-        );
-    }
-
-    // user.status_account — dibutuhkan modal detail Kepala Lab & manajemen user
-    if ($__pdo->query("SELECT status_account FROM user LIMIT 0") === false) {
-        $__pdo->exec("ALTER TABLE `user` ADD COLUMN `status_account` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'");
-    }
-
-    $__pdo = null;
-} catch (\Throwable $__e) {
-    // DB belum bisa diakses atau kolom sudah ada — abaikan
-    $__pdo = null;
-}
 
 // ====================================================================
 // 2. Shortcut khusus untuk logbook/delete

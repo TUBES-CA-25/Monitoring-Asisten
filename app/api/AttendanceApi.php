@@ -20,15 +20,53 @@ class AttendanceApi {
     public function clockIn() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             ApiResponse::error('Method not allowed', 405);
+            return;
         }
 
         // Validate token
         $payload = AuthApi::validateToken();
         $profilId = $payload['profil_id'];
+        $userId   = $payload['user_id'] ?? null;
+
+        // Wajibkan input token QR dan validasi (SEC-02)
+        $qrToken = trim($_POST['qr_token'] ?? $_POST['token'] ?? '');
+        if (empty($qrToken)) {
+            ApiResponse::error('Token QR wajib disertakan.', 400);
+            return;
+        }
+
+        require_once __DIR__ . '/../models/QrModel.php';
+        $qrModel = new QrModel();
+        if (!$qrModel->validateToken($qrToken, 'check_in')) {
+            ApiResponse::error('Token QR tidak valid, sudah kadaluarsa, atau telah digunakan.', 400);
+            return;
+        }
 
         // Validate image upload
-        if (!isset($_FILES['foto_presensi']) || $_FILES['foto_presensi']['error'] !== 0) {
+        if (!isset($_FILES['foto_presensi']) || $_FILES['foto_presensi']['error'] !== UPLOAD_ERR_OK) {
             ApiResponse::error('Photo is required', 400, ['foto_presensi' => 'Upload a valid image']);
+            return;
+        }
+
+        $ext = strtolower(pathinfo($_FILES['foto_presensi']['name'], PATHINFO_EXTENSION));
+        $allowedExts = ['jpg', 'jpeg', 'png'];
+        if (!in_array($ext, $allowedExts, true)) {
+            ApiResponse::error('Format file tidak diizinkan. Hanya JPG dan PNG yang diperbolehkan.', 400);
+            return;
+        }
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $_FILES['foto_presensi']['tmp_name']);
+        finfo_close($finfo);
+        $allowedMimes = ['image/jpeg', 'image/png'];
+        if (!in_array($mime, $allowedMimes, true)) {
+            ApiResponse::error('Konten file gambar tidak sesuai dengan ekstensinya.', 400);
+            return;
+        }
+
+        if ($_FILES['foto_presensi']['size'] > 5 * 1024 * 1024) {
+            ApiResponse::error('Ukuran foto maksimal 5MB.', 400);
+            return;
         }
 
         // Check if already checked in today
@@ -40,6 +78,7 @@ class AttendanceApi {
 
         if ($stmt->fetch()) {
             ApiResponse::error('Already checked in today', 409, ['message' => 'You already checked in today']);
+            return;
         }
 
         // Handle file upload
@@ -48,11 +87,12 @@ class AttendanceApi {
             mkdir($uploadDir, 0755, true);
         }
 
-        $fileName = 'checkin_' . $profilId . '_' . time() . '.jpg';
+        $fileName = 'checkin_' . $profilId . '_' . time() . '.' . ($ext === 'png' ? 'png' : 'jpg');
         $filePath = $uploadDir . $fileName;
 
         if (!move_uploaded_file($_FILES['foto_presensi']['tmp_name'], $filePath)) {
             ApiResponse::error('Failed to upload photo', 500);
+            return;
         }
 
         // Insert presensi record
@@ -80,6 +120,9 @@ class AttendanceApi {
             ]);
 
             if ($result) {
+                // Tandai QR token sebagai telah digunakan (Single-Use)
+                $qrModel->markTokenUsed($qrToken, $userId);
+
                 $responseData = [
                     'id_presensi' => $this->conn->lastInsertId(),
                     'tanggal' => $today,
@@ -93,8 +136,16 @@ class AttendanceApi {
             } else {
                 ApiResponse::error('Failed to save check-in', 500);
             }
+        } catch (PDOException $e) {
+            if ($e->getCode() == 23000) {
+                ApiResponse::error('Already checked in today', 409);
+                return;
+            }
+            error_log("ClockIn PDO Error: " . $e->getMessage());
+            ApiResponse::error('Gagal menyimpan data presensi', 500);
         } catch (Exception $e) {
-            ApiResponse::error('Database error: ' . $e->getMessage(), 500);
+            error_log("ClockIn System Error: " . $e->getMessage());
+            ApiResponse::error('Terjadi kesalahan sistem', 500);
         }
     }
 
@@ -103,24 +154,49 @@ class AttendanceApi {
      * Request: multipart/form-data
      *   - token (Authorization header)
      *   - foto_pulang (image file)
+     *   - qr_token (optional QR token)
      */
     public function clockOut() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             ApiResponse::error('Method not allowed', 405);
+            return;
         }
 
         // Validate token
         $payload = AuthApi::validateToken();
         $profilId = $payload['profil_id'];
+        $userId   = $payload['user_id'] ?? null;
 
         // Validate image
-        if (!isset($_FILES['foto_pulang']) || $_FILES['foto_pulang']['error'] !== 0) {
+        if (!isset($_FILES['foto_pulang']) || $_FILES['foto_pulang']['error'] !== UPLOAD_ERR_OK) {
             ApiResponse::error('Photo is required', 400);
+            return;
+        }
+
+        $ext = strtolower(pathinfo($_FILES['foto_pulang']['name'], PATHINFO_EXTENSION));
+        $allowedExts = ['jpg', 'jpeg', 'png'];
+        if (!in_array($ext, $allowedExts, true)) {
+            ApiResponse::error('Format file tidak diizinkan. Hanya JPG dan PNG yang diperbolehkan.', 400);
+            return;
+        }
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $_FILES['foto_pulang']['tmp_name']);
+        finfo_close($finfo);
+        $allowedMimes = ['image/jpeg', 'image/png'];
+        if (!in_array($mime, $allowedMimes, true)) {
+            ApiResponse::error('Konten file gambar tidak sesuai dengan ekstensinya.', 400);
+            return;
+        }
+
+        if ($_FILES['foto_pulang']['size'] > 5 * 1024 * 1024) {
+            ApiResponse::error('Ukuran foto maksimal 5MB.', 400);
+            return;
         }
 
         // Check if user has checked in today
         $today = date('Y-m-d');
-        $checkQuery = "SELECT id_presensi, waktu_pulang FROM {$this->table_presensi} 
+        $checkQuery = "SELECT id_presensi, waktu_pulang, waktu_presensi FROM {$this->table_presensi} 
                       WHERE id_profil = :pid AND tanggal = :date";
         $stmt = $this->conn->prepare($checkQuery);
         $stmt->execute([':pid' => $profilId, ':date' => $today]);
@@ -128,10 +204,12 @@ class AttendanceApi {
 
         if (!$presensi) {
             ApiResponse::error('No check-in record found today', 404);
+            return;
         }
 
         if ($presensi['waktu_pulang'] !== null) {
             ApiResponse::error('Already checked out today', 409);
+            return;
         }
 
         // Handle file upload
@@ -140,11 +218,12 @@ class AttendanceApi {
             mkdir($uploadDir, 0755, true);
         }
 
-        $fileName = 'checkout_' . $profilId . '_' . time() . '.jpg';
+        $fileName = 'checkout_' . $profilId . '_' . time() . '.' . ($ext === 'png' ? 'png' : 'jpg');
         $filePath = $uploadDir . $fileName;
 
         if (!move_uploaded_file($_FILES['foto_pulang']['tmp_name'], $filePath)) {
             ApiResponse::error('Failed to upload photo', 500);
+            return;
         }
 
         // Update presensi record
@@ -170,6 +249,16 @@ class AttendanceApi {
             ]);
 
             if ($result) {
+                // Jika ada QR token pulang, tandai sebagai terpakai
+                $qrToken = trim($_POST['qr_token'] ?? $_POST['token'] ?? '');
+                if (!empty($qrToken)) {
+                    require_once __DIR__ . '/../models/QrModel.php';
+                    $qrModel = new QrModel();
+                    if ($qrModel->validateToken($qrToken, 'check_out')) {
+                        $qrModel->markTokenUsed($qrToken, $userId);
+                    }
+                }
+
                 $responseData = [
                     'id_presensi' => $presensi['id_presensi'],
                     'waktu_pulang' => $checkOutTime,
@@ -182,8 +271,12 @@ class AttendanceApi {
             } else {
                 ApiResponse::error('Failed to save check-out', 500);
             }
+        } catch (PDOException $e) {
+            error_log("ClockOut PDO Error: " . $e->getMessage());
+            ApiResponse::error('Gagal menyimpan data kepulangan', 500);
         } catch (Exception $e) {
-            ApiResponse::error('Database error: ' . $e->getMessage(), 500);
+            error_log("ClockOut System Error: " . $e->getMessage());
+            ApiResponse::error('Terjadi kesalahan sistem', 500);
         }
     }
 

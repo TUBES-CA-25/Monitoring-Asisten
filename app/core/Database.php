@@ -10,10 +10,10 @@ class Database {
 
     public function __construct() {
         // Data Source Name
-        $dsn = 'mysql:host=' . $this->host . ';dbname=' . $this->db_name;
+        $dsn = 'mysql:host=' . $this->host . ';dbname=' . $this->db_name . ';charset=utf8mb4';
         
         $option = [
-            PDO::ATTR_PERSISTENT => true,
+            PDO::ATTR_PERSISTENT => false,
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
         ];
 
@@ -21,7 +21,9 @@ class Database {
             $this->dbh = new PDO($dsn, $this->user, $this->pass, $option);
             $this->dbh->exec("SET time_zone = '+08:00'");
         } catch(PDOException $e) {
-            die("Koneksi Database Gagal: " . $e->getMessage());
+            error_log("Koneksi Database Gagal: " . $e->getMessage());
+            http_response_code(500);
+            die("Terjadi gangguan koneksi basis data. Silakan hubungi administrator sistem.");
         }
     }
 

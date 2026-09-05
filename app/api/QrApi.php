@@ -19,13 +19,25 @@ class QrApi {
      */
     public function generate() {
         $payload = AuthApi::validateToken();
+        if (($payload['role'] ?? '') !== 'Admin') {
+            ApiResponse::error('Akses ditolak. Fitur ini hanya untuk Administrator.', 403);
+            return;
+        }
         $profilId = $payload['profil_id'];
 
         $type = isset($_GET['type']) ? $_GET['type'] : 'Presensi';
         $validity = isset($_GET['validity']) ? (int)$_GET['validity'] : 3600; 
 
+        // Batasi masa berlaku QR: minimal 60 detik (1 menit), maksimal 10800 detik (3 jam)
+        if ($validity > 10800) {
+            $validity = 10800;
+        } elseif ($validity < 60) {
+            $validity = 60;
+        }
+
         if (!in_array($type, ['Presensi', 'Pulang'])) {
             ApiResponse::error('Type hanya Presensi atau Pulang', 400);
+            return;
         }
 
         try {
@@ -59,7 +71,8 @@ class QrApi {
                 ApiResponse::error('Failed to generate QR code', 500);
             }
         } catch (PDOException $e) {
-            ApiResponse::error('Database error: ' . $e->getMessage(), 500);
+            error_log("Generate QR Error: " . $e->getMessage());
+            ApiResponse::error('Gagal membuat QR code', 500);
         }
     }
 
@@ -78,13 +91,14 @@ class QrApi {
         try {
             $payload = AuthApi::validateToken();
             $profilId = $payload['profil_id'];
+            $userId   = $payload['user_id'] ?? null;
 
             $rawToken = $_POST['token'] ?? '';
             $latitude = trim($_POST['latitude'] ?? '0.0');
             $longitude = trim($_POST['longitude'] ?? '0.0');
 
             $input = json_decode(file_get_contents("php://input"), true) ?? $_POST;
-            $rawToken = $input['token'] ?? '';
+            $rawToken = $input['token'] ?? $rawToken;
 
             if (strpos($rawToken, '{') !== false) {
                 $decoded = json_decode($rawToken, true);
@@ -102,8 +116,9 @@ class QrApi {
 
             $now = date('Y-m-d H:i:s');
             
+            // Single-use QR: token harus belum kadaluarsa DAN belum pernah dipakai user lain
             $query = "SELECT id_qr, tipe, valid_until FROM {$this->table_qr} 
-                    WHERE token_code = :token AND valid_until >= :sekarang 
+                    WHERE token_code = :token AND valid_until >= :sekarang AND used_by_user_id IS NULL
                     LIMIT 1";
             $stmt = $this->conn->prepare($query);
             $stmt->execute([':token' => $tokenFinal, ':sekarang' => $now]);
@@ -111,7 +126,7 @@ class QrApi {
 
             if (!$qrCode) {
                 ob_end_clean(); 
-                ApiResponse::error("QR Code tidak valid atau sudah expired", 401);
+                ApiResponse::error("QR Code tidak valid, sudah expired, atau telah digunakan", 401);
                 return;
             }
 
@@ -130,13 +145,14 @@ class QrApi {
             ob_end_clean(); 
 
             if ($qrCode['tipe'] === 'Presensi') {
-                $this->handleCheckIn($profilId, $today, $currentTime, $photoName);
+                $this->handleCheckIn($profilId, $today, $currentTime, $photoName, $tokenFinal, $userId);
             } else {
-                $this->handleCheckOut($profilId, $today, $currentTime, $photoName);
+                $this->handleCheckOut($profilId, $today, $currentTime, $photoName, $tokenFinal, $userId);
             }
 
         } catch (Exception $e) {
             if (ob_get_length()) ob_end_clean();
+            error_log("Scan Exception: " . $e->getMessage());
             ApiResponse::error('System Error: ' . $e->getMessage(), 500);
         }
     }
@@ -148,6 +164,19 @@ class QrApi {
      * Windows maupun macOS/Linux tanpa perlu mengubah path manual.
      */
     private function processAndWatermarkImage($fileInfo, $lat, $lon) {
+        // Validasi ekstensi dan MIME type
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/jpg'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $fileInfo['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mime, $allowedMimes, true)) {
+            throw new Exception("Format gambar bukti tidak valid. Hanya JPG dan PNG yang diperbolehkan.");
+        }
+
+        if ($fileInfo['size'] > 5 * 1024 * 1024) {
+            throw new Exception("Ukuran foto melebihi batas maksimal 5MB.");
+        }
 
         $targetDir = UPLOAD_PATH . 'attendance/';
 
@@ -240,7 +269,7 @@ class QrApi {
             }
 
             $query = "SELECT id_qr, tipe, valid_until FROM {$this->table_qr}
-                     WHERE token_code = :token AND valid_until >= :sekarang
+                     WHERE token_code = :token AND valid_until >= :sekarang AND used_by_user_id IS NULL
                      LIMIT 1";
 
             $stmt = $this->conn->prepare($query);
@@ -248,7 +277,7 @@ class QrApi {
             $qrCode = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$qrCode) {
-                ApiResponse::error('QR Code tidak valid atau sudah expired', 404);
+                ApiResponse::error('QR Code tidak valid, sudah expired, atau telah digunakan', 404);
                 return;
             }
 
@@ -284,11 +313,12 @@ class QrApi {
             ], 'Token valid dan siap melakukan pemotretan absensi', 200);
 
         } catch (Exception $e) {
-            ApiResponse::error('Database error: ' . $e->getMessage(), 500);
+            error_log("Validate QR Error: " . $e->getMessage());
+            ApiResponse::error('Gagal validasi QR code', 500);
         }
     }
 
-    private function handleCheckIn($profilId, $today, $currentTime, $photoName = null) {
+    private function handleCheckIn($profilId, $today, $currentTime, $photoName = null, $tokenFinal = null, $userId = null) {
         $checkQuery = "SELECT id_presensi FROM {$this->table_presensi} 
                     WHERE id_profil = :pid AND tanggal = :date";
         $stmt = $this->conn->prepare($checkQuery);
@@ -320,6 +350,12 @@ class QrApi {
             $stmt->bindValue(':late', $eval['late_minutes'], PDO::PARAM_INT);
 
             if ($stmt->execute()) {
+                if (!empty($tokenFinal)) {
+                    $updateQr = "UPDATE {$this->table_qr} SET used_by_user_id = :uid, used_at = NOW() WHERE token_code = :token AND used_by_user_id IS NULL";
+                    $stmtQr = $this->conn->prepare($updateQr);
+                    $stmtQr->execute([':uid' => $userId, ':token' => $tokenFinal]);
+                }
+
                 ApiResponse::success([
                     'id_presensi' => (string)$this->conn->lastInsertId(),
                     'tanggal' => $today,
@@ -330,11 +366,16 @@ class QrApi {
                 ], 'Check-in berhasil via QR code', 201);
             }
         } catch (PDOException $e) {
-            ApiResponse::error('Database error: ' . $e->getMessage(), 500);
+            if ($e->getCode() == 23000) {
+                ApiResponse::error('Sudah check-in hari ini', 409);
+                return;
+            }
+            error_log("handleCheckIn DB Error: " . $e->getMessage());
+            ApiResponse::error('Gagal menyimpan data presensi', 500);
         }
     }
 
-    private function handleCheckOut($profilId, $today, $currentTime, $photoName = null) {
+    private function handleCheckOut($profilId, $today, $currentTime, $photoName = null, $tokenFinal = null, $userId = null) {
     $detailAktivitas = isset($_POST['notes']) ? trim($_POST['notes']) : '-';
 
     $checkQuery = "SELECT id_presensi, waktu_presensi, waktu_pulang FROM {$this->table_presensi}
@@ -386,6 +427,12 @@ class QrApi {
                 ':detail'     => $detailAktivitas
             ]);
 
+            if (!empty($tokenFinal)) {
+                $updateQr = "UPDATE {$this->table_qr} SET used_by_user_id = :uid, used_at = NOW() WHERE token_code = :token AND used_by_user_id IS NULL";
+                $stmtQr = $this->conn->prepare($updateQr);
+                $stmtQr->execute([':uid' => $userId, ':token' => $tokenFinal]);
+            }
+
             $this->conn->commit();
 
             ApiResponse::success([
@@ -403,7 +450,8 @@ class QrApi {
             if ($this->conn->inTransaction()) {
                 $this->conn->rollBack();
             }
-            ApiResponse::error('Gagal simpan data ke database: ' . $e->getMessage(), 500);
+            error_log("handleCheckOut DB Error: " . $e->getMessage());
+            ApiResponse::error('Gagal simpan data ke database', 500);
         }
     }
 }

@@ -1,5 +1,22 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Proteksi file sensitif dari akses HTTP langsung (DEPL-01)
+    <FilesMatch "\.(sql|env|log|md|json)$">
+        <IfModule mod_authz_core.c>
+            Require all denied
+        </IfModule>
+        <IfModule !mod_authz_core.c>
+            Order deny,allow
+            Deny from all
+        </IfModule>
+    </FilesMatch>
+
+    # Blokir akses ke folder internal .git dsb
+    RedirectMatch 404 /\.git
+    RedirectMatch 404 /composer\.(json|lock)
+    RedirectMatch 404 /package\.(json|lock)
+
     # Arahkan folder root ke folder public
     RewriteRule ^$ public/ [L]
     RewriteRule (.*) public/$1 [L]

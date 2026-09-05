@@ -814,7 +814,15 @@ class AdminController extends Controller {
             if (empty($rows)) return "Tidak ada data.\n";
             $out = fopen('php://memory','r+');
             fputcsv($out, array_keys($rows[0]));
-            foreach ($rows as $r) fputcsv($out, $r);
+            foreach ($rows as $r) {
+                $sanitized = array_map(function($val) {
+                    if (is_string($val) && strlen($val) > 0 && in_array($val[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+                        return "'" . $val;
+                    }
+                    return $val;
+                }, $r);
+                fputcsv($out, $sanitized);
+            }
             rewind($out);
             $c = stream_get_contents($out);
             fclose($out);
@@ -968,7 +976,7 @@ class AdminController extends Controller {
         foreach ($data as $row) {
             $durasiBrut = (int)($row['total_durasi_menit'] ?? 0);
             $durasiStr  = ($durasiBrut > 0) ? floor($durasiBrut/60).'j '.($durasiBrut%60).'m' : '-';
-            fputcsv($output, [
+            $csvRow = [
                 $no++,
                 $row['name']     ?? '-',
                 $row['nim']      ?? '-',
@@ -979,7 +987,14 @@ class AdminController extends Controller {
                 $row['total_tepat_waktu'] ?? 0,
                 $row['total_terlambat']   ?? 0,
                 $durasiStr,
-            ], ';', '"', '');
+            ];
+            $sanitizedRow = array_map(function($val) {
+                if (is_string($val) && strlen($val) > 0 && in_array($val[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+                    return "'" . $val;
+                }
+                return $val;
+            }, $csvRow);
+            fputcsv($output, $sanitizedRow, ';', '"', '');
         }
         fclose($output);
         exit;
@@ -1103,7 +1118,7 @@ class AdminController extends Controller {
                 $timeStr = date('H:i', strtotime($row['start_time'])) . ' - ' . date('H:i', strtotime($row['end_time'])) . ' WITA';
             }
             
-            fputcsv($output, [
+            $csvRow = [
                 $no++,
                 $typeFmt,
                 $row['user_name'] ?? 'Laboratorium',
@@ -1113,7 +1128,14 @@ class AdminController extends Controller {
                 $dayName,
                 $timeStr,
                 $row['location'] ?? 'Lab'
-            ], ';', '"', '');
+            ];
+            $sanitizedRow = array_map(function($val) {
+                if (is_string($val) && strlen($val) > 0 && in_array($val[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+                    return "'" . $val;
+                }
+                return $val;
+            }, $csvRow);
+            fputcsv($output, $sanitizedRow, ';', '"', '');
         }
         fclose($output);
         exit;
@@ -1610,18 +1632,48 @@ class AdminController extends Controller {
     public function saveLogbookAdmin() {
         $this->checkAccess(['Admin']);
 
+        $allowedExts = ['jpg', 'jpeg', 'png', 'pdf'];
+        $allowedMimes = ['image/jpeg', 'image/png', 'application/pdf'];
+
         $fileName = null;
         if (isset($_FILES['proof_file']['name']) && $_FILES['proof_file']['name'] != "") {
-            $status = $_POST['status'];
+            if ($_FILES['proof_file']['error'] !== UPLOAD_ERR_OK) {
+                echo json_encode(['status' => 'error', 'message' => 'Upload file bukti gagal.']);
+                exit;
+            }
+
+            $ext = strtolower(pathinfo($_FILES["proof_file"]["name"], PATHINFO_EXTENSION));
+            if (!in_array($ext, $allowedExts, true)) {
+                echo json_encode(['status' => 'error', 'message' => 'Format file tidak diizinkan. Hanya JPG, PNG, dan PDF yang diperbolehkan.']);
+                exit;
+            }
+
+            if ($_FILES["proof_file"]["size"] > 5 * 1024 * 1024) {
+                echo json_encode(['status' => 'error', 'message' => 'Ukuran file bukti maksimal 5MB.']);
+                exit;
+            }
+
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime  = finfo_file($finfo, $_FILES["proof_file"]["tmp_name"]);
+            finfo_close($finfo);
+
+            if (!in_array($mime, $allowedMimes, true)) {
+                echo json_encode(['status' => 'error', 'message' => 'Konten file bukti tidak sesuai dengan ekstensinya.']);
+                exit;
+            }
+
+            $status = $_POST['status'] ?? 'Hadir';
             $folder = ($status == 'Hadir') ? 'attendance' : 'leaves';
             $targetDir = UPLOAD_PATH . "$folder/";
 
-            if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+            if (!file_exists($targetDir)) mkdir($targetDir, 0755, true);
 
-            $ext = pathinfo($_FILES["proof_file"]["name"], PATHINFO_EXTENSION);
-            $fileName = "admin_edit_" . time() . "." . $ext;
+            $fileName = "admin_edit_" . time() . "_" . bin2hex(random_bytes(4)) . "." . $ext;
 
-            move_uploaded_file($_FILES["proof_file"]["tmp_name"], $targetDir . $fileName);
+            if (!move_uploaded_file($_FILES["proof_file"]["tmp_name"], $targetDir . $fileName)) {
+                echo json_encode(['status' => 'error', 'message' => 'Gagal memindahkan file bukti yang diunggah.']);
+                exit;
+            }
         }
 
         // [BARU] Foto presensi PULANG - sebelumnya field "proof_file_out" ada
@@ -1630,13 +1682,40 @@ class AdminController extends Controller {
         // dengan foto datang.
         $fileNameOut = null;
         if (isset($_FILES['proof_file_out']['name']) && $_FILES['proof_file_out']['name'] != "") {
+            if ($_FILES['proof_file_out']['error'] !== UPLOAD_ERR_OK) {
+                echo json_encode(['status' => 'error', 'message' => 'Upload file bukti pulang gagal.']);
+                exit;
+            }
+
+            $ext = strtolower(pathinfo($_FILES["proof_file_out"]["name"], PATHINFO_EXTENSION));
+            if (!in_array($ext, $allowedExts, true)) {
+                echo json_encode(['status' => 'error', 'message' => 'Format file bukti pulang tidak diizinkan. Hanya JPG, PNG, dan PDF yang diperbolehkan.']);
+                exit;
+            }
+
+            if ($_FILES["proof_file_out"]["size"] > 5 * 1024 * 1024) {
+                echo json_encode(['status' => 'error', 'message' => 'Ukuran file bukti pulang maksimal 5MB.']);
+                exit;
+            }
+
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime  = finfo_file($finfo, $_FILES["proof_file_out"]["tmp_name"]);
+            finfo_close($finfo);
+
+            if (!in_array($mime, $allowedMimes, true)) {
+                echo json_encode(['status' => 'error', 'message' => 'Konten file bukti pulang tidak sesuai dengan ekstensinya.']);
+                exit;
+            }
+
             $targetDir = UPLOAD_PATH . "attendance/";
-            if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+            if (!file_exists($targetDir)) mkdir($targetDir, 0755, true);
 
-            $ext = pathinfo($_FILES["proof_file_out"]["name"], PATHINFO_EXTENSION);
-            $fileNameOut = "admin_edit_out_" . time() . "." . $ext;
+            $fileNameOut = "admin_edit_out_" . time() . "_" . bin2hex(random_bytes(4)) . "." . $ext;
 
-            move_uploaded_file($_FILES["proof_file_out"]["tmp_name"], $targetDir . $fileNameOut);
+            if (!move_uploaded_file($_FILES["proof_file_out"]["tmp_name"], $targetDir . $fileNameOut)) {
+                echo json_encode(['status' => 'error', 'message' => 'Gagal memindahkan file bukti pulang yang diunggah.']);
+                exit;
+            }
         }
 
         $data = [

@@ -4,15 +4,21 @@
 var logIdToReset = null;
 
 // --- Modal Form ---
+function handleOpenLogModal(btn) {
+    const dateStr = btn.dataset.date || '';
+    const activity = btn.dataset.activity || '';
+    const timeIn = btn.dataset.timeIn || '';
+    const logId = btn.dataset.logId || '';
+    openLogModal(dateStr, activity, timeIn, logId);
+}
+
 function openLogModal(dateStr, activity, timeIn, logId) {
     document.getElementById('modalDate').value = dateStr;
     const logIdInput = document.getElementById('modalLogId');
     if (logIdInput) logIdInput.value = logId;
 
-    // Decode HTML entities
-    const textArea = document.createElement('textarea');
-    textArea.innerHTML = activity;
-    document.getElementById('modalActivity').value = textArea.value;
+    // Aman: set value langsung tanpa innerHTML parsing
+    document.getElementById('modalActivity').value = activity || '';
 
     // Auto set time jika kosong
     if (!timeIn || timeIn === '-') {

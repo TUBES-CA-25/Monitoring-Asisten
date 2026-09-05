@@ -12,7 +12,9 @@ class QrModel {
         $dbType = ($type == 'check_in') ? 'Presensi' : 'Pulang';
 
         $sql = "SELECT * FROM qr_code 
-                WHERE tipe = :t AND valid_until > DATE_ADD(NOW(), INTERVAL 30 SECOND) 
+                WHERE tipe = :t 
+                  AND valid_until > DATE_ADD(NOW(), INTERVAL 30 SECOND) 
+                  AND used_by_user_id IS NULL
                 ORDER BY id_qr DESC LIMIT 1";
         
         $this->db->query($sql);

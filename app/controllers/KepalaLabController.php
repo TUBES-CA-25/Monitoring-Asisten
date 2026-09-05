@@ -494,7 +494,7 @@ class KepalaLabController extends Controller {
         foreach ($data as $row) {
             $dm = (int)($row['total_durasi_menit']??0);
             $dStr = $dm>0?floor($dm/60).'j '.($dm%60).'m':'-';
-            fputcsv($output, [
+            $csvRow = [
                 $no++,
                 $row['name']     ?? '-',
                 $row['nim']      ?? '-',
@@ -505,7 +505,14 @@ class KepalaLabController extends Controller {
                 $row['total_tepat_waktu'] ?? 0,
                 $row['total_terlambat']   ?? 0,
                 $dStr,
-            ], ';', '"', '');
+            ];
+            $sanitizedRow = array_map(function($val) {
+                if (is_string($val) && strlen($val) > 0 && in_array($val[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+                    return "'" . $val;
+                }
+                return $val;
+            }, $csvRow);
+            fputcsv($output, $sanitizedRow, ';', '"', '');
         }
         fclose($output); exit;
     }
@@ -625,7 +632,7 @@ class KepalaLabController extends Controller {
                 $timeStr = date('H:i', strtotime($row['start_time'])) . ' - ' . date('H:i', strtotime($row['end_time'])) . ' WITA';
             }
             
-            fputcsv($output, [
+            $csvRow = [
                 $no++,
                 $typeFmt,
                 $row['user_name'] ?? 'Laboratorium',
@@ -635,7 +642,14 @@ class KepalaLabController extends Controller {
                 $dayName,
                 $timeStr,
                 $row['location'] ?? 'Lab'
-            ], ';', '"', '');
+            ];
+            $sanitizedRow = array_map(function($val) {
+                if (is_string($val) && strlen($val) > 0 && in_array($val[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+                    return "'" . $val;
+                }
+                return $val;
+            }, $csvRow);
+            fputcsv($output, $sanitizedRow, ';', '"', '');
         }
         fclose($output);
         exit;

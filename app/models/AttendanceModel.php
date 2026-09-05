@@ -49,7 +49,15 @@ class AttendanceModel
         $this->db->bind(':status', $eval['attendance_status']);
         $this->db->bind(':late', $eval['late_minutes']);
 
-        if (!$this->db->execute()) return false;
+        try {
+            if (!$this->db->execute()) return false;
+        } catch (\PDOException $e) {
+            if ($e->getCode() == 23000) {
+                // Race condition: sudah di-insert oleh request paralel
+                return false;
+            }
+            throw $e;
+        }
 
         // Info tambahan (additive) untuk diteruskan ke response JSON.
         return [
