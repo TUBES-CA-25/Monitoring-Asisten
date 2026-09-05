@@ -43,6 +43,7 @@
  *   php migrate.php              Terapkan semua migrasi yang tertunda.
  *   php migrate.php --status     Tampilkan status saja, tidak mengubah apa pun.
  *   php migrate.php --dry-run    Tampilkan migrasi yang AKAN dijalankan, tanpa mengeksekusinya.
+ *   php migrate.php --seed       Terapkan migrasi lalu jalankan seeder database.
  *
  * SELALU backup database sebelum menjalankan pada sistem yang belum
  * pernah menerapkan migrasi ini (lihat pesan peringatan sebelum eksekusi).
@@ -63,9 +64,10 @@ function iclabs_migrate_err(string $msg): void {
     fwrite(STDERR, $msg . PHP_EOL);
 }
 
-$argvFlags = array_slice($argv, 1);
+$argvFlags  = array_slice($argv, 1);
 $dryRun     = in_array('--dry-run', $argvFlags, true);
 $statusOnly = in_array('--status', $argvFlags, true);
+$seed       = in_array('--seed', $argvFlags, true);
 
 iclabs_migrate_out('==================================================');
 iclabs_migrate_out(' ICLABS - Migration Runner');
@@ -160,6 +162,11 @@ iclabs_migrate_out('');
 
 if (empty($pending)) {
     iclabs_migrate_out('Database sudah sinkron - tidak ada migrasi yang perlu dijalankan.');
+    if ($seed) {
+        iclabs_migrate_out('');
+        iclabs_migrate_out('>> Menjalankan seeder database (--seed)...');
+        passthru('php ' . escapeshellarg(__DIR__ . '/seed.php'));
+    }
     exit(0);
 }
 
@@ -264,4 +271,11 @@ if ($failed) {
 }
 
 iclabs_migrate_out('Semua migrasi berhasil diterapkan. Database sudah sinkron dengan kode saat ini.');
+
+if ($seed) {
+    iclabs_migrate_out('');
+    iclabs_migrate_out('>> Menjalankan seeder database (--seed)...');
+    passthru('php ' . escapeshellarg(__DIR__ . '/seed.php'));
+}
+
 exit(0);
