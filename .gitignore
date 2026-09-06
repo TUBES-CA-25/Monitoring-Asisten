@@ -1,0 +1,53 @@
+# =========================
+# ENV & SECRET FILE
+# =========================
+.env
+
+# =========================
+# SYSTEM FILE (Mac)
+# =========================
+.DS_Store
+
+# =========================
+# LOG FILE
+# =========================
+*.log
+
+# =========================
+# CACHE / TEMP
+# =========================
+tmp/
+cache/
+storage/
+
+# =========================
+# COMPOSER (kalau nanti pakai)
+# =========================
+vendor/
+
+# =========================
+# IDE FILE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# BACKUP FILE
+# =========================
+*.bak
+*.old
+
+# =========================
+# DATABASE DUMPS (DEPL-01)
+# =========================
+*.sql
+!database/**/*.sql
+!database/*.sql
+!migrations/*.sql
+!iclabs_db.sql
+
+# Runtime directories
+storage/logs/
+public/uploads/*
+!public/uploads/.htaccess
+

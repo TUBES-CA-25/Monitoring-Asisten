@@ -1,0 +1,14 @@
+.animate-enter { animation: fadeInUp 0.5s ease-out forwards; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+.assistant-card { transition: all 0.2s ease; border: 1px solid transparent; }
+.assistant-card:hover, .assistant-card.active { 
+    background-color: #eff6ff; 
+    border-color: #bfdbfe; 
+    transform: translateX(4px); 
+}
+.assistant-card.active .icon-arrow { opacity: 1; transform: translateX(0); }
+.assistant-card .icon-arrow { opacity: 0; transform: translateX(-10px); transition: all 0.2s; }

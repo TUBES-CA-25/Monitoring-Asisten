@@ -1,0 +1,1 @@
+Aturan: Presensi default 08.00 WITA, jadwal pagi override, pulang sebelum 16.00 diterima sebagai pulang lebih awal, status hadir/belum presensi/izin.

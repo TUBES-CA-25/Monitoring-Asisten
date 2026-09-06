@@ -1,0 +1,26 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # [PERBAIKAN - Portabilitas] "RewriteBase /ICLABS/public/" sebelumnya
+    # di-hardcode di sini, sehingga rewrite ke index.php HANYA benar jika
+    # project disimpan tepat di folder "ICLABS" pada htdocs. Jika project
+    # disimpan/dipindah ke folder lain (mis. "ICLABS-TEST", "ICLABS-FIXED",
+    # atau lokasi lain saat testing/deploy), rewrite akan salah arah.
+    #
+    # RewriteBase TIDAK PERLU dideklarasikan: nilai default untuk .htaccess
+    # adalah path URL yang sesuai dengan lokasi folder .htaccess itu sendiri
+    # (mis. otomatis menjadi "/ICLABS-FIXED/public/" jika project disimpan
+    # di folder "ICLABS-FIXED"), sehingga aplikasi tetap bekerja di folder
+    # mana pun tanpa perlu edit file ini.
+
+    # Preserve Authorization header
+    RewriteCond %{HTTP:Authorization} ^(.*)
+    RewriteRule ^(.*) - [E=HTTP_AUTHORIZATION:%1]
+
+    # Jika yang diakses adalah file asli (gambar/css), jangan di-rewrite
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Selain itu, lempar semua ke index.php melalui parameter 'url'
+    RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+</IfModule>

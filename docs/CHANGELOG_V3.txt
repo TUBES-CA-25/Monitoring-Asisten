@@ -1,0 +1,2 @@
+ICLABS WEB V3 BUSINESS RULE UPDATE
+Patch 1-18: authentication, user management, profile, attendance rule, presence status, QR scanner, assistant explorer, izin, logbook, google calendar, CSV export.
