@@ -439,7 +439,15 @@
                     </div>
                 </div>
 
-                <div class="bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-[400px]">
+                <!-- [PERBAIKAN] Sebelumnya kartu ini "flex-1" (tumbuh mengikuti sisa
+                     ruang) TANPA batas tinggi tetap - begitu daftar peringkat berisi
+                     lebih dari 3 baris, seluruh kartu (dan lewat "align-items:stretch"
+                     bawaan flex-row, kolom kiri berisi tombol Edit Profil ikut) jadi
+                     lebih tinggi, sehingga tombol Edit Profil "berpindah" posisi.
+                     Kini tinggi kartu TETAP (tidak lagi flex-1) - persis muat 3 baris
+                     teratas, sisanya discroll di dalam #rankingList sampai peringkat
+                     ke-10 (tinggi 1 baris terukur ~77px). -->
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                     <div class="p-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                         <h4 class="text-sm font-bold text-gray-700 uppercase tracking-widest">
                             <i class="fas fa-trophy text-yellow-500 mr-2"></i>Peringkat Asisten
@@ -460,8 +468,8 @@
                             <i class="fas fa-chevron-down absolute right-3 top-2.5 text-gray-400 text-xs pointer-events-none"></i>
                         </div>
                     </div>
-                    
-                    <div class="flex-1 overflow-y-auto p-0 custom-scrollbar" id="rankingList"></div>
+
+                    <div class="max-h-[231px] overflow-y-auto p-0 custom-scrollbar" id="rankingList"></div>
                 </div>
 
             <?php endif; ?>

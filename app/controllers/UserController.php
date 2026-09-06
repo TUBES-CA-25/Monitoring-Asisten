@@ -259,29 +259,43 @@ class UserController extends Controller {
             // hasil crop (cropped_image) seperti pada Admin/Kepala Lab.
             $photoName = $currentUser['photo_profile'];
             $targetDir = UPLOAD_PATH . 'profile/';
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+            // [BARU - Audit Validasi Foto] hanya terima JPG/JPEG/PNG, selaras
+            // dengan accept="image/png, image/jpeg, image/jpg" pada input file.
+            $allowedExtensions = ['jpg', 'jpeg', 'png'];
 
             if (!empty($_POST['cropped_image'])) {
                 $dataImg = $_POST['cropped_image'];
                 if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
                     $type = strtolower($type[1]);
                     if (!in_array($type, $allowedExtensions)) {
-                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
+                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
                         exit;
                     }
-                    $savedName = ImageHelper::saveProfilePhotoAsWebp($dataImg, $targetDir, $currentUser['photo_profile']);
-                    if ($savedName) {
-                        $photoName = $savedName;
-                        $_SESSION['photo'] = $savedName;
-                    } else {
-                        echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan foto. Cek izin folder profile.']);
-                        exit;
+                    $dataImg = substr($dataImg, strpos($dataImg, ',') + 1);
+                    $decodedData = base64_decode($dataImg);
+                    if ($decodedData !== false) {
+                        if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+                        // [BARU] Konversi otomatis ke WebP (poin 1) - fallback ke
+                        // ekstensi asli kalau GD/WebP tidak tersedia.
+                        $baseFileName = time() . '_' . uniqid();
+                        $fileName = ImageHelper::convertDataToWebp($decodedData, $targetDir, $baseFileName);
+                        if (!$fileName) {
+                            $fileName = $baseFileName . '.' . $type;
+                            file_put_contents($targetDir . $fileName, $decodedData);
+                        }
+                        if (file_exists($targetDir . $fileName)) {
+                            $photoName = $fileName;
+                            $_SESSION['photo'] = $fileName;
+                            if ($currentUser['photo_profile'] && $currentUser['photo_profile'] != DEFAULT_PROFILE_PHOTO && file_exists($targetDir . $currentUser['photo_profile'])) {
+                                unlink($targetDir . $currentUser['photo_profile']);
+                            }
+                        }
                     }
                 }
             } elseif (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 $fileExt = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
                 if (!in_array($fileExt, $allowedExtensions)) {
-                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
+                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
                     exit;
                 }
                 // [Item 4] Validasi MIME type dari isi file (bukan hanya ekstensi)
@@ -289,13 +303,22 @@ class UserController extends Controller {
                     echo json_encode(['status' => 'error', 'title' => 'File Tidak Valid', 'message' => 'File gambar tidak valid. Pastikan file adalah gambar asli.']);
                     exit;
                 }
-                $savedName = ImageHelper::saveProfilePhotoAsWebp($_FILES['photo'], $targetDir, $currentUser['photo_profile']);
-                if ($savedName) {
-                    $photoName = $savedName;
-                    $_SESSION['photo'] = $savedName;
-                } else {
-                    echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan foto. Cek izin folder profile.']);
-                    exit;
+                if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+                // [BARU] Konversi otomatis ke WebP (poin 1) - fallback ke
+                // ekstensi asli kalau GD/WebP tidak tersedia.
+                $baseFileName = time() . '_' . uniqid();
+                $newFileName = ImageHelper::convertUploadToWebp($_FILES["photo"]["tmp_name"], $targetDir, $baseFileName);
+                if (!$newFileName) {
+                    $newFileName = $baseFileName . '.' . $fileExt;
+                    move_uploaded_file($_FILES["photo"]["tmp_name"], $targetDir . $newFileName);
+                }
+
+                if (file_exists($targetDir . $newFileName)) {
+                    $photoName = $newFileName;
+                    $_SESSION['photo'] = $newFileName;
+                    if ($currentUser['photo_profile'] && $currentUser['photo_profile'] != DEFAULT_PROFILE_PHOTO && file_exists($targetDir . $currentUser['photo_profile'])) {
+                        unlink($targetDir . $currentUser['photo_profile']);
+                    }
                 }
             }
 
@@ -785,18 +808,38 @@ class UserController extends Controller {
                  echo json_encode(['status' => 'error', 'message' => 'Format gambar tidak valid.']); exit;
             }
             $image_base64 = base64_decode($image_parts[1]);
-            $fileName = $_SESSION['user_id'] . '_' . time() . '.png';
-            file_put_contents($folderPath . $fileName, $image_base64);
+
+            // [BARU] Lokasi presensi asli (hasil reverse-geocode di scan.js) -
+            // sebelumnya field ini dikirim client tapi TIDAK PERNAH dibaca di
+            // sini sama sekali (dead field): tidak pernah tersimpan ke
+            // database maupun ke foto. Sekarang dipakai untuk bingkai foto
+            // (poin 3) & disimpan terstruktur ke presensi.lokasi_masuk/pulang.
+            $address = trim($_POST['address'] ?? '');
+            $timeLabel = date('H:i') . ' WITA';
+
+            // [BARU] Konversi otomatis ke WebP (poin 1) + bingkai putih berisi
+            // lokasi & jam (poin 3) - ini jalur upload foto presensi paling
+            // sering dipakai (setiap check-in/check-out semua asisten).
+            // Fallback ke .png polos apa adanya kalau GD/WebP tidak tersedia.
+            $baseFileName = $_SESSION['user_id'] . '_' . time();
+            $fileName = ImageHelper::convertDataToWebp($image_base64, $folderPath, $baseFileName, 82, [
+                'location' => $address,
+                'time'     => $timeLabel,
+            ]);
+            if (!$fileName) {
+                $fileName = $baseFileName . '.png';
+                file_put_contents($folderPath . $fileName, $image_base64);
+            }
 
             $attModel = $this->model('AttendanceModel');
             $userId = $_SESSION['user_id'];
             $result = false;
 
             if ($typeInput == 'check_in') {
-                $result = $attModel->clockIn($userId, $fileName);
+                $result = $attModel->clockIn($userId, $fileName, $address);
                 $msg = $result ? 'Berhasil Check-In!' : 'Gagal Check-In / Anda sudah absen hari ini.';
             } else {
-                $result = $attModel->clockOut($userId, $fileName);
+                $result = $attModel->clockOut($userId, $fileName, $address);
                 $msg = $result ? 'Berhasil Check-Out!' : 'Gagal Check-Out / Belum saatnya pulang.';
             }
 
@@ -849,9 +892,16 @@ class UserController extends Controller {
                 $fileExt = strtolower(pathinfo($_FILES["attachment"]["name"], PATHINFO_EXTENSION));
 
                 if (in_array($fileExt, $allowedTypes)) {
-                    $fileName = "leave_" . $_SESSION['user_id'] . '_' . time() . '.' . $fileExt;
-                    if (!move_uploaded_file($_FILES["attachment"]["tmp_name"], $targetDir . $fileName)) {
-                        echo json_encode(['status' => 'error', 'message' => 'Gagal mengunggah file bukti.']); exit;
+                    // [BARU] Kalau berkas buktinya berupa gambar, konversi
+                    // otomatis ke WebP (poin 1) - PDF/DOC/DOCX tetap disimpan
+                    // apa adanya seperti sebelumnya.
+                    $baseFileName = "leave_" . $_SESSION['user_id'] . '_' . time();
+                    $fileName = ImageHelper::convertUploadToWebp($_FILES["attachment"]["tmp_name"], $targetDir, $baseFileName);
+                    if (!$fileName) {
+                        $fileName = $baseFileName . '.' . $fileExt;
+                        if (!move_uploaded_file($_FILES["attachment"]["tmp_name"], $targetDir . $fileName)) {
+                            echo json_encode(['status' => 'error', 'message' => 'Gagal mengunggah file bukti.']); exit;
+                        }
                     }
                 } else {
                     echo json_encode(['status' => 'error', 'message' => 'Format file tidak didukung.']); exit;

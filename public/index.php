@@ -59,8 +59,13 @@ $_csp_directives = [
         . "https://ui-avatars.com "
         . "https://lh3.googleusercontent.com",
 
-    // Fetch/XHR: self (AJAX ke index.php) + Google APIs (kalender)
-    "connect-src 'self' https://www.googleapis.com",
+    // Fetch/XHR: self (AJAX ke index.php) + Google APIs (kalender) +
+    // Nominatim (reverse-geocode koordinat GPS -> alamat presensi, dipakai
+    // scan.js). Sebelumnya nominatim.openstreetmap.org tidak ada di sini,
+    // jadi permintaan reverse-geocode SELALU diblokir CSP browser (gagal
+    // diam-diam, fallback ke koordinat mentah) - lihat juga perbaikan
+    // Permissions-Policy geolocation di bawah untuk masalah terkait (poin 2).
+    "connect-src 'self' https://www.googleapis.com https://nominatim.openstreetmap.org",
 
     // Keamanan kuat yang tidak butuh unsafe-inline:
     "frame-ancestors 'none'",   // anti-clickjacking (lebih kuat dari X-Frame-Options)
@@ -70,7 +75,17 @@ $_csp_directives = [
 ];
 header('Content-Security-Policy: ' . implode('; ', $_csp_directives));
 unset($_csp_directives);
-header('Permissions-Policy: geolocation=(), payment=()');
+// [PERBAIKAN - poin 2] Sebelumnya "geolocation=()" MEMATIKAN TOTAL Geolocation
+// API di seluruh situs untuk SEMUA origin termasuk situs sendiri - browser
+// langsung menolak setiap panggilan getCurrentPosition() dengan error
+// "disabled by permissions policy" TANPA PERNAH menampilkan prompt izin ke
+// pengguna sama sekali. Ini akar masalah sebenarnya kenapa modal "izin
+// ditolak" pada halaman Scan QR (user/scan.php) selalu muncul lebih dulu
+// ketimbang prompt asli dari browser - bukan soal urutan kode, tapi karena
+// browser memang dilarang total oleh header ini. "geolocation=(self)"
+// mengizinkan fitur lokasi untuk halaman situs sendiri (dibutuhkan fitur
+// presensi), tapi tetap memblokirnya untuk iframe pihak ketiga manapun.
+header('Permissions-Policy: geolocation=(self), payment=()');
 // Aktifkan HSTS setelah pindah ke HTTPS di produksi:
 // header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
 
@@ -87,6 +102,59 @@ ini_set('session.use_strict_mode', '1');   // Tolak session ID arbitrary
 if (!session_id()) session_start();
 date_default_timezone_set('Asia/Makassar');
 
+// ====================================================================
+// 4. AUTO-MIGRATION SCHEMA — kolom baru yang dibutuhkan sejak v7
+//    Dijalankan setiap request HANYA jika belum ada (idempoten & cepat).
+//    Menggunakan koneksi PDO langsung agar tidak perlu instantiate model.
+//    Wrapped try-catch: gagal silently jika DB belum terhubung.
+// ====================================================================
+try {
+    $__pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+        DB_USER, DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT]
+    );
+
+    // profile.attendance_reset_at
+    if ($__pdo->query("SELECT attendance_reset_at FROM profile LIMIT 0") === false) {
+        $__pdo->exec("ALTER TABLE `profile` ADD COLUMN `attendance_reset_at` DATETIME NULL DEFAULT NULL");
+    }
+
+    // qr_code.used_by_user_id — untuk fitur single-use QR (token hangus setelah dipakai)
+    // Dibutuhkan oleh QrModel::getTokenData() dan QrModel::markTokenUsed()
+    if ($__pdo->query("SELECT used_by_user_id FROM qr_code LIMIT 0") === false) {
+        $__pdo->exec(
+            "ALTER TABLE `qr_code`
+             ADD COLUMN `used_by_user_id` INT NULL DEFAULT NULL,
+             ADD COLUMN `used_at`         DATETIME NULL DEFAULT NULL"
+        );
+    }
+
+    // profile.created_at — dibutuhkan LogbookModel::getUnifiedLogbook() untuk
+    // menentukan awal riwayat logbook seorang asisten.
+    // [PENTING] ALTER TABLE ... DEFAULT CURRENT_TIMESTAMP mengisi baris LAMA dengan
+    // waktu SAAT MIGRASI dijalankan, bukan tanggal bergabung asli — ini akan
+    // menyembunyikan seluruh riwayat logbook asisten yang sudah ada. Backfill
+    // dari `user`.`created_at` (tanggal akun dibuat, sudah akurat) agar riwayat lama tetap tampil.
+    if ($__pdo->query("SELECT created_at FROM profile LIMIT 0") === false) {
+        $__pdo->exec("ALTER TABLE `profile` ADD COLUMN `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP");
+        $__pdo->exec(
+            "UPDATE `profile` p
+             JOIN `user` u ON u.id_user = p.id_user
+             SET p.created_at = u.created_at"
+        );
+    }
+
+    // user.status_account — dibutuhkan modal detail Kepala Lab & manajemen user
+    if ($__pdo->query("SELECT status_account FROM user LIMIT 0") === false) {
+        $__pdo->exec("ALTER TABLE `user` ADD COLUMN `status_account` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'");
+    }
+
+    $__pdo = null;
+} catch (\Throwable $__e) {
+    // DB belum bisa diakses atau kolom sudah ada — abaikan
+    $__pdo = null;
+}
 
 // ====================================================================
 // 2. Shortcut khusus untuk logbook/delete
@@ -121,7 +189,7 @@ require_once '../app/core/Controller.php';
 require_once '../app/core/JwtHandler.php';
 require_once '../app/core/ApiResponse.php';
 require_once '../app/core/HashHelper.php'; // [BARU] Obfuskasi ID di URL
-require_once '../app/core/ImageHelper.php'; // Konversi & optimalisasi WebP foto profil
+require_once '../app/core/ImageHelper.php'; // [BARU] Konversi otomatis upload gambar ke WebP
 
 // ====================================================================
 // 4. Load Kelas-kelas REST API (dikonsumsi aplikasi mobile)

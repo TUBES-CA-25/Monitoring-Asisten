@@ -88,45 +88,17 @@ manual** — cukup jalankan satu perintah dari root project:
 php migrate.php --status    # lihat migrasi mana yang masih tertunda (aman, tidak mengubah apa pun)
 php migrate.php --dry-run   # sama seperti --status, daftar migrasi yang AKAN dijalankan
 php migrate.php             # terapkan semua migrasi yang tertunda
-php migrate.php --seed      # terapkan semua migrasi lalu jalankan seeder database
 ```
-
-### 🌿 Pengisian Data Awal (Database Seeder)
-
-Untuk mengisi record data ke database saat deployment atau development:
-
-```bash
-php seed.php             # Impor data awal (otomatis memakai iclabs_db.sql jika ada)
-php seed.php --status    # Periksa ringkasan jumlah data di database saat ini
-php seed.php --fresh     # Bersihkan seluruh tabel, impor ulang dump, dan sinkronkan migrasi
-php seed.php --default   # Hanya buat master data & akun default (clean/tanpa data asisten)
-```
-
-**Panduan Skenario Deployment:**
-1. **Deployment dengan Data Riil Asisten & Jadwal (Rekomendasi untuk Private Repo):**
-   - Pastikan konfigurasi `.env` sudah sesuai dengan database server.
-   - Cukup jalankan:
-     ```bash
-     php seed.php
-     ```
-     Skrip akan otomatis mengimpor seluruh 29 akun user/asisten asli, profil, master dosen, jadwal, dan logbook dari `iclabs_db.sql`, lalu otomatis menjalankan `php migrate.php` agar seluruh skema dan kolom terbaru sinkron 100%.
-2. **Deployment Bersih / Fresh Install (Tanpa Data Riil):**
-   - Jika ingin database bersih hanya dengan akun admin & master laboratorium:
-     ```bash
-     php seed.php --default
-     ```
-     Atau langsung jalankan `php migrate.php`.
 
 **Cara kerja singkat:**
 - Membaca kredensial database yang sama dengan aplikasi (dari `.env` / `app/config/config.php`) — tidak perlu input ulang.
-- **Dukungan Instalasi Baru (Fresh Install):** Jika database belum dibuat di MySQL atau masih kosong, skrip akan otomatis membuat database dan menginisialisasi skema basis lengkap dengan master lab dan akun default.
 - Menjalankan setiap `migrations/*.sql` yang **belum** diterapkan (dilacak di tabel `schema_migrations`), berurutan sesuai nama file.
 - Aman dijalankan berulang kali — file yang sudah diterapkan otomatis dilewati, dan setiap file migrasi sendiri idempotent (mengecek `information_schema` sebelum mengubah struktur).
 - Seluruh migrasi bersifat **additive only** (tabel/kolom/nilai enum baru, tidak pernah menghapus/mengganti tipe kolom lama), sehingga endpoint REST API di `app/api/*.php` yang dipakai aplikasi mobile tetap kompatibel dengan versi mobile app yang lebih lama setelah migrasi dijalankan.
 
 **Sebelum menjalankan di server production yang belum pernah menerapkan
 migrasi ini: backup database terlebih dahulu.** Skrip akan berhenti dan
-memberikan pesan error jelas jika ada migrasi yang gagal di tengah jalan,
+melakukan rollback otomatis jika ada migrasi yang gagal di tengah jalan,
 tanpa menandainya sebagai selesai — cukup perbaiki masalahnya lalu jalankan
 `php migrate.php` lagi.
 

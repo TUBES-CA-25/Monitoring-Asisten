@@ -135,7 +135,7 @@
                         <?php if(!empty($sch['description'])): ?>
                             <div class="flex items-center gap-2 text-xs text-gray-400">
                                 <i class="fas fa-info-circle w-4 text-center"></i>
-                                <span class="italic"><?= htmlspecialchars($sch['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="italic"><?= $sch['description'] ?></span>
                             </div>
                         <?php endif; ?>
                     </div>

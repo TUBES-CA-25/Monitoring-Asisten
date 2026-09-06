@@ -36,7 +36,123 @@ let html5QrCode = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             readConfig();
-            initGeolocation();
+            requestLocationGate();
+        });
+
+        // [DIUBAH] Sebelumnya izin lokasi ("initGeolocation") dipanggil di
+        // LATAR BELAKANG tanpa menghalangi apa pun - QR scanner tetap tampil
+        // & bisa langsung dipakai walau lokasi ditolak/gagal, dan modal
+        // "Izin Ditolak" hanya kosmetik (tidak ada tombol/aksi yang
+        // sungguh-sungguh memblokir presensi). Ini juga yang membuat modal
+        // penolakan terkesan muncul "sebelum" browser sempat menampilkan
+        // prompt izin - permintaan lokasi & tampilan kamera berjalan
+        // bersamaan tanpa urutan yang jelas.
+        //
+        // Sekarang alur dibuat BERURUTAN & MENGIKAT (gate): kamera QR/deep-
+        // link BARU ditampilkan setelah browser benar-benar memberi hasil
+        // izin lokasi (granted). Kalau ditolak/gagal/tidak didukung, tampil
+        // modal blokir dengan SATU aksi (redirect ke dashboard) - tidak ada
+        // cara melanjutkan presensi tanpa lokasi. Karena halaman ini full
+        // reload setiap kunjungan (bukan SPA), gerbang ini otomatis terulang
+        // tiap kali user asisten membuka menu Scan QR sampai izin diberikan.
+        function requestLocationGate() {
+            const gpsText = document.getElementById('gps-text');
+            const gpsDot = document.getElementById('gps-dot');
+            gpsText.innerText = 'Meminta Izin Lokasi...';
+
+            // [BARU] Geolocation API dibatasi browser hanya untuk secure
+            // context (HTTPS, atau localhost saat development) - di HTTP
+            // biasa browser akan MENOLAK TANPA PERNAH menampilkan prompt
+            // sama sekali, persis seperti gejala "modal ditolak muncul
+            // duluan" yang dilaporkan. Beri pesan yang jelas untuk kasus ini
+            // alih-alih pesan "izin ditolak" yang menyesatkan.
+            if (!window.isSecureContext) {
+                blockAttendance(
+                    'Koneksi Tidak Aman',
+                    'Fitur lokasi untuk presensi hanya bisa berjalan lewat koneksi HTTPS. Hubungi Administrator Lab untuk mengaktifkan HTTPS pada server.'
+                );
+                return;
+            }
+
+            if (!navigator.geolocation) {
+                blockAttendance(
+                    'Perangkat Tidak Mendukung',
+                    'Browser/perangkat Anda tidak mendukung layanan lokasi, sehingga presensi tidak dapat dilakukan.'
+                );
+                return;
+            }
+
+            // [BARU] Jaring pengaman: sejumlah kombinasi browser/perangkat
+            // (terutama WebView Android lama) diketahui kadang tidak pernah
+            // memanggil callback sukses MAUPUN error sama sekali kalau
+            // permintaan izin "menggantung" (mis. dialog OS di luar browser
+            // yang tidak pernah direspons). Tanpa jaring pengaman ini,
+            // gerbang lokasi bisa macet selamanya di layar "Meminta Izin
+            // Lokasi" tanpa ada jalan keluar apa pun bagi pengguna. Timeout
+            // browser sendiri (option "timeout" di bawah) SEHARUSNYA cukup,
+            // tapi tidak semua browser mematuhinya dengan benar - fallback
+            // manual ini memastikan pengguna tetap dapat pesan+redirect yang
+            // jelas paling lambat 25 detik.
+            let settled = false;
+            const safetyTimer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                blockAttendance(
+                    'Akses Lokasi Diperlukan',
+                    'Permintaan izin lokasi tidak kunjung direspons oleh browser/perangkat Anda. Presensi tidak dapat dilakukan tanpa akses lokasi.'
+                );
+            }, 25000);
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(safetyTimer);
+
+                    const { latitude: lat, longitude: lng } = pos.coords;
+                    document.getElementById('geo-lat').value = lat;
+                    document.getElementById('geo-lng').value = lng;
+
+                    gpsText.innerText = 'Mendapatkan Alamat...';
+                    gpsDot.className = 'w-2 h-2 rounded-full bg-yellow-400 animate-pulse';
+
+                    resolveAddress(lat, lng); // reverse-geocode di latar belakang (tidak menghalangi)
+                    proceedAfterLocationGranted();
+                },
+                (err) => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(safetyTimer);
+
+                    console.error('GPS Error:', err);
+                    let message = 'Presensi tidak dapat dilakukan tanpa izin akses lokasi.';
+                    if (err.code === err.PERMISSION_DENIED) {
+                        message = 'Anda menolak permintaan izin akses lokasi. Presensi tidak dapat dilakukan tanpa mengizinkan akses lokasi perangkat Anda.';
+                    } else if (err.code === err.POSITION_UNAVAILABLE) {
+                        message = 'Lokasi Anda tidak dapat dideteksi. Pastikan GPS/Layanan Lokasi perangkat aktif, lalu coba lagi.';
+                    } else if (err.code === err.TIMEOUT) {
+                        message = 'Permintaan lokasi memakan waktu terlalu lama. Pastikan GPS aktif dan sinyal memadai, lalu coba lagi.';
+                    }
+                    blockAttendance('Akses Lokasi Diperlukan', message);
+                },
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+            );
+        }
+
+        // Modal blokir - satu-satunya aksi adalah kembali ke dashboard, tidak
+        // ada cara melanjutkan ke kamera/QR tanpa mengulang gerbang lokasi.
+        function blockAttendance(title, message) {
+            document.getElementById('gps-text').innerText = 'Izin Lokasi Diperlukan';
+            document.getElementById('gps-dot').className = 'w-2 h-2 rounded-full bg-red-500';
+            showModal('error', title, message + ' Anda akan diarahkan ke halaman beranda.', () => {
+                window.location.href = config.dashboardUrl;
+            });
+        }
+
+        // Dipanggil hanya setelah izin lokasi benar-benar granted - baru di
+        // sini kamera QR (atau alur deep-link) ditampilkan/dimulai.
+        function proceedAfterLocationGranted() {
+            document.getElementById('location-gate')?.classList.add('hidden');
 
             // [BARU] Deep-link dari Google Lens / QR scanner eksternal:
             // URL mengandung ?t={token}&a={in|out}. Jika ada, skip tampilan
@@ -65,91 +181,55 @@ let html5QrCode = null;
                 // Alur normal: tampilkan kamera untuk scan QR
                 initQRWidget();
             }
-        });
+        }
 
-        // 1. GEOLOCATION DENGAN REVERSE GEOCODING (ALAMAT ASLI)
-        function initGeolocation() {
+        // GEOLOCATION: REVERSE GEOCODING (ALAMAT ASLI) - berjalan di latar
+        // belakang setelah koordinat didapat, TIDAK menghalangi tampilnya
+        // kamera QR (proceedAfterLocationGranted sudah dipanggil duluan).
+        async function resolveAddress(lat, lng) {
             const gpsText = document.getElementById('gps-text');
             const gpsDot = document.getElementById('gps-dot');
+            try {
+                // Panggil OpenStreetMap Nominatim (Gratis & Valid)
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+                const response = await fetch(url, { headers: { 'Accept-Language': 'id' } });
+                const data = await response.json();
 
-            if (navigator.geolocation) {
-                // Konfigurasi Akurasi Tinggi
-                const options = {
-                    enableHighAccuracy: true,
-                    timeout: 20000, 
-                    maximumAge: 0 
-                };
+                if (data && data.address) {
+                    // Susun Alamat yang Rapi
+                    let addr = data.address;
+                    let parts = [];
 
-                navigator.geolocation.getCurrentPosition(
-                    async (pos) => {
-                        const { latitude: lat, longitude: lng } = pos.coords;
-                        
-                        // Simpan Koordinat
-                        document.getElementById('geo-lat').value = lat;
-                        document.getElementById('geo-lng').value = lng;
-                        
-                        // Update UI Sementara
-                        gpsText.innerText = "Mendapatkan Alamat...";
-                        gpsDot.className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
+                    // Prioritas komponen alamat
+                    if(addr.road) parts.push(addr.road);
+                    else if(addr.building) parts.push(addr.building);
 
-                        try {
-                            // Panggil OpenStreetMap Nominatim (Gratis & Valid)
-                            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-                            
-                            // Tambahkan header user-agent agar tidak diblokir
-                            const response = await fetch(url, {
-                                headers: { 'Accept-Language': 'id' }
-                            });
-                            const data = await response.json();
-                            
-                            if (data && data.address) {
-                                // Susun Alamat yang Rapi
-                                let addr = data.address;
-                                let parts = [];
-                                
-                                // Prioritas komponen alamat
-                                if(addr.road) parts.push(addr.road);
-                                else if(addr.building) parts.push(addr.building);
-                                
-                                if(addr.village) parts.push(addr.village);
-                                else if(addr.suburb) parts.push(addr.suburb);
-                                
-                                if(addr.city) parts.push(addr.city);
-                                else if(addr.town) parts.push(addr.town);
-                                else if(addr.county) parts.push(addr.county);
+                    if(addr.village) parts.push(addr.village);
+                    else if(addr.suburb) parts.push(addr.suburb);
 
-                                const fullAddress = parts.join(', ');
-                                const shortAddress = parts.length > 0 ? parts[0] + (parts[1] ? ', ' + parts[1] : '') : 'Lokasi Terdeteksi';
+                    if(addr.city) parts.push(addr.city);
+                    else if(addr.town) parts.push(addr.town);
+                    else if(addr.county) parts.push(addr.county);
 
-                                // Update Hidden Field (Untuk Watermark & Database)
-                                document.getElementById('geo-address').value = fullAddress;
-                                
-                                // Update UI Navbar (Tampilkan Kecamatan/Kota)
-                                gpsText.innerText = shortAddress.substring(0, 25) + (shortAddress.length > 25 ? '...' : '');
-                                gpsDot.className = "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]";
-                            } else {
-                                throw new Error("Alamat tidak ditemukan");
-                            }
-                        } catch (e) {
-                            console.warn("Geo Error:", e);
-                            // Fallback ke koordinat jika internet lambat/gagal fetch
-                            const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-                            document.getElementById('geo-address').value = fallback;
-                            gpsText.innerText = "Lokasi: Koordinat";
-                            gpsDot.className = "w-2 h-2 rounded-full bg-green-500";
-                        }
-                    },
-                    (err) => {
-                        console.error("GPS Error:", err);
-                        gpsText.innerText = "GPS Nonaktif/Error";
-                        gpsDot.className = "w-2 h-2 rounded-full bg-red-500";
-                        // Coba minta user nyalakan GPS via Alert
-                        if(err.code === 1) showModal('error', 'Izin Ditolak', 'Mohon izinkan akses lokasi browser Anda.');
-                    }, 
-                    options
-                );
-            } else {
-                gpsText.innerText = "Browser Tidak Support";
+                    const fullAddress = parts.join(', ');
+                    const shortAddress = parts.length > 0 ? parts[0] + (parts[1] ? ', ' + parts[1] : '') : 'Lokasi Terdeteksi';
+
+                    // Update Hidden Field (Untuk frame foto & database)
+                    document.getElementById('geo-address').value = fullAddress;
+
+                    // Update UI Navbar (Tampilkan Kecamatan/Kota)
+                    gpsText.innerText = shortAddress.substring(0, 25) + (shortAddress.length > 25 ? '...' : '');
+                    gpsDot.className = "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]";
+                } else {
+                    throw new Error("Alamat tidak ditemukan");
+                }
+            } catch (e) {
+                console.warn("Geo Error:", e);
+                // Fallback ke koordinat jika internet lambat/gagal fetch
+                const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                document.getElementById('geo-address').value = fallback;
+                gpsText.innerText = "Lokasi: Koordinat";
+                gpsDot.className = "w-2 h-2 rounded-full bg-green-500";
             }
         }
 
@@ -384,8 +464,16 @@ let html5QrCode = null;
             // Sebelumnya drawImage menulis sumber persegi ke area 1000×800,
             // menyebabkan distorsi vertikal. Sekarang sumber (crop persegi dari
             // video) dan tujuan (1000×1000) sama-sama persegi → tidak ada
-            // stretching. Footer ditulis sebagai overlay semi-transparan di
-            // bagian bawah foto (bukan area terpisah).
+            // stretching.
+            //
+            // [DIUBAH] Frame putih + teks lokasi/jam SEBELUMNYA digambar di
+            // sini (canvas, sisi klien) sebagai overlay gradient gelap - kini
+            // dipindah sepenuhnya ke server (lihat ImageHelper::drawFrame() &
+            // UserController::submit_attendance()) supaya konsisten dengan
+            // foto yang diinput admin lewat Logbook (yang tidak lewat kamera
+            // sama sekali) dan tidak bergantung pada rendering canvas di
+            // browser tiap perangkat. Di sini foto dikirim POLOS (hasil crop
+            // persegi saja), server yang menambahkan bingkai+teksnya.
             const SIZE = 1000;
             canvasEl.width  = SIZE;
             canvasEl.height = SIZE;
@@ -402,37 +490,6 @@ let html5QrCode = null;
             const sy   = (vH - crop) / 2;
             ctx.drawImage(videoEl, sx, sy, crop, crop, 0, 0, SIZE, SIZE);
             ctx.restore();
-
-            // -- Footer overlay (gradient gelap di bagian bawah) --
-            const FOOTER_H = 180;
-            const grad = ctx.createLinearGradient(0, SIZE - FOOTER_H, 0, SIZE);
-            grad.addColorStop(0, 'rgba(0,0,0,0)');
-            grad.addColorStop(0.4, 'rgba(0,0,0,0.65)');
-            grad.addColorStop(1,   'rgba(0,0,0,0.82)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, SIZE - FOOTER_H, SIZE, FOOTER_H);
-
-            // -- Teks nama --
-            const name = config.userName || 'User';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 38px sans-serif';
-            ctx.fillText(name, SIZE / 2, SIZE - FOOTER_H + 52);
-
-            // -- Alamat --
-            const address = document.getElementById('geo-address').value || 'Lokasi GPS Tidak Terdeteksi';
-            let displayAddr = address.length > 52 ? address.substring(0, 52) + '…' : address;
-            ctx.fillStyle = 'rgba(255,255,255,0.80)';
-            ctx.font = 'italic 22px sans-serif';
-            ctx.fillText('📍 ' + displayAddr, SIZE / 2, SIZE - FOOTER_H + 94);
-
-            // -- Waktu --
-            const now     = new Date();
-            const dateStr = now.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-            const timeStr = now.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' }).replace(/\./g, ':');
-            ctx.fillStyle = '#93c5fd'; // blue-300
-            ctx.font = 'bold 26px monospace';
-            ctx.fillText(timeStr + ' WITA  •  ' + dateStr, SIZE / 2, SIZE - FOOTER_H + 138);
 
             const dataUrl = canvasEl.toDataURL('image/jpeg', 0.9);
             resultImg.src = dataUrl; resultImg.classList.remove('hidden');

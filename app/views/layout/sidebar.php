@@ -103,6 +103,11 @@
                 <?php renderMenuItem(BASE_URL . "/$role/monitorAttendance", 'fa-history', 'Rekap Presensi', 'monitorAttendance', $current_uri); ?>
                 <?php renderMenuItem(BASE_URL . "/$role/recycleBin", 'fa-trash-restore-alt', 'Restore Data', 'recycleBin', $current_uri); ?>
             </div>
+
+            <div class="mb-6">
+                <p class="px-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 ml-1 sidebar-header">System Check</p>
+                <?php renderMenuItem(BASE_URL . "/$role/uploadHealthCheck", 'fa-stethoscope', 'Cek Sistem', 'uploadHealthCheck', $current_uri); ?>
+            </div>
         <?php endif; ?>
 
         <?php if(in_array($_SESSION['role'] ?? '', ['Kepala Lab', 'Super Admin'])): ?>

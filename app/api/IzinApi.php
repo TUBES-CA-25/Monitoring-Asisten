@@ -129,13 +129,19 @@ class IzinApi {
             }
 
             $fileExtension = pathinfo($_FILES['file_bukti']['name'], PATHINFO_EXTENSION);
-            $fileName = strtolower($data['tipe']) . '_' . $profilId . '_' . time() . '.' . $fileExtension;
-            $targetPath = $uploadDir . $fileName;
+            $baseName = strtolower($data['tipe']) . '_' . $profilId . '_' . time();
 
             $allowTypes = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
             if (in_array(strtolower($fileExtension), $allowTypes)) {
-                if (!move_uploaded_file($_FILES['file_bukti']['tmp_name'], $targetPath)) {
-                    ApiResponse::error('Gagal upload file bukti', 500);
+                // [BARU] Kalau berkas buktinya berupa gambar, konversi otomatis
+                // ke WebP (poin 1) - PDF/DOC/DOCX tidak bisa dikonversi jadi
+                // gambar, tetap disimpan apa adanya seperti sebelumnya.
+                $fileName = ImageHelper::convertUploadToWebp($_FILES['file_bukti']['tmp_name'], $uploadDir, $baseName);
+                if (!$fileName) {
+                    $fileName = $baseName . '.' . $fileExtension;
+                    if (!move_uploaded_file($_FILES['file_bukti']['tmp_name'], $uploadDir . $fileName)) {
+                        ApiResponse::error('Gagal upload file bukti', 500);
+                    }
                 }
                 $filePath = $fileName;
             } else {

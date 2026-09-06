@@ -35,21 +35,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Style global (font, scrollbar, sidebar preload, tooltip, dll) -->
-    <link href="<?= ASSET_URL ?>/css/global.css" rel="stylesheet">
+    <link href="<?= iclabs_versioned_url(ASSET_URL . '/css/global.css') ?>" rel="stylesheet">
 
     <!-- Script global (deteksi status sidebar sebelum render, toggle sidebar).
          Dimuat di <head> (bukan footer) agar class 'preload-minimized' bisa
          diterapkan ke <html> SEBELUM sidebar dirender, mencegah flash/kedipan. -->
-    <script src="<?= ASSET_URL ?>/js/global.js"></script>
+    <script src="<?= iclabs_versioned_url(ASSET_URL . '/js/global.js') ?>"></script>
 
     <?php if (!empty($page_css)): ?>
         <?php foreach ($page_css as $cssFile): ?>
-            <link href="<?= $cssFile ?>" rel="stylesheet">
+            <link href="<?= iclabs_versioned_url($cssFile) ?>" rel="stylesheet">
         <?php endforeach; ?>
     <?php endif; ?>
 
     <?php if (!empty($css)): ?>
-        <link href="<?= ASSET_URL ?>/css/<?= $css ?>" rel="stylesheet">
+        <link href="<?= iclabs_versioned_url(ASSET_URL . '/css/' . $css) ?>" rel="stylesheet">
     <?php endif; ?>
 </head>
 <body class="bg-gray-50 text-gray-800 antialiased">

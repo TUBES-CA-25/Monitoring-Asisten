@@ -7,15 +7,7 @@ class CsvExporter {
   $out=fopen('php://output','w');
   fwrite($out,"\xEF\xBB\xBF");
   fputcsv($out,$header,';');
-  foreach($rows as $r){
-   $sanitized = array_map(function($val) {
-    if (is_string($val) && strlen($val) > 0 && in_array($val[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-     return "'" . $val;
-    }
-    return $val;
-   }, (array)$r);
-   fputcsv($out,$sanitized,';');
-  }
+  foreach($rows as $r){fputcsv($out,$r,';');}
   fclose($out); exit;
  }
 }

@@ -18,7 +18,12 @@ class AttendanceModel
         return $result['id_profil'] ?? false;
     }
 
-    public function clockIn($userId, $img)
+    // [BARU] Parameter $address opsional (default null demi kompatibilitas
+    // mundur - dipanggil dari beberapa tempat termasuk API mobile yang
+    // mungkin belum mengirimnya) - disimpan ke presensi.lokasi_masuk supaya
+    // lokasi presensi asli (bukan hanya lokasi default admin) ikut tercatat
+    // terstruktur di database, sejalan dengan foto bukti presensi.
+    public function clockIn($userId, $img, $address = null)
     {
         $pId = $this->getProfilId($userId);
         if (!$pId) return false;
@@ -29,7 +34,7 @@ class AttendanceModel
         $this->db->query("SELECT id_presensi FROM presensi WHERE id_profil = :pid AND tanggal = :date");
         $this->db->bind(':pid', $pId);
         $this->db->bind(':date', $date);
-        
+
         if($this->db->single()) return false;
 
         // [BARU] Hitung status (Hadir/Terlambat) & menit terlambat secara
@@ -38,26 +43,19 @@ class AttendanceModel
         $autoService = new AttendanceAutoService();
         $eval = $autoService->evaluateCheckIn($pId, $date, $time);
 
-        $query = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, foto_presensi, status, late_minutes)
-                  VALUES (:pid, :date, :time, :img, :status, :late)";
+        $query = "INSERT INTO presensi (id_profil, tanggal, waktu_presensi, foto_presensi, lokasi_masuk, status, late_minutes)
+                  VALUES (:pid, :date, :time, :img, :lokasi, :status, :late)";
 
         $this->db->query($query);
         $this->db->bind(':pid', $pId);
         $this->db->bind(':date', $date);
         $this->db->bind(':time', $time);
         $this->db->bind(':img', $img);
+        $this->db->bind(':lokasi', $address ?: null);
         $this->db->bind(':status', $eval['attendance_status']);
         $this->db->bind(':late', $eval['late_minutes']);
 
-        try {
-            if (!$this->db->execute()) return false;
-        } catch (\PDOException $e) {
-            if ($e->getCode() == 23000) {
-                // Race condition: sudah di-insert oleh request paralel
-                return false;
-            }
-            throw $e;
-        }
+        if (!$this->db->execute()) return false;
 
         // Info tambahan (additive) untuk diteruskan ke response JSON.
         return [
@@ -66,7 +64,9 @@ class AttendanceModel
         ];
     }
 
-    public function clockOut($userId, $img)
+    // [BARU] Parameter $address opsional - disimpan ke presensi.lokasi_pulang
+    // (lihat catatan yang sama di clockIn()).
+    public function clockOut($userId, $img, $address = null)
     {
         $pId = $this->getProfilId($userId);
         if (!$pId) return false;
@@ -74,19 +74,19 @@ class AttendanceModel
         $date = date('Y-m-d');
         $time = date('H:i:s');
 
-        $checkQuery = "SELECT id_presensi, waktu_pulang, waktu_presensi FROM presensi 
+        $checkQuery = "SELECT id_presensi, waktu_pulang, waktu_presensi FROM presensi
                     WHERE id_profil = :pid AND tanggal = :date";
-        
+
         $this->db->query($checkQuery);
         $this->db->bind(':pid', $pId);
         $this->db->bind(':date', $date);
-        
+
         $data = $this->db->single();
 
         if (!$data) return false;
 
         if ($data['waktu_pulang'] != null) {
-            return false; 
+            return false;
         }
 
         // [BARU] Hitung durasi kerja (menit) & flag "pulang lebih awal"
@@ -95,16 +95,17 @@ class AttendanceModel
         $workDuration = $autoService->calculateWorkDuration($date, $data['waktu_presensi'], $time);
         $isEarly = $autoService->isEarlyCheckout($time);
 
-        $updateQuery = "UPDATE presensi 
-                        SET waktu_pulang = :time, foto_pulang = :img, work_duration = :duration
+        $updateQuery = "UPDATE presensi
+                        SET waktu_pulang = :time, foto_pulang = :img, lokasi_pulang = :lokasi, work_duration = :duration
                         WHERE id_presensi = :id";
 
         $this->db->query($updateQuery);
         $this->db->bind(':id', $data['id_presensi']);
         $this->db->bind(':time', $time);
         $this->db->bind(':img', $img);
+        $this->db->bind(':lokasi', $address ?: null);
         $this->db->bind(':duration', $workDuration);
-        
+
         if($this->db->execute() && $this->db->rowCount() > 0) {
             // Info tambahan (additive) untuk diteruskan ke response JSON.
             return [

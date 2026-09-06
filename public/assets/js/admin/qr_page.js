@@ -3,8 +3,11 @@
  *
  * Satu QR ditampilkan sekaligus (Masuk atau Pulang).
  * Toggle switch berganti tampilan dan QR secara animatif.
- * Tidak ada countdown — QR auto-refresh di background setiap ~175 detik
- * (< 3 menit server) TANPA menampilkan hitungan mundur ke pengguna.
+ * Tidak ada countdown — QR dicek ulang di background setiap ~5 detik
+ * (lihat 'interval' di AdminController::qrPage()) TANPA menampilkan hitungan
+ * mundur ke pengguna. QR yang ditampilkan HANYA benar-benar digambar ulang
+ * kalau tokennya berubah (baru/sudah dipakai/kedaluwarsa) - lihat guard di
+ * fetchAndUpdate() - jadi polling sesering ini tidak membuat QR "berkedip".
  */
 (function () {
     'use strict';
@@ -225,6 +228,13 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.status === 'success' && data.qr_data) {
+                    // [PERBAIKAN] Hanya render ulang (memicu animasi fade-in)
+                    // kalau token BENAR-BENAR berubah - polling sekarang jauh
+                    // lebih sering (lihat TICK) supaya QR yang sudah discan
+                    // segera diganti otomatis tanpa menunggu ~3 menit, tapi
+                    // kalau belum berubah redraw terus-menerus cuma flicker
+                    // tanpa manfaat.
+                    if (data.qr_data === window._qrData[mode]) return;
                     window._qrData[mode] = data.qr_data;
                     // Jika mode ini yang sedang ditampilkan, update QR di layar
                     if (currentMode === mode) renderQR(data.qr_data);

@@ -11,10 +11,21 @@ class QrModel {
     public function getOrGenerateToken($type) {
         $dbType = ($type == 'check_in') ? 'Presensi' : 'Pulang';
 
-        $sql = "SELECT * FROM qr_code 
-                WHERE tipe = :t 
-                  AND valid_until > DATE_ADD(NOW(), INTERVAL 30 SECOND) 
-                  AND used_by_user_id IS NULL
+        // [PERBAIKAN] Query sebelumnya tidak mengecek used_by_user_id sama
+        // sekali - begitu satu user scan (token ditandai "used" oleh
+        // markTokenUsed()), pemanggilan berikutnya ke method ini (baik lewat
+        // polling berkala maupun buka modal QR) TETAP mengembalikan token
+        // lama yang sudah terpakai itu, karena secara waktu (valid_until)
+        // token itu masih dianggap "valid". Akibatnya QR yang tampil di
+        // layar admin tidak pernah berganti otomatis walau sudah dipakai,
+        // memblokir user lain untuk scan sampai timer refresh 3 menit habis.
+        // Menambahkan "AND used_by_user_id IS NULL" membuat token yang
+        // sudah dipakai langsung dianggap tidak valid lagi di sini, sehingga
+        // panggilan berikutnya otomatis membuat token baru (lihat blok INSERT
+        // di bawah).
+        $sql = "SELECT * FROM qr_code
+                WHERE tipe = :t AND valid_until > DATE_ADD(NOW(), INTERVAL 30 SECOND)
+                AND used_by_user_id IS NULL
                 ORDER BY id_qr DESC LIMIT 1";
         
         $this->db->query($sql);

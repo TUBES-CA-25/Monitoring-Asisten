@@ -83,25 +83,31 @@ class UserApi {
 
         $photoName = null;
 
-        // 2. Logika Upload Foto menggunakan UPLOAD_PATH & konversi otomatis ke WebP
+        // 2. Logika Upload Foto menggunakan UPLOAD_PATH (cross-platform, aman dari perubahan CWD)
         if (isset($_FILES['photo_profile']) && $_FILES['photo_profile']['error'] === 0) {
             $targetDir = UPLOAD_PATH . 'profile/';
-            $fileExtension = strtolower(pathinfo($_FILES['photo_profile']['name'], PATHINFO_EXTENSION));
-            $allowTypes = ['jpg', 'png', 'jpeg', 'webp'];
+            
+            if (!file_exists($targetDir)) {
+                mkdir($targetDir, 0777, true);
+            }
 
-            if (in_array($fileExtension, $allowTypes)) {
-                $stmtOld = $this->db->prepare("SELECT photo_profile FROM profile WHERE id_profil = :pid");
-                $stmtOld->execute([':pid' => $profilId]);
-                $oldPhoto = $stmtOld->fetchColumn();
+            $fileExtension = pathinfo($_FILES['photo_profile']['name'], PATHINFO_EXTENSION);
+            // Nama file unik berdasarkan profile ID dan timestamp
+            $baseName = "profile_" . $profilId . "_" . time();
 
-                $savedName = ImageHelper::saveProfilePhotoAsWebp($_FILES['photo_profile'], $targetDir, $oldPhoto ?: null);
-                if ($savedName) {
-                    $photoName = $savedName;
-                } else {
-                    ApiResponse::error('Gagal mengonversi dan mengupload file ke server', 500);
+            $allowTypes = ['jpg', 'png', 'jpeg'];
+            if (in_array(strtolower($fileExtension), $allowTypes)) {
+                // [BARU] Konversi otomatis ke WebP (poin 1) - fallback ke
+                // ekstensi asli kalau GD/WebP tidak tersedia.
+                $photoName = ImageHelper::convertUploadToWebp($_FILES['photo_profile']['tmp_name'], $targetDir, $baseName);
+                if (!$photoName) {
+                    $photoName = $baseName . '.' . $fileExtension;
+                    if (!move_uploaded_file($_FILES['photo_profile']['tmp_name'], $targetDir . $photoName)) {
+                        ApiResponse::error('Gagal mengupload file ke server', 500);
+                    }
                 }
             } else {
-                ApiResponse::error('Format file tidak didukung (harus JPG, JPEG, PNG, atau WEBP)', 400);
+                ApiResponse::error('Format file tidak didukung', 400);
             }
         }
 

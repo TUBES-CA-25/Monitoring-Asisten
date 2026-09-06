@@ -164,9 +164,10 @@ class UserModel {
         try {
             $this->conn->beginTransaction();
 
-            $query = "UPDATE profile SET 
-                      nama = :nama, 
-                      nim = :nim, 
+            $query = "UPDATE profile SET
+                      nama = :nama,
+                      nim = :nim,
+                      nidn_nip = :nidn_nip,
                       kelas = :kelas,
                       angkatan = :angkatan,
                       prodi = :prodi,
@@ -184,6 +185,10 @@ class UserModel {
             $params = [
                 ':nama' => $data['name'],
                 ':nim' => !empty($data['nim']) ? $data['nim'] : NULL,
+                // [BARU] Sebelumnya kolom ini tidak ada di query sama sekali -
+                // NIDN/NIP yang diisi Admin/Kepala Lab di form Edit Profil
+                // selalu hilang tanpa jejak walau server merespons "berhasil".
+                ':nidn_nip' => !empty($data['nidn_nip']) ? $data['nidn_nip'] : NULL,
                 ':kelas' => !empty($data['class']) ? $data['class'] : NULL,
                 ':angkatan' => !empty($data['angkatan']) ? $data['angkatan'] : NULL,
                 ':prodi' => !empty($data['prodi']) ? $data['prodi'] : NULL,
@@ -374,69 +379,73 @@ class UserModel {
             case 'rajin':
                 // [PERBAIKAN] Hadir+Terlambat = hadir (Modul 1 V3) — lihat juga
                 // catatan di AttendanceModel::getUserStats().
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(pr.id_presensi) as score 
-                        FROM profile p 
-                        JOIN presensi pr ON p.id_profil = pr.id_profil 
-                        WHERE pr.status IN ('Hadir', 'Terlambat') 
-                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 5";
+                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(pr.id_presensi) as score
+                        FROM profile p
+                        JOIN presensi pr ON p.id_profil = pr.id_profil
+                        WHERE pr.status IN ('Hadir', 'Terlambat')
+                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 10";
                 break;
             case 'jarang':
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(pr.id_presensi) as score 
-                        FROM profile p 
-                        JOIN user u ON p.id_user = u.id_user 
+                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(pr.id_presensi) as score
+                        FROM profile p
+                        JOIN user u ON p.id_user = u.id_user
                         LEFT JOIN presensi pr ON p.id_profil = pr.id_profil AND pr.status IN ('Hadir', 'Terlambat')
                         WHERE u.role = 'User'
-                        GROUP BY p.id_profil ORDER BY score ASC LIMIT 5";
+                        GROUP BY p.id_profil ORDER BY score ASC LIMIT 10";
                 break;
             case 'cepat':
                 // [PERBAIKAN] "Rata-rata jam masuk" harus mencakup check-in
                 // 'Terlambat' juga, bukan hanya yang tepat waktu — kalau tidak,
                 // rata-rata akan bias ke jam lebih pagi (Modul 1 V3).
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, SEC_TO_TIME(AVG(TIME_TO_SEC(pr.waktu_presensi))) as score 
-                        FROM profile p 
-                        JOIN presensi pr ON p.id_profil = pr.id_profil 
+                // [PERBAIKAN] AVG() menghasilkan DECIMAL (bisa pecahan detik),
+                // sehingga SEC_TO_TIME() sebelumnya menampilkan sisa desimal
+                // (mis. "08:15:30.500000") - dibungkus ROUND() dulu supaya
+                // hasilnya selalu HH:MM:SS bulat tanpa digit di belakang koma.
+                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, SEC_TO_TIME(ROUND(AVG(TIME_TO_SEC(pr.waktu_presensi)))) as score
+                        FROM profile p
+                        JOIN presensi pr ON p.id_profil = pr.id_profil
                         WHERE pr.status IN ('Hadir', 'Terlambat')
-                        GROUP BY p.id_profil ORDER BY score ASC LIMIT 5";
+                        GROUP BY p.id_profil ORDER BY score ASC LIMIT 10";
                 break;
             case 'terlambat':
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, SEC_TO_TIME(AVG(TIME_TO_SEC(pr.waktu_presensi))) as score 
-                        FROM profile p 
-                        JOIN presensi pr ON p.id_profil = pr.id_profil 
+                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, SEC_TO_TIME(ROUND(AVG(TIME_TO_SEC(pr.waktu_presensi)))) as score
+                        FROM profile p
+                        JOIN presensi pr ON p.id_profil = pr.id_profil
                         WHERE pr.status IN ('Hadir', 'Terlambat')
-                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 5";
+                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 10";
                 break;
             case 'sering_izin':
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(i.id_izin) as score 
-                        FROM profile p 
-                        JOIN izin i ON p.id_profil = i.id_profil 
+                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(i.id_izin) as score
+                        FROM profile p
+                        JOIN izin i ON p.id_profil = i.id_profil
                         WHERE i.status_approval = 'Approved'
-                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 5";
+                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 10";
                 break;
             case 'logbook_lengkap':
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, FLOOR(AVG(LENGTH(l.detail_aktivitas) - LENGTH(REPLACE(l.detail_aktivitas, ' ', '')) + 1)) as score 
-                        FROM profile p 
+                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, FLOOR(AVG(LENGTH(l.detail_aktivitas) - LENGTH(REPLACE(l.detail_aktivitas, ' ', '')) + 1)) as score
+                        FROM profile p
                         JOIN logbook l ON p.id_profil = l.id_profil
-                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 5";
+                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 10";
                 break;
             case 'logbook_singkat':
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, FLOOR(AVG(LENGTH(l.detail_aktivitas) - LENGTH(REPLACE(l.detail_aktivitas, ' ', '')) + 1)) as score 
-                        FROM profile p 
+                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, FLOOR(AVG(LENGTH(l.detail_aktivitas) - LENGTH(REPLACE(l.detail_aktivitas, ' ', '')) + 1)) as score
+                        FROM profile p
                         JOIN logbook l ON p.id_profil = l.id_profil
-                        GROUP BY p.id_profil ORDER BY score ASC LIMIT 5";
+                        GROUP BY p.id_profil ORDER BY score ASC LIMIT 10";
                 break;
             case 'sibuk':
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(ja.id_jadwal_asisten) as score 
-                        FROM profile p 
+                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(ja.id_jadwal_asisten) as score
+                        FROM profile p
                         JOIN jadwal_asisten ja ON p.id_profil = ja.id_profil
-                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 5";
+                        GROUP BY p.id_profil ORDER BY score DESC LIMIT 10";
                 break;
             case 'santai':
-                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(ja.id_jadwal_asisten) as score 
-                        FROM profile p 
+                $sql = "SELECT p.nama, p.jabatan, p.photo_profile, COUNT(ja.id_jadwal_asisten) as score
+                        FROM profile p
                         JOIN user u ON p.id_user = u.id_user
                         LEFT JOIN jadwal_asisten ja ON p.id_profil = ja.id_profil
                         WHERE u.role = 'User'
-                        GROUP BY p.id_profil ORDER BY score ASC LIMIT 5";
+                        GROUP BY p.id_profil ORDER BY score ASC LIMIT 10";
                 break;
         }
 

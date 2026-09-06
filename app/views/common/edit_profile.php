@@ -39,10 +39,10 @@
                         <i class="fas fa-camera text-xs"></i>
                     </label>
                     
-                    <input type="file" name="photo" id="photoInput" class="hidden" accept="image/png, image/jpeg, image/jpg, image/webp">
+                    <input type="file" name="photo" id="photoInput" class="hidden" accept="image/png, image/jpeg, image/jpg">
                     <input type="hidden" name="cropped_image" id="croppedImage">
                 </div>
-                <p class="text-xs text-gray-400 mt-2">Format: JPG, PNG, WEBP (Max 2MB)</p>
+                <p class="text-xs text-gray-400 mt-2">Format: JPG, PNG (Max 2MB)</p>
             </div>
 
             <!-- [BARU - Edit Email/Password] Sama seperti form Tambah/Edit
@@ -85,11 +85,12 @@
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">NIM <span class="text-red-500">*</span></label>
                     <input type="text" name="nim" value="<?= htmlspecialchars($user['nim'] ?? '', ENT_QUOTES, 'UTF-8') ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
                 </div>
-                <?php endif; ?>
+                <?php else: ?>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">NIDN/NIP <span class="text-red-500">*</span></label>
-                    <input type="text" name="nidn_nip" value="<?= $user['nidn_nip'] ?? '' ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
+                    <input type="text" name="nidn_nip" value="<?= htmlspecialchars($user['nidn_nip'] ?? '', ENT_QUOTES, 'UTF-8') ?>" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition font-mono">
                 </div>
+                <?php endif; ?>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Jabatan <span class="text-red-500">*</span></label>
                     <select name="position" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition cursor-pointer">

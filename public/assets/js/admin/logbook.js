@@ -158,34 +158,15 @@
         container.innerHTML = html;
     }
 
-    function escapeHtml(str) {
-        if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
-    let currentRenderedLogs = [];
-
-    window.openEditModalByIndex = function(index) {
-        if (currentRenderedLogs && currentRenderedLogs[index]) {
-            openEditModal(currentRenderedLogs[index], 'edit');
-        }
-    };
-
     function renderTable(logs) {
         const tbody = document.getElementById('logsTableBody');
         tbody.innerHTML = '';
-        currentRenderedLogs = logs || [];
-        if(!logs || logs.length === 0) {
+        if(logs.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400 italic text-sm">Belum ada data logbook untuk rentang ini.</td></tr>`;
             return;
         }
 
-        logs.forEach((log, index) => {
+        logs.forEach(log => {
             const dateStr = new Date(log.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
 
             let badgeClass = 'bg-gray-100 text-gray-600';
@@ -198,14 +179,14 @@
             let proofBtn = '<span class="text-gray-300 text-[10px]">-</span>';
             if(log.proof_in) {
                 const folder = (log.status == 'Hadir') ? 'attendance' : 'leaves';
-                proofBtn = `<button onclick="viewEvidence('Bukti', '${window.APP_CONFIG.baseUrl}/uploads/${folder}/${encodeURIComponent(log.proof_in)}')" class="px-2 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded text-[10px] font-bold hover:bg-blue-100 transition"><i class="fas fa-image text-[10px] mr-1"></i>Lihat</button>`;
+                proofBtn = `<button onclick="viewEvidence('Bukti', '${window.APP_CONFIG.baseUrl}/uploads/${folder}/${log.proof_in}')" class="px-2 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded text-[10px] font-bold hover:bg-blue-100 transition"><i class="fas fa-image text-[10px] mr-1"></i>Lihat</button>`;
             }
 
             // Bukti Pulang (hanya untuk Hadir)
             let proofOutBtn = '<span class="text-gray-300 text-[10px]">-</span>';
             if(log.status == 'Hadir') {
                 if(log.proof_out) {
-                    proofOutBtn = `<button onclick="viewEvidence('Bukti Pulang', '${window.APP_CONFIG.baseUrl}/uploads/attendance/${encodeURIComponent(log.proof_out)}')" class="px-2 py-1 bg-orange-50 text-orange-600 border border-orange-200 rounded text-[10px] font-bold hover:bg-orange-100 transition"><i class="fas fa-image text-[10px] mr-1"></i>Lihat</button>`;
+                    proofOutBtn = `<button onclick="viewEvidence('Bukti Pulang', '${window.APP_CONFIG.baseUrl}/uploads/attendance/${log.proof_out}')" class="px-2 py-1 bg-orange-50 text-orange-600 border border-orange-200 rounded text-[10px] font-bold hover:bg-orange-100 transition"><i class="fas fa-image text-[10px] mr-1"></i>Lihat</button>`;
                 } else {
                     proofOutBtn = '<span class="text-red-400 text-[10px] italic">Belum</span>';
                 }
@@ -214,54 +195,51 @@
             // Bukti Izin (untuk Izin/Sakit)
             let proofIzinBtn = '<span class="text-gray-300 text-[10px]">-</span>';
             if(['Izin', 'Sakit'].includes(log.status) && log.proof_izin) {
-                proofIzinBtn = `<button onclick="viewEvidence('Bukti ${escapeHtml(log.status)}', '${window.APP_CONFIG.baseUrl}/uploads/leaves/${encodeURIComponent(log.proof_izin)}')" class="px-2 py-1 bg-orange-50 text-orange-600 border border-orange-200 rounded text-[10px] font-bold hover:bg-orange-100 transition"><i class="fas fa-file-pdf text-[10px] mr-1"></i>Lihat</button>`;
+                proofIzinBtn = `<button onclick="viewEvidence('Bukti ${log.status}', '${window.APP_CONFIG.baseUrl}/uploads/leaves/${log.proof_izin}')" class="px-2 py-1 bg-orange-50 text-orange-600 border border-orange-200 rounded text-[10px] font-bold hover:bg-orange-100 transition"><i class="fas fa-file-pdf text-[10px] mr-1"></i>Lihat</button>`;
             }
 
             // [BARU] Tanda terlambat/tepat waktu di samping jam masuk, dan
             // pulang lebih cepat (kuning) di samping jam pulang - late_minutes
             // & is_early_checkout disiapkan LogbookModel::getUnifiedLogbook().
             const inMark = (log.late_minutes > 0)
-                ? `<i class="fas fa-clock text-red-500 text-[9px] ml-1" title="Terlambat ${parseInt(log.late_minutes, 10)} menit"></i>`
+                ? `<i class="fas fa-clock text-red-500 text-[9px] ml-1" title="Terlambat ${log.late_minutes} menit"></i>`
                 : `<i class="fas fa-check-circle text-green-500 text-[9px] ml-1" title="Tepat Waktu"></i>`;
             const outMark = log.is_early_checkout
                 ? `<i class="fas fa-door-open text-yellow-500 text-[9px] ml-1" title="Pulang Lebih Cepat"></i>`
                 : '';
 
-            const safeTimeIn = escapeHtml(log.time_in && log.time_in !== '-' ? log.time_in : '');
-            const safeTimeOut = escapeHtml(log.time_out && log.time_out !== '-' ? log.time_out : '');
-
-            const timeDisplay = (safeTimeIn)
+            // [DIPERBAIKI] Sebelumnya syarat "log.status == 'Hadir'" membuat
+            // jam masuk/pulang TIDAK PERNAH tampil untuk status "Terlambat"
+            // (padahal keduanya sama-sama presensi asli dengan jam sungguhan
+            // - hanya "Hadir"/"Terlambat" yang membedakan tepat waktu atau
+            // tidak). Cukup cek time_in tersedia (cocok dengan cara
+            // LogbookModel/PHP view lain menentukan baris ini py data jam).
+            const timeDisplay = (log.time_in && log.time_in !== '-')
                 ? `<div class="text-center">
-                     <div class="text-blue-600 font-bold text-xs">${safeTimeIn}${inMark}</div>
-                     <div class="text-orange-600 font-bold text-[10px]">${safeTimeOut ? safeTimeOut : '—'}${safeTimeOut ? outMark : ''}</div>
+                     <div class="text-blue-600 font-bold text-xs">${log.time_in}${inMark}</div>
+                     <div class="text-orange-600 font-bold text-[10px]">${log.time_out && log.time_out !== '-' ? log.time_out : '—'}${(log.time_out && log.time_out !== '-') ? outMark : ''}</div>
                    </div>`
                 : '<span class="text-gray-400 text-xs">—</span>';
 
             const actionBtns = `
                 <div class="flex justify-center items-center gap-1">
-                    <button onclick="openEditModalByIndex(${index})" class="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit"><i class="fas fa-pen text-xs"></i></button>
-                    ${log.status != 'Alpha' ? `<button onclick="confirmReset('${escapeHtml(log.id_ref)}', '${escapeHtml(log.status)}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition" title="Hapus"><i class="fas fa-trash-alt text-xs"></i></button>` : ''}
+                    <button onclick='openEditModal(${JSON.stringify(log)}, "edit")' class="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit"><i class="fas fa-pen text-xs"></i></button>
+                    ${log.status != 'Alpha' ? `<button onclick="confirmReset('${log.id_ref}', '${log.status}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition" title="Hapus"><i class="fas fa-trash-alt text-xs"></i></button>` : ''}
                 </div>
             `;
-
-            const rawActivity = log.activity || '';
-            const safeActivity = escapeHtml(rawActivity);
-            const activityHtml = safeActivity
-                ? `<p class="text-xs text-gray-700 line-clamp-2" title="${safeActivity}">${safeActivity}</p>`
-                : '<span class="text-gray-400 italic">Tidak ada catatan</span>';
 
             const row = `
                 <tr class="border-l-4 ${borderColor.replace('border','border-l').split(' ')[0]} hover:bg-gray-50 transition">
                     <td class="px-4 py-3">
                         <div class="font-bold text-gray-800 text-xs">${dateStr}</div>
-                        <span class="inline-block text-[9px] uppercase font-bold px-2 py-0.5 rounded mt-1 ${badgeClass}">${escapeHtml(log.status)}</span>
+                        <span class="inline-block text-[9px] uppercase font-bold px-2 py-0.5 rounded mt-1 ${badgeClass}">${log.status}</span>
                     </td>
                     <td class="px-4 py-3 text-center">${timeDisplay}</td>
                     <td class="px-4 py-3 text-center">${proofBtn}</td>
                     <td class="px-4 py-3 text-center">${proofOutBtn}</td>
                     <td class="px-4 py-3 text-center">${proofIzinBtn}</td>
                     <td class="px-4 py-3">
-                        ${activityHtml}
+                        <p class="text-xs text-gray-700 line-clamp-2" title="${log.activity || 'Tidak ada catatan'}">${log.activity || '<span class="text-gray-400 italic">Tidak ada catatan</span>'}</p>
                     </td>
                     <td class="px-4 py-3 text-center">${actionBtns}</td>
                 </tr>

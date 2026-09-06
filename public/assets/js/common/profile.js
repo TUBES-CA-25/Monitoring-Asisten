@@ -289,6 +289,18 @@
     }, 3000);
   }
 
+  // [BARU] Skor waktu (mis. "08:15:30") kadang datang dengan sisa desimal
+  // detik dari SQL (mis. "08:15:30.500000") - dipotong di sini sebagai
+  // lapisan aman kedua (perbaikan utama ada di UserModel::getAssistantRankings,
+  // yang membulatkan AVG() sebelum SEC_TO_TIME) supaya tidak pernah tampil
+  // seperti hasil perhitungan matematika mentah ke pengguna.
+  function formatRankScore(score) {
+    if (typeof score === "string" && /^\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(score)) {
+      return score.split(".")[0];
+    }
+    return score;
+  }
+
   function renderRanking() {
     const filter = document.getElementById("rankingFilter");
     const container = document.getElementById("rankingList");
@@ -341,7 +353,7 @@
             </div>
           </div>
           <div class="text-right">
-            <span class="block font-extrabold text-indigo-600 text-sm">${item.score}</span>
+            <span class="block font-extrabold text-indigo-600 text-sm">${formatRankScore(item.score)}</span>
             <span class="text-[9px] text-gray-400 uppercase font-bold tracking-wider">${scoreLabel}</span>
           </div>
         </div>`;

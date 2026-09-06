@@ -19,6 +19,10 @@
 
     var qrInterval = null;
     var currentMode = 'check_in';
+    // [BARU] Data QR terakhir yang benar-benar dirender per mode - dipakai
+    // untuk menghindari render ulang (clear+makeCode, memicu flicker) saat
+    // polling tidak menemukan perubahan token apa pun.
+    var lastQrData = { check_in: null, check_out: null };
 
     var roleSegment = window.location.href.includes('kepalalab') ? 'kepalalab' : 'admin';
     var qrFetchUrl = `${window.APP_CONFIG.baseUrl}/${roleSegment}/getQrAjax`;
@@ -53,6 +57,13 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success' && qrCodeObj) {
+                    // [PERBAIKAN] Sebelumnya selalu clear+makeCode meski token
+                    // belum berubah - sekarang aman dipanggil sesering apapun
+                    // (lihat interval polling di setQRMode) karena hanya benar-
+                    // benar menggambar ulang saat qr_data berbeda dari yang
+                    // sedang tampil.
+                    if (data.qr_data === lastQrData[type]) return;
+                    lastQrData[type] = data.qr_data;
                     qrCodeObj.clear();
                     qrCodeObj.makeCode(data.qr_data);
                 }
@@ -74,17 +85,24 @@
             toggle.style.transform = "translateX(0)";
             
             fetchAndRenderQR('check_in');
-            // Refresh QR Masuk setiap 3 menit
-            qrInterval = setInterval(() => { fetchAndRenderQR('check_in'); }, 180000);
+            // [PERBAIKAN] Sebelumnya 180000ms (3 menit) - token yang sudah
+            // dipakai user (single-use) baru terganti di layar setelah
+            // menunggu penuh 3 menit, memblokir user lain untuk scan
+            // sampai saat itu. Sekarang poll tiap 5 detik; berkat perbaikan
+            // QrModel::getOrGenerateToken() (skip token yang sudah dipakai)
+            // + guard di fetchAndRenderQR (skip render kalau tidak berubah),
+            // polling sesering ini aman - QR di layar tetap stabil selama
+            // belum dipakai/kedaluwarsa, dan langsung berganti begitu dipakai.
+            qrInterval = setInterval(() => { fetchAndRenderQR('check_in'); }, 5000);
         } else {
             currentMode = 'check_out';
             title.innerText = "SCAN UNTUK PULANG";
             container.className = "bg-red-600 p-6 text-center transition-colors duration-300";
             toggle.style.transform = "translateX(100%)";
-            
+
             fetchAndRenderQR('check_out');
-            // Refresh QR Pulang setiap 3 menit
-            qrInterval = setInterval(() => { fetchAndRenderQR('check_out'); }, 180000);
+            // Refresh QR Pulang - lihat catatan di atas (mode check_in)
+            qrInterval = setInterval(() => { fetchAndRenderQR('check_out'); }, 5000);
         }
     }
 

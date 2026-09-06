@@ -42,11 +42,23 @@
                     </div>
                 <?php else: ?>
                     <?php foreach($assistants as $ast): ?>
-                    <div onclick="loadLogs(<?= $ast['id'] ?>, '<?= htmlspecialchars($ast['name'], ENT_QUOTES) ?>', '<?= $ast['photo_profile'] ?? '' ?>', this)" 
-                         class="assistant-card p-3 rounded-xl cursor-pointer flex items-center justify-between group hover:bg-blue-50 hover:border-blue-200 transition border border-transparent" 
+                    <?php
+                        // [PERBAIKAN] Sebelumnya hanya cek !empty(photo_profile) -
+                        // kalau nilainya ADA tapi file fisiknya sudah tidak ada
+                        // (hilang/dipindah), <img> menampilkan ikon rusak alih-alih
+                        // fallback. Disamakan dengan pola carousel asisten dashboard
+                        // admin (admin/dashboard.php) yang sudah benar: cek
+                        // file_exists() juga, baru fallback ke avatar inisial nama.
+                        $astPhotoPath = 'uploads/profile/' . ($ast['photo_profile'] ?? '');
+                        $astPhotoUrl = (!empty($ast['photo_profile']) && file_exists($astPhotoPath))
+                            ? BASE_URL . '/uploads/profile/' . $ast['photo_profile']
+                            : 'https://ui-avatars.com/api/?name=' . urlencode($ast['name']) . '&background=random';
+                    ?>
+                    <div onclick="loadLogs(<?= $ast['id'] ?>, '<?= htmlspecialchars($ast['name'], ENT_QUOTES) ?>', '<?= $ast['photo_profile'] ?? '' ?>', this)"
+                         class="assistant-card p-3 rounded-xl cursor-pointer flex items-center justify-between group hover:bg-blue-50 hover:border-blue-200 transition border border-transparent"
                          data-name="<?= htmlspecialchars(strtolower($ast['name']), ENT_QUOTES, 'UTF-8') ?>">
                         <div class="flex items-center gap-3 flex-1 min-w-0">
-                            <img src="<?= !empty($ast['photo_profile']) ? BASE_URL.'/uploads/profile/'.$ast['photo_profile'] : 'https://ui-avatars.com/api/?name='.urlencode($ast['name']).'&background=random' ?>" 
+                            <img src="<?= $astPhotoUrl ?>"
                                  class="w-9 h-9 rounded-full object-cover border border-gray-200 shadow-sm flex-shrink-0">
                             <div class="min-w-0">
                                 <h4 class="font-bold text-gray-800 text-sm leading-tight truncate"><?= htmlspecialchars($ast['name'], ENT_QUOTES, 'UTF-8') ?></h4>

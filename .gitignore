@@ -37,17 +37,7 @@ vendor/
 *.bak
 *.old
 
-# =========================
-# DATABASE DUMPS (DEPL-01)
-# =========================
-*.sql
-!database/**/*.sql
-!database/*.sql
-!migrations/*.sql
-!iclabs_db.sql
-
 # Runtime directories
 storage/logs/
 public/uploads/*
 !public/uploads/.htaccess
-

@@ -16,13 +16,7 @@ class ExportService
         fputcsv($output, $headers, ';');
 
         foreach ($rows as $row) {
-            $sanitizedRow = array_map(function($val) {
-                if (is_string($val) && strlen($val) > 0 && in_array($val[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-                    return "'" . $val;
-                }
-                return $val;
-            }, (array)$row);
-            fputcsv($output, $sanitizedRow, ';');
+            fputcsv($output, $row, ';');
         }
 
         fclose($output);

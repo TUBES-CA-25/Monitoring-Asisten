@@ -494,7 +494,7 @@ class KepalaLabController extends Controller {
         foreach ($data as $row) {
             $dm = (int)($row['total_durasi_menit']??0);
             $dStr = $dm>0?floor($dm/60).'j '.($dm%60).'m':'-';
-            $csvRow = [
+            fputcsv($output, [
                 $no++,
                 $row['name']     ?? '-',
                 $row['nim']      ?? '-',
@@ -505,14 +505,7 @@ class KepalaLabController extends Controller {
                 $row['total_tepat_waktu'] ?? 0,
                 $row['total_terlambat']   ?? 0,
                 $dStr,
-            ];
-            $sanitizedRow = array_map(function($val) {
-                if (is_string($val) && strlen($val) > 0 && in_array($val[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-                    return "'" . $val;
-                }
-                return $val;
-            }, $csvRow);
-            fputcsv($output, $sanitizedRow, ';', '"', '');
+            ], ';', '"', '');
         }
         fclose($output); exit;
     }
@@ -632,7 +625,7 @@ class KepalaLabController extends Controller {
                 $timeStr = date('H:i', strtotime($row['start_time'])) . ' - ' . date('H:i', strtotime($row['end_time'])) . ' WITA';
             }
             
-            $csvRow = [
+            fputcsv($output, [
                 $no++,
                 $typeFmt,
                 $row['user_name'] ?? 'Laboratorium',
@@ -642,14 +635,7 @@ class KepalaLabController extends Controller {
                 $dayName,
                 $timeStr,
                 $row['location'] ?? 'Lab'
-            ];
-            $sanitizedRow = array_map(function($val) {
-                if (is_string($val) && strlen($val) > 0 && in_array($val[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-                    return "'" . $val;
-                }
-                return $val;
-            }, $csvRow);
-            fputcsv($output, $sanitizedRow, ';', '"', '');
+            ], ';', '"', '');
         }
         fclose($output);
         exit;
@@ -960,29 +946,43 @@ class KepalaLabController extends Controller {
 
             $photoName = $currentUser['photo_profile'];
             $targetDir = UPLOAD_PATH . 'profile/';
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+            // [BARU - Audit Validasi Foto] hanya terima JPG/JPEG/PNG, selaras
+            // dengan accept="image/png, image/jpeg, image/jpg" pada input file.
+            $allowedExtensions = ['jpg', 'jpeg', 'png'];
 
             if (!empty($_POST['cropped_image'])) {
                 $dataImg = $_POST['cropped_image'];
                 if (preg_match('/^data:image\/(\w+);base64,/', $dataImg, $type)) {
                     $type = strtolower($type[1]); 
                     if (!in_array($type, $allowedExtensions)) {
-                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
+                        echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
                         exit;
                     }
-                    $savedName = ImageHelper::saveProfilePhotoAsWebp($dataImg, $targetDir, $currentUser['photo_profile']);
-                    if ($savedName) {
-                        $photoName = $savedName;
-                        $_SESSION['photo'] = $savedName;
-                    } else {
-                        echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan foto. Cek izin folder profile.']);
-                        exit;
+                    $dataImg = substr($dataImg, strpos($dataImg, ',') + 1);
+                    $decodedData = base64_decode($dataImg);
+                    if ($decodedData !== false) {
+                        if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+                        // [BARU] Konversi otomatis ke WebP (poin 1) - fallback ke
+                        // ekstensi asli kalau GD/WebP tidak tersedia.
+                        $baseFileName = time() . '_' . uniqid();
+                        $fileName = ImageHelper::convertDataToWebp($decodedData, $targetDir, $baseFileName);
+                        if (!$fileName) {
+                            $fileName = $baseFileName . '.' . $type;
+                            file_put_contents($targetDir . $fileName, $decodedData);
+                        }
+                        if (file_exists($targetDir . $fileName)) {
+                            $photoName = $fileName;
+                            $_SESSION['photo'] = $fileName;
+                            if ($currentUser['photo_profile'] && $currentUser['photo_profile'] != DEFAULT_PROFILE_PHOTO && file_exists($targetDir . $currentUser['photo_profile'])) {
+                                unlink($targetDir . $currentUser['photo_profile']);
+                            }
+                        }
                     }
                 }
             } elseif (isset($_FILES['photo']['name']) && $_FILES['photo']['name'] != "") {
                 $fileExt = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
                 if (!in_array($fileExt, $allowedExtensions)) {
-                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, PNG, atau WEBP.']);
+                    echo json_encode(['status' => 'error', 'title' => 'Format Tidak Didukung', 'message' => 'Foto harus berformat JPG, JPEG, atau PNG.']);
                     exit;
                 }
                 // [Item 4] Validasi MIME type dari isi file
@@ -990,13 +990,21 @@ class KepalaLabController extends Controller {
                     echo json_encode(['status' => 'error', 'title' => 'File Tidak Valid', 'message' => 'File gambar tidak valid. Pastikan file adalah gambar asli.']);
                     exit;
                 }
-                $savedName = ImageHelper::saveProfilePhotoAsWebp($_FILES['photo'], $targetDir, $currentUser['photo_profile']);
-                if ($savedName) {
-                    $photoName = $savedName;
-                    $_SESSION['photo'] = $savedName;
-                } else {
-                    echo json_encode(['status' => 'error', 'title' => 'Gagal Simpan', 'message' => 'Gagal mengonversi dan menyimpan foto. Cek izin folder profile.']);
-                    exit;
+                if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
+                // [BARU] Konversi otomatis ke WebP (poin 1) - fallback ke
+                // ekstensi asli kalau GD/WebP tidak tersedia.
+                $baseFileName = time() . '_' . uniqid();
+                $fileName = ImageHelper::convertUploadToWebp($_FILES["photo"]["tmp_name"], $targetDir, $baseFileName);
+                if (!$fileName) {
+                    $fileName = $baseFileName . '.' . $fileExt;
+                    move_uploaded_file($_FILES["photo"]["tmp_name"], $targetDir . $fileName);
+                }
+                if (file_exists($targetDir . $fileName)) {
+                    $photoName = $fileName;
+                    $_SESSION['photo'] = $fileName;
+                    if ($currentUser['photo_profile'] && $currentUser['photo_profile'] != DEFAULT_PROFILE_PHOTO && file_exists($targetDir . $currentUser['photo_profile'])) {
+                        unlink($targetDir . $currentUser['photo_profile']);
+                    }
                 }
             }
 
@@ -1031,6 +1039,10 @@ class KepalaLabController extends Controller {
                 'email'    => $newEmail,
                 'password' => $newPassword,
                 'nim'      => $_POST['nim'] ?? null,
+                // [PERBAIKAN] Field 'nidn_nip' sebelumnya tidak pernah dibaca di
+                // sini sama sekali - data yang diketik Kepala Lab selalu hilang
+                // meski tersimpan "berhasil" (lihat juga UserModel::updateSelfProfile).
+                'nidn_nip' => $_POST['nidn_nip'] ?? null,
                 'position' => $_POST['position'] ?? 'Kepala Lab',
                 'prodi'    => null,
                 'phone'    => $_POST['phone'],

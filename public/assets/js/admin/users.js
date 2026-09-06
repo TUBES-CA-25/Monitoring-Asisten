@@ -259,7 +259,9 @@
       // beserta nama filenya, supaya admin tidak mengira kolom foto kosong
       // dan tidak sengaja "menghapus" foto yang sudah ter-upload.
       if (croppedInput) croppedInput.value = "";
-      const hasPhoto = data.photo_profile && data.photo_profile !== "default.jpg";
+      // [PERBAIKAN] File placeholder fisiknya sekarang "default.webp"
+      // (sebelumnya "default.jpg", sudah tidak ada lagi filenya).
+      const hasPhoto = data.photo_profile && data.photo_profile !== "default.jpg" && data.photo_profile !== "default.webp";
       if (hasPhoto) {
         if (previewImg) previewImg.src = window.APP_CONFIG.BASE_URL + "/uploads/profile/" + data.photo_profile;
         if (currentPhotoName) currentPhotoName.innerText = data.photo_profile;
@@ -444,10 +446,7 @@
       if (!cropper) return;
 
       const canvas = cropper.getCroppedCanvas({ width: 500, height: 500 });
-      let base64Image = canvas.toDataURL("image/webp", 0.85);
-      if (!base64Image.startsWith("data:image/webp")) {
-        base64Image = canvas.toDataURL("image/jpeg", 0.85);
-      }
+      const base64Image = canvas.toDataURL("image/jpeg");
 
       previewImg.src = base64Image;
       croppedInput.value = base64Image;

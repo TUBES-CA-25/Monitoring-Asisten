@@ -16,7 +16,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <link rel="stylesheet" href="<?= ASSET_URL ?>/css/user/scan.css">
+    <link rel="stylesheet" href="<?= iclabs_versioned_url(ASSET_URL . '/css/user/scan.css') ?>">
 
 </head>
 <body class="bg-black h-screen w-full flex flex-col font-sans overflow-hidden text-white">
@@ -58,6 +58,16 @@
                     <button onclick="retryCamera()" class="bg-blue-600 px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-500 transition flex items-center gap-2">
                         <i class="fas fa-rotate-right"></i> Coba Lagi
                     </button>
+                </div>
+
+                <!-- [BARU] Gerbang izin lokasi - kamera QR baru ditampilkan
+                     SETELAH izin lokasi benar-benar diberikan (lihat
+                     requestLocationGate() di scan.js). Menutupi #qr-reader
+                     sampai gerbang ini selesai/lolos. -->
+                <div id="location-gate" class="absolute inset-0 z-30 bg-gray-900/95 flex flex-col items-center justify-center text-center p-6">
+                    <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p class="text-white font-bold mb-1">Meminta Izin Lokasi</p>
+                    <p class="text-white/60 text-xs">Presensi memerlukan akses lokasi perangkat Anda. Mohon izinkan permintaan yang muncul dari browser.</p>
                 </div>
             </div>
             <p class="text-white/60 text-sm mt-6 text-center animate-pulse bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">
@@ -165,7 +175,7 @@
         </div>
     </div>
 
-    <script src="<?= ASSET_URL ?>/js/common/galaxy_background.js"></script>
-    <script src="<?= ASSET_URL ?>/js/user/scan.js"></script>
+    <script src="<?= iclabs_versioned_url(ASSET_URL . '/js/common/galaxy_background.js') ?>"></script>
+    <script src="<?= iclabs_versioned_url(ASSET_URL . '/js/user/scan.js') ?>"></script>
 </body>
 </html>

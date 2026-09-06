@@ -306,14 +306,14 @@
                                         <label for="photoInput" class="absolute -bottom-1 -right-1 bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-700 transition border-2 border-white shadow-sm" title="Pilih &amp; Potong Foto">
                                             <i class="fas fa-camera text-[10px]"></i>
                                         </label>
-                                        <input type="file" name="photo" id="photoInput" class="hidden" accept="image/png, image/jpeg, image/jpg, image/webp">
+                                        <input type="file" name="photo" id="photoInput" class="hidden" accept="image/png, image/jpeg, image/jpg">
                                         <input type="hidden" name="cropped_image" id="croppedImage">
                                     </div>
                                     <div class="text-xs">
                                         <p id="currentPhotoLabel" class="hidden text-gray-600 font-bold mb-0.5">
                                             <i class="fas fa-check-circle text-green-500 mr-1"></i>Foto sudah ada: <span id="currentPhotoName" class="font-mono font-normal text-gray-500"></span>
                                         </p>
-                                        <p class="text-gray-400">Klik ikon kamera untuk pilih &amp; potong foto baru.<br>Format: JPG, PNG, WEBP (Maks. 2MB).</p>
+                                        <p class="text-gray-400">Klik ikon kamera untuk pilih &amp; potong foto baru.<br>Format: JPG, PNG (Maks. 2MB).</p>
                                     </div>
                                 </div>
                             </div>

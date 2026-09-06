@@ -135,6 +135,17 @@ define('UPLOAD_URL', BASE_URL . '/uploads/');
 // berubah/tidak diketahui di kemudian hari.
 define('DEFAULT_ATTENDANCE_LOCATION', 'Fakultas Ilmu Komputer UMI, Jl. Inspeksi Kanal No.2, Panaikang, Kec. Panakkukang, Kota Makassar, Sulawesi Selatan 90231');
 
+// [BARU] Nama file foto profil placeholder (dipakai saat user/asisten belum
+// pernah upload foto sendiri) - disimpan sebagai KONSTANTA (bukan string
+// 'default.jpg' yang di-hardcode berulang di banyak file) supaya kalau
+// filenya perlu diganti lagi di masa depan, cukup diubah di SATU tempat ini.
+// Riwayat: nama file fisiknya sempat diganti dari "default.jpg" menjadi
+// "default.webp" secara manual, tapi banyak tempat di kode (dan nilai
+// DEFAULT kolom profile.photo_profile di database) masih merujuk ke nama
+// lama "default.jpg" yang sudah tidak ada lagi filenya - lihat migrasi
+// terkait di migrations/ untuk penyesuaian data lama.
+define('DEFAULT_PROFILE_PHOTO', 'default.webp');
+
 // Pastikan folder upload yang dibutuhkan selalu tersedia
 foreach (['attendance', 'leaves', 'profile'] as $iclabs_upload_dir) {
     $iclabs_full_path = UPLOAD_PATH . $iclabs_upload_dir;
@@ -247,5 +258,43 @@ $inputArray = json_decode($inputJSON, true);
 if (!empty($inputArray) && is_array($inputArray)) {
     foreach ($inputArray as $key => $value) {
         $_POST[$key] = $value;
+    }
+}
+
+// ---------------------------------------------------------------
+// 11. CACHE-BUSTING UNTUK ASSET LOKAL (CSS/JS)
+// ---------------------------------------------------------------
+// [BARU] Sebelumnya TIDAK ADA mekanisme apa pun untuk memberi tahu browser
+// bahwa sebuah file CSS/JS sudah berubah - setiap <script src="..."> /
+// <link href="..."> adalah URL statis polos, sehingga browser bebas
+// menyimpannya di cache selama apa pun ia mau. Efeknya: setiap kali sebuah
+// bug di public/assets/js|css/*.php diperbaiki di kode, pengguna yang
+// browsernya SUDAH PERNAH memuat halaman itu sebelumnya bisa jadi TETAP
+// menjalankan file lama yang sudah basi tanpa hard-refresh manual (Ctrl+F5)
+// - persis gejala yang dilaporkan: kode sudah diperbaiki & sudah diverifikasi
+// bekerja di browser baru/bersih, tapi di browser yang sudah pernah membuka
+// halaman itu sebelumnya perilakunya masih seperti versi lama.
+//
+// iclabs_versioned_url() menambahkan query string "?v=<mtime file>" (waktu
+// modifikasi file SEBENARNYA di disk) ke URL asset MILIK SITUS SENDIRI saja
+// (URL CDN pihak ketiga dibiarkan apa adanya) - begitu isi file berubah,
+// mtime-nya ikut berubah, URL-nya pun otomatis berbeda, dan browser
+// dipaksa mengambil salinan baru tanpa developer perlu mengubah nama file
+// atau mengingat nomor versi secara manual.
+if (!function_exists('iclabs_versioned_url')) {
+    function iclabs_versioned_url(string $url): string {
+        if (strpos($url, BASE_URL) !== 0) {
+            return $url; // URL pihak ketiga (CDN) - jangan diutak-atik
+        }
+
+        $relative = substr($url, strlen(BASE_URL));
+        $queryPos = strpos($relative, '?');
+        $pathOnly = $queryPos !== false ? substr($relative, 0, $queryPos) : $relative;
+
+        $fullPath = ROOT_PATH . '/public' . $pathOnly;
+        $v = is_file($fullPath) ? filemtime($fullPath) : time();
+
+        $sep = (strpos($url, '?') !== false) ? '&' : '?';
+        return $url . $sep . 'v=' . $v;
     }
 }

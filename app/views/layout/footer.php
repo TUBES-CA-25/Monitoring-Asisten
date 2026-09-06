@@ -48,12 +48,12 @@
 
 <?php if (!empty($page_js)): ?>
     <?php foreach ($page_js as $jsFile): ?>
-        <script src="<?= $jsFile ?>"></script>
+        <script src="<?= iclabs_versioned_url($jsFile) ?>"></script>
     <?php endforeach; ?>
 <?php endif; ?>
 
 <?php if (!empty($js)): ?>
-    <script src="<?= ASSET_URL ?>/js/<?= $js ?>"></script>
+    <script src="<?= iclabs_versioned_url(ASSET_URL . '/js/' . $js) ?>"></script>
 <?php endif; ?>
 
 <?php if (!empty($_SESSION['role']) && $_SESSION['role'] === 'Admin'): ?>

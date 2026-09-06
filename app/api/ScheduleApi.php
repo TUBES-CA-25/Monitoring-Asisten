@@ -273,39 +273,23 @@ class ScheduleApi {
         header('Content-Type: application/json; charset=UTF-8');
 
         try {
-            $payload = AuthApi::validateToken();
-            $role     = $payload['role'] ?? 'User';
-            $profilId = (int)($payload['profil_id'] ?? 0);
-
-            $data = json_decode(file_get_contents("php://input"), true) ?? $_POST;
-            $id   = (int)($data['id'] ?? 0);
+            AuthApi::validateToken();
+            $data = json_decode(file_get_contents("php://input"), true);
+            $id = $data['id'] ?? null;
 
             if (!$id) {
-                ApiResponse::error('ID jadwal tidak valid atau tidak ditemukan', 400);
+                ApiResponse::error('ID jadwal tidak ditemukan', 400);
                 exit;
             }
 
-            // Otorisasi IDOR: Admin dapat menghapus jadwal apapun; Asisten hanya jadwal miliknya
-            if ($role === 'Admin') {
-                $query = "DELETE FROM jadwal_kuliah WHERE id_jadwal_kuliah = :id";
-                $stmt = $this->conn->prepare($query);
-                $stmt->execute([':id' => $id]);
-            } else {
-                $query = "DELETE FROM jadwal_kuliah WHERE id_jadwal_kuliah = :id AND id_profil = :pid";
-                $stmt = $this->conn->prepare($query);
-                $stmt->execute([':id' => $id, ':pid' => $profilId]);
-            }
-
-            if ($stmt->rowCount() === 0) {
-                ApiResponse::error('Jadwal tidak ditemukan atau bukan milik Anda', 404);
-                exit;
-            }
+            $query = "DELETE FROM jadwal_kuliah WHERE id_jadwal_kuliah = :id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([':id' => $id]);
 
             ApiResponse::success(null, 'Jadwal kuliah berhasil dihapus!', 200);
             exit;
         } catch (Exception $e) {
-            error_log("Delete Schedule Error: " . $e->getMessage());
-            ApiResponse::error('Terjadi kesalahan saat menghapus jadwal', 500);
+            ApiResponse::error($e->getMessage(), 500);
             exit;
         }
     }

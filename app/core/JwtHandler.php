@@ -46,8 +46,7 @@ class JwtHandler {
             hash_hmac('sha256', "$header.$payload", JWT_SECRET, true)
         ), '+/', '-_'), '=');
 
-        // Timing-attack safe comparison (SEC-07)
-        if (!hash_equals($valid_signature, $signature)) {
+        if ($signature !== $valid_signature) {
             return false;
         }
 
@@ -91,7 +90,10 @@ class JwtHandler {
             }
         }
 
-        // Query parameter $_GET['token'] fallback dihapus (SEC-07: cegah kebocoran token ke log server)
+        // 5. Query parameter fallback (untuk development/troubleshooting)
+        if (!$authHeader && isset($_GET['token'])) {
+            return $_GET['token'];
+        }
 
         if ($authHeader) {
             if (preg_match('/Bearer\s+(\S+)/', $authHeader, $matches)) {
