@@ -499,7 +499,6 @@ function initSidebarController() {
   const mainContent = document.getElementById('mainContent');
   const toggleBtn = document.getElementById('toggleSidebar');
   const toggleIcon = document.getElementById('toggleIcon');
-  const mobileBtn = document.getElementById('mobileMenuBtn');
   const logoHeader = document.getElementById('logoHeader');
 
   if (!sidebar || !mainContent) {
@@ -667,20 +666,37 @@ function initSidebarController() {
     });
   }
 
-  if (mobileBtn) {
-    mobileBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      sidebar.classList.toggle('-translate-x-full');
-    });
-  }
+  // [PERBAIKAN] #mobileMenuBtn ada di dalam #mainContent, yang innerHTML-nya
+  // DIGANTI TOTAL pada setiap navigasi AJAX (lihat _iclabsNavigateTo di atas)
+  // - tombolnya sendiri ikut hancur & dibuat ulang tanpa listener setiap kali
+  // pindah halaman, karena initSidebarController() ini cuma dipanggil SEKALI
+  // saat DOMContentLoaded. Akibatnya hamburger berhenti berfungsi setelah
+  // navigasi AJAX pertama - paling terasa saat menu diakses lewat tombol di
+  // luar sidebar (mis. QR Presensi dari dashboard) karena sidebar dalam
+  // keadaan tertutup saat itu, sehingga hamburger tampak mati total.
+  // Solusi: pasang listener delegasi di document (elemen ini permanen, tidak
+  // pernah diganti) yang mencari #mobileMenuBtn lewat e.target.closest() saat
+  // diklik - otomatis mengikuti tombol versi manapun yang sedang ada di DOM.
+  document.addEventListener('click', e => {
+    var btn = e.target.closest && e.target.closest('#mobileMenuBtn');
+    if (!btn) return;
+    e.stopPropagation();
+    sidebar.classList.toggle('-translate-x-full');
+  });
 
   window.addEventListener('resize', updateSidebarState);
 
   document.addEventListener('click', e => {
     if (window.innerWidth < 768) {
+      // [PERBAIKAN] Query ulang #mobileMenuBtn di sini alih-alih memakai
+      // variabel yang ditangkap sekali di awal - node lama sudah lepas dari
+      // DOM setelah navigasi AJAX, jadi .contains() terhadapnya akan selalu
+      // false walau klik sebenarnya tepat di tombol yang baru, membuat
+      // sidebar keliru dianggap "diklik di luar" lalu tertutup paksa.
+      const liveMobileBtn = document.getElementById('mobileMenuBtn');
       const isClickInside =
         sidebar.contains(e.target) ||
-        (mobileBtn && mobileBtn.contains(e.target));
+        (liveMobileBtn && liveMobileBtn.contains(e.target));
 
       if (!isClickInside && !sidebar.classList.contains('-translate-x-full')) {
         sidebar.classList.add('-translate-x-full');

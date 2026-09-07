@@ -48,7 +48,11 @@
   <div class="w-full max-w-sm lg:max-w-none grid grid-cols-1 lg:grid-cols-12 lg:gap-6 lg:mt-6">
 
     <!-- Kolom kiri: toggle + kartu QR -->
-    <div class="lg:col-span-5">
+    <!-- [BARU] id dipakai qr_page.js untuk auto-scroll container ini ke
+         fokus layar di mode mobile/smartphone (di bawah lg:) begitu halaman
+         dibuka, supaya QR+tombol Generate Ulang langsung terlihat siap
+         di-scan tanpa perlu men-scroll manual melewati banner header. -->
+    <div id="qrFocusArea" class="lg:col-span-5">
       <!-- Toggle switch: Masuk / Pulang -->
       <div class="w-full mb-5">
         <div class="flex bg-gray-100 rounded-2xl p-1 relative" id="modeToggle">

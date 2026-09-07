@@ -69,6 +69,9 @@
         startBgTimer('in');
         startBgTimer('out');
 
+        // [BARU] Fokus otomatis ke container QR di mode mobile/smartphone
+        focusQrOnMobile();
+
         // Jam live (update setiap detik)
         function updateQrClock() {
             var now = new Date();
@@ -88,6 +91,26 @@
         document.addEventListener('DOMContentLoaded', initQRPage);
     } else {
         initQRPage(); // DOM sudah siap — langsung render QR
+    }
+
+    /* ── Fokus otomatis ke container QR (mode mobile) ──────
+       [BARU] Di layar smartphone/lebih kecil (< lg:, sama seperti breakpoint
+       yang dipakai qr_page.php untuk beralih ke layout single-column), admin
+       harus scroll manual melewati banner header besar untuk melihat QR.
+       Begitu halaman ini dibuka, otomatis scroll agar #qrFocusArea (toggle
+       Masuk/Pulang + kartu QR + tombol Generate Ulang) langsung tampak di
+       bawah header mobile sticky - tetap bisa di-scroll bebas sesudahnya. */
+    function focusQrOnMobile() {
+        if (window.innerWidth >= 1024) return; // lg: ke atas sudah layout desktop, tidak perlu fokus
+        var target = document.getElementById('qrFocusArea');
+        if (!target) return;
+        requestAnimationFrame(function () {
+            var mobileHeader = document.querySelector('#mainContent > header');
+            var headerH = mobileHeader ? mobileHeader.getBoundingClientRect().height : 0;
+            var rect = target.getBoundingClientRect();
+            var targetTop = rect.top + window.scrollY - headerH - 8; // jarak kecil dari header sticky
+            window.scrollTo({ top: Math.max(targetTop, 0), behavior: 'instant' });
+        });
     }
 
     /* ── Parse JSON aman ────────────────────────────────── */
